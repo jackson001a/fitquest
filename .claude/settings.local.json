@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir /s /b *.js *.json)",
+      "Bash(npm install *)",
+      "Bash(npx expo *)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('deps:', Object.keys\\(p.dependencies\\).length\\)\")",
+      "Bash(rmdir /s /q node_modules)",
+      "Bash(del package-lock.json)",
+      "Bash(node -e \"const expo=require\\('./node_modules/expo/package.json'\\); const rn=require\\('./node_modules/react-native/package.json'\\); console.log\\('expo:', expo.version, '| react-native:', rn.version\\)\")",
+      "Bash(node -e \"try{const g=require\\('./node_modules/react-native-gesture-handler/package.json'\\); console.log\\('gesture-handler:', g.version\\)}catch\\(e\\){console.log\\('NOT installed'\\)}\")",
+      "Bash(node -e \"const a=require\\('./app.json'\\); console.log\\(JSON.stringify\\(a.expo.plugins\\)\\)\")",
+      "Bash(node -e \"require\\('./src/screens/HomeScreen.js'\\)\")",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\INTEL CORE I5\\\\Desktop\\\\APLICATIVO FITNESS\" -Force)",
+      "Bash(git --version)",
+      "PowerShell(gh --version)",
+      "PowerShell(winget --version)"
+    ]
+  }
+}
