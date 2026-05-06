@@ -11,10 +11,12 @@ import WorkoutDetailScreen from '../screens/WorkoutDetailScreen';
 import LeaderboardScreen from '../screens/LeaderboardScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 
 const Tab = createBottomTabNavigator();
 const HomeStack = createStackNavigator();
 const WorkoutsStack = createStackNavigator();
+const RootStack = createStackNavigator();
 
 function HomeStackNavigator() {
   return (
@@ -72,18 +74,27 @@ function CustomTabBar({ state, descriptors, navigation }) {
   );
 }
 
-export default function AppNavigator() {
+function MainTabs() {
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home"         component={HomeStackNavigator}    />
+      <Tab.Screen name="Home"         component={HomeStackNavigator}     />
       <Tab.Screen name="Workouts"     component={WorkoutsStackNavigator} />
       <Tab.Screen name="Leaderboard"  component={LeaderboardScreen}      />
       <Tab.Screen name="Achievements" component={AchievementsScreen}     />
       <Tab.Screen name="Profile"      component={ProfileScreen}          />
     </Tab.Navigator>
+  );
+}
+
+export default function AppNavigator() {
+  return (
+    <RootStack.Navigator screenOptions={{ headerShown: false, animationEnabled: false }}>
+      <RootStack.Screen name="Onboarding" component={OnboardingScreen} />
+      <RootStack.Screen name="Main"       component={MainTabs}         />
+    </RootStack.Navigator>
   );
 }
 

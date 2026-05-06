@@ -122,7 +122,7 @@ function CheckinCelebration({ visible, event, onDismiss }) {
 }
 
 // ─── STREAK HERO CARD ────────────────────────────────────────────────────────
-function StreakHeroCard({ fireScale }) {
+function StreakHeroCard({ fireScale, fireTranslateY }) {
   const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const day = new Date().getDay();
   const todayIdx = day === 0 ? 6 : day - 1;
@@ -153,9 +153,10 @@ function StreakHeroCard({ fireScale }) {
       {/* Top row: fire + number + record */}
       <View style={s.streakTopRow}>
         <View style={s.streakLeft}>
-          <Animated.Text style={[s.streakFireBig, { transform: [{ scale: fireScale }] }]}>
-            🔥
-          </Animated.Text>
+          <Animated.View style={{ transform: [{ scale: fireScale }, { translateY: fireTranslateY }], alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#F59E0B', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
+            <Ionicons name="flame" size={56} color="#F97316" />
+          </Animated.View>
           <Text style={s.streakNumberBig}>{userData.streak}</Text>
           <View style={s.streakDaysStack}>
             <Text style={s.streakDaysTop}>dias</Text>
@@ -298,7 +299,7 @@ function WaterTracker() {
       <View style={s.waterHeader}>
         <Animated.View style={[s.waterDropWrap, { transform: [{ translateX: shakeAnim }] }]}>
           <LinearGradient colors={['#0EA5E9', '#0369A1']} style={s.waterDropCircle}>
-            <Text style={s.waterDropEmoji}>💧</Text>
+            <Ionicons name="water" size={24} color="#fff" />
           </LinearGradient>
         </Animated.View>
         <View style={{ flex: 1 }}>
@@ -318,7 +319,7 @@ function WaterTracker() {
             <Animated.View style={[s.glassWrap, full && s.glassWrapFull, { transform: [{ scale: rippleAnims[i] }] }]}>
               {full ? (
                 <LinearGradient colors={['#38BDF8', '#0EA5E9', '#0369A1']} style={s.glassInner}>
-                  <Text style={s.glassDropText}>💧</Text>
+                  <Ionicons name="water" size={16} color="#fff" />
                 </LinearGradient>
               ) : (
                 <View style={s.glassEmpty}>
@@ -363,6 +364,7 @@ export default function HomeScreen({ navigation }) {
   const [celebEvent, setCelebEvent]   = useState(null);
 
   const fireScale = useRef(new Animated.Value(1)).current;
+  const fireTranslateY = useRef(new Animated.Value(0)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const contentAnim = useRef(new Animated.Value(30)).current;
   const xpAnim = useRef(new Animated.Value(0)).current;
@@ -483,7 +485,7 @@ export default function HomeScreen({ navigation }) {
 
           {/* ── STREAK HERO (destaque principal) ── */}
           <View style={s.section}>
-            <StreakHeroCard fireScale={fireScale} />
+            <StreakHeroCard fireScale={fireScale} fireTranslateY={fireTranslateY} />
           </View>
 
           {/* ── CHECK-IN ── */}
@@ -495,7 +497,7 @@ export default function HomeScreen({ navigation }) {
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               >
                 <View style={[s.checkinIconWrap, { backgroundColor: checkinDone ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.18)' }]}>
-                  <Text style={s.checkinEmoji}>{checkinDone ? '✅' : '📍'}</Text>
+                  {checkinDone ? <Ionicons name="checkmark-circle" size={24} color="#10B981" style={{shadowColor: '#10B981', shadowOpacity: 0.6, shadowRadius: 8}} /> : <Ionicons name="location" size={24} color="#fff" />}
                 </View>
                 <View style={s.checkinContent}>
                   <Text style={s.checkinTitle}>{checkinDone ? 'Presença registrada!' : 'Check-in na Academia'}</Text>
@@ -528,13 +530,13 @@ export default function HomeScreen({ navigation }) {
           {/* ── STATS RÁPIDAS ── */}
           <View style={s.miniStatsRow}>
             <LinearGradient colors={['#D97706', '#92400E']} style={s.miniStat}>
-              <Text style={s.miniStatEmoji}>⚡</Text>
+              <Ionicons name="flash" size={20} color="#FCD34D" style={{shadowColor: '#FCD34D', shadowOpacity: 0.6, shadowRadius: 6}} />
               <Text style={s.miniStatNum}>{todayXP}</Text>
               <Text style={s.miniStatLabel}>XP hoje</Text>
               <Text style={s.miniStatSub}>{todayXP} / {userData.dailyGoal} meta</Text>
             </LinearGradient>
             <LinearGradient colors={['#047857', '#064E3B']} style={s.miniStat}>
-              <Text style={s.miniStatEmoji}>🏋️</Text>
+              <Ionicons name="barbell" size={20} color="#34D399" style={{shadowColor: '#34D399', shadowOpacity: 0.6, shadowRadius: 6}} />
               <Text style={s.miniStatNum}>{userData.weekWorkouts}</Text>
               <Text style={s.miniStatLabel}>treinos/semana</Text>
               <Text style={s.miniStatSub}>meta: 5 por semana</Text>
@@ -729,7 +731,7 @@ export default function HomeScreen({ navigation }) {
             <View style={s.compSection}>
               <View style={s.compHeader}>
                 <Text style={s.compTitle}>⚡ Competições</Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Ranking')}>
+                <TouchableOpacity onPress={() => navigation.navigate('Leaderboard')}>
                   <Text style={s.compLink}>Ver tudo →</Text>
                 </TouchableOpacity>
               </View>
@@ -745,7 +747,7 @@ export default function HomeScreen({ navigation }) {
                       style={[s.compChip, { borderColor: '#8B5CF680' }]}
                     >
                       <View style={s.compChipRow}>
-                        <Text style={s.compChipEmoji}>🛡️</Text>
+                        <Ionicons name="shield-half" size={20} color="#A78BFA" />
                         <View style={[s.compChipDot, { backgroundColor: sc, shadowColor: sc }]} />
                       </View>
                       <Text style={[s.compChipBig, { color: '#A78BFA' }]}>
@@ -773,7 +775,7 @@ export default function HomeScreen({ navigation }) {
                       style={[s.compChip, { borderColor: r.color + '80' }]}
                     >
                       <View style={s.compChipRow}>
-                        <Text style={s.compChipEmoji}>⚔️</Text>
+                        <Ionicons name="flash-outline" size={20} color="#F87171" />
                         <Text style={{ fontSize: 13 }}>{winning ? '👑' : '🔴'}</Text>
                       </View>
                       <View style={s.compVsRow}>

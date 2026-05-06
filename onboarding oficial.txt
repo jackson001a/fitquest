@@ -1,0 +1,30 @@
+remova a capi da tela inicial.
+
+tela 1: mostra o produto e agradecer por baixar prova social
+tela 2: pergunta genero
+tela 3: beneficio de usar o capifit
+tela 4: altura e peso
+tela 5: Objetivo - emagrecer engordar etc
+tela 6: Dependendo do que responder perguntar quantos kilo que quer emagrecer ou engordar, e se não for nenhum dos dois não mostrar
+tela 7:  mostar que ganhar engordar ou manter x kilos é uma meta realista e etc e com capifit aumenta taxa de sucesso, um gráfico de barra mostrando com capifit e sem a difernte 2x maior com capifit
+tela 8: qual problema da pessoa? parte mais difícil oque atrapalha? colocar alernativas
+tela 9: há quanto tempo tenta manter rotina?
+tela 10: vamos ajudar
+tela 11: quantos treinos por semana a pessoa vai fazer?
+tela 12: quais são os dias que ela vai?
+tela 13: legal são ótimos dias 
+tela 14: qual horário
+tela 15: oque gostaria de alcançar?
+tela 16: obrigado por confiar
+tela 17: falar que a pessoa já começou dar parabéns e xp e em seguida a avaliação
+tela 18: lembrete ativar notição
+tela 19: loguin: seguindo o fluxo nome
+tela 20: e-mail: e-mail
+tela 21: telefone
+tela 22: hora de gerar plano
+tela 23: gerando plano e gerado
+tela 24: perguntar se ela está realmente comprometida
+tela 25: prova social "junte-se a diversas pessoas que já estão usando"
+tela 26: mostrar produto falando que queremos que voce experimente gratuitamente botão sem pagamentos agora - testar agora
+tela 27: notificação antes do teste acabar o teste avisaremos - botão sem pagamentos continuar freee 
+tela 28: oque vai receber do capifit e de pagamentos com dois planos um é 29,90 por mes e outro é 149/anual
