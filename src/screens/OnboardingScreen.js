@@ -8,6 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
+import Svg, { Circle } from 'react-native-svg';
+
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const TOTAL_STEPS = 28;
@@ -41,9 +44,13 @@ const HISTORY_OPTIONS = [
 ];
 
 const WORKOUT_FREQ_OPTIONS = [
-  { id: '1-2', label: '1 a 2 treinos' },
-  { id: '3-4', label: '3 a 4 treinos' },
-  { id: '5+', label: '5+ treinos' },
+  { id: '1', label: '1 dia' },
+  { id: '2', label: '2 dias' },
+  { id: '3', label: '3 dias' },
+  { id: '4', label: '4 dias' },
+  { id: '5', label: '5 dias' },
+  { id: '6', label: '6 dias' },
+  { id: '7', label: '7 dias' },
 ];
 
 const DAY_PILLS = [
@@ -68,9 +75,16 @@ const ACHIEVEMENT_OPTIONS = [
 ];
 
 const FEATURES = [
-  { icon: '🔥', label: 'Rotina à prova de falhas',  desc: 'Planos que se adaptam ao seu dia' },
-  { icon: '🧠', label: 'Psicologia do hábito',   desc: 'Técnicas de gamificação para viciar em treinar' },
-  { icon: '📈', label: 'Resultados visíveis',        desc: 'Acompanhe métricas de evolução real' },
+  { icon: '🔥', label: 'Rotina à prova de falhas',  desc: 'Atividades que cabem no seu dia — curtas quando falta tempo, intensas quando você quer mais' },
+  { icon: '🧠', label: 'Psicologia do hábito',   desc: 'XP, streaks e duelos que ativam o mesmo circuito de recompensa dos melhores jogos' },
+  { icon: '📈', label: 'Progresso que você vê',  desc: 'Métricas reais de consistência — semana a semana, sem ilusão' },
+];
+
+const LOADING_STEPS = [
+  'Definindo metas de treino na academia...',
+  'Calculando calorias e macronutrientes...',
+  'Montando sua rotina de streak semanal...',
+  'Finalizando seu plano personalizado...'
 ];
 
 const LOADING_MSGS = [
@@ -88,100 +102,306 @@ const TESTIMONIALS = [
 
 // ─── Drum Picker ─────────────────────────────────────────────────────────────
 
-const ITEM_H = 44;
+const ITEM_H = 56;
 const VISIBLE = 5;
+// paddingVertical = ITEM_H * 2  →  item n centered at scroll y = n * ITEM_H
 
 function DrumPicker({ data, unit, selectedIndex, onSelect }) {
-  const flatRef = useRef(null);
-  const [idx, setIdx] = useState(selectedIndex);
+  const scrollY = useRef(new Animated.Value(selectedIndex * ITEM_H)).current;
+  
+  const handleScroll = React.useMemo(() => Animated.event(
+    [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+    { useNativeDriver: true }
+  ), [scrollY]);
 
-  useEffect(() => {
-    setTimeout(() => {
-      flatRef.current?.scrollToIndex({ index: selectedIndex, animated: false });
-    }, 80);
-  }, []);
-
-  const onScroll = (e) => {
-    const offset = e.nativeEvent.contentOffset.y;
-    const newIdx = Math.round(offset / ITEM_H);
-    const clamped = Math.max(0, Math.min(newIdx, data.length - 1));
-    if (clamped !== idx) { setIdx(clamped); onSelect(data[clamped]); }
-  };
-
-  const pad = (VISIBLE - 1) / 2;
-  const paddedData = [
-    ...Array(pad).fill(''),
-    ...data,
-    ...Array(pad).fill(''),
-  ];
+  const handleEnd = useCallback((e) => {
+    const raw = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+    const clamped = Math.max(0, Math.min(raw, data.length - 1));
+    onSelect(data[clamped]);
+  }, [data, onSelect]);
 
   return (
     <View style={drum.wrap}>
       <View style={drum.highlight} pointerEvents="none" />
-      <FlatList
-        ref={flatRef}
-        data={paddedData}
-        keyExtractor={(_, i) => String(i)}
-        renderItem={({ item, index }) => {
-          const realIdx = index - pad;
-          const dist = Math.abs(realIdx - idx);
-          const op = realIdx < 0 || realIdx >= data.length ? 0 :
-            dist === 0 ? 1 : dist === 1 ? 0.3 : 0.1;
-          const scale = dist === 0 ? 1.05 : 0.9;
-          const isActive = realIdx === idx;
-          return (
-            <View style={[drum.item, isActive && drum.itemActive]}>
-              <Text style={[drum.text, { opacity: op, transform: [{ scale }] },
-                isActive && drum.textActive]}>
-                {item}{item !== '' ? (isActive ? ` ${unit}` : '') : ''}
-              </Text>
-            </View>
-          );
-        }}
+      <Animated.FlatList
         showsVerticalScrollIndicator={false}
         snapToInterval={ITEM_H}
         decelerationRate="fast"
-        onMomentumScrollEnd={onScroll}
-        onScrollEndDrag={onScroll}
-        getItemLayout={(_, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
-        style={{ height: ITEM_H * VISIBLE }}
-        contentContainerStyle={{ paddingVertical: 0 }}
+        onScroll={handleScroll}
+        onMomentumScrollEnd={handleEnd}
+        onScrollEndDrag={handleEnd}
+        scrollEventThrottle={16}
+        contentContainerStyle={{ paddingVertical: ITEM_H * 2 }}
+        data={data}
+        keyExtractor={(item) => String(item)}
+        initialScrollIndex={selectedIndex}
+        getItemLayout={(data, index) => ({ length: ITEM_H, offset: ITEM_H * index, index })}
+        renderItem={({ item, index }) => {
+          const inputRange = [
+            (index - 2) * ITEM_H,
+            (index - 1) * ITEM_H,
+            index * ITEM_H,
+            (index + 1) * ITEM_H,
+            (index + 2) * ITEM_H,
+          ];
+          const opacity = scrollY.interpolate({
+            inputRange,
+            outputRange: [0.1, 0.4, 1, 0.4, 0.1],
+            extrapolate: 'clamp',
+          });
+          const scale = scrollY.interpolate({
+            inputRange,
+            outputRange: [0.8, 0.9, 1.2, 0.9, 0.8],
+            extrapolate: 'clamp',
+          });
+          
+          return (
+            <Animated.View style={[drum.item, { opacity, transform: [{ scale }] }]}>
+              <Text style={drum.text}>
+                {item} {unit}
+              </Text>
+            </Animated.View>
+          );
+        }}
       />
     </View>
   );
 }
 
 const drum = StyleSheet.create({
-  wrap: { flex: 1, overflow: 'hidden', position: 'relative', alignItems: 'center', width: '100%' },
-  highlight: { position: 'absolute', zIndex: -1, top: ITEM_H * 2, height: ITEM_H, width: '90%', backgroundColor: '#1E1E3A', borderRadius: 14 },
+  wrap: { height: ITEM_H * VISIBLE, overflow: 'hidden', position: 'relative', alignItems: 'center', width: '100%' },
+  highlight: { position: 'absolute', zIndex: -1, top: ITEM_H * 2, height: ITEM_H, width: '88%', backgroundColor: '#1E1E3A', borderRadius: 14 },
   item: { height: ITEM_H, alignItems: 'center', justifyContent: 'center' },
-  itemActive: {},
-  text: { fontSize: 20, fontWeight: '500', color: COLORS.white },
-  textActive: { fontSize: 24, fontWeight: '700', color: COLORS.purpleLight },
+  text: { fontSize: 21, fontWeight: '700', color: COLORS.white, paddingHorizontal: 20 },
 });
+
+// ─── Horizontal Scale ────────────────────────────────────────────────────────
+const HS_ITEM_W = 12;
+// paddingHorizontal = SW/2 - HS_ITEM_W/2  →  item n centered at scroll x = n * HS_ITEM_W
+
+function InteractiveScale({ min, max, initialValue, currentWeight, onSelect }) {
+  const [displayVal, setDisplayVal] = useState(initialValue);
+  const valRef = useRef(initialValue);
+  
+  const count = max - min + 1;
+  const listWidth = SW - 48; // s.body has paddingHorizontal of 24 on each side
+  const PADDING = listWidth / 2 - HS_ITEM_W / 2;
+  const initialIdx = Math.max(0, Math.min(initialValue - min, count - 1));
+
+  const handleScroll = useCallback((e) => {
+    const raw = Math.round(e.nativeEvent.contentOffset.x / HS_ITEM_W);
+    const clamped = Math.max(0, Math.min(raw, count - 1));
+    const v = min + clamped;
+    if (v !== valRef.current) {
+      valRef.current = v;
+      setDisplayVal(v);
+    }
+  }, [min, count]);
+
+  const handleEnd = useCallback((e) => {
+    const raw = Math.round(e.nativeEvent.contentOffset.x / HS_ITEM_W);
+    const clamped = Math.max(0, Math.min(raw, count - 1));
+    const v = min + clamped;
+    if (v !== valRef.current) {
+      valRef.current = v;
+      setDisplayVal(v);
+    }
+    onSelect(v);
+  }, [min, count, onSelect]);
+
+  const diff = displayVal - currentWeight;
+  const diffColor = diff < 0 ? COLORS.redLight : COLORS.greenLight;
+
+  return (
+    <View style={{ width: '100%', alignItems: 'center' }}>
+      <Text style={{ fontSize: 72, fontWeight: '800', color: COLORS.white, letterSpacing: -3, lineHeight: 80 }}>
+        {displayVal} <Text style={{ fontSize: 26, fontWeight: '600', color: COLORS.gray, letterSpacing: 0 }}>kg</Text>
+      </Text>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: diffColor, marginTop: 6, marginBottom: 28, letterSpacing: -0.5 }}>
+        {diff > 0 ? '+' : ''}{diff} kg
+      </Text>
+
+      <View style={hScale.wrap}>
+        <View style={hScale.centerMarker} />
+        {React.useMemo(() => (
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={HS_ITEM_W}
+            decelerationRate="fast"
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleEnd}
+            onScrollEndDrag={handleEnd}
+            scrollEventThrottle={16}
+            contentContainerStyle={{ paddingHorizontal: PADDING }}
+            data={Array.from({ length: count }, (_, i) => min + i)}
+            keyExtractor={(item) => String(item)}
+            initialScrollIndex={initialIdx}
+            getItemLayout={(data, index) => ({ length: HS_ITEM_W, offset: HS_ITEM_W * index, index })}
+            renderItem={({ item }) => {
+              const isTen = item % 10 === 0;
+              const isFive = item % 5 === 0 && !isTen;
+              return (
+                <View style={{ width: HS_ITEM_W, alignItems: 'center', justifyContent: 'flex-end', height: 80 }}>
+                  <View style={[hScale.tick, isFive && hScale.tickFive, isTen && hScale.tickMajor]} />
+                  {isFive && <Text style={hScale.tickLabelSm}>{item}</Text>}
+                  {isTen && <Text style={hScale.tickLabel}>{item}</Text>}
+                </View>
+              );
+            }}
+          />
+        ), [min, count, initialIdx, PADDING, handleScroll, handleEnd])}
+      </View>
+    </View>
+  );
+}
+
+const hScale = StyleSheet.create({
+  wrap: { height: 116, width: '100%', alignItems: 'center', justifyContent: 'center', position: 'relative' },
+  centerMarker: { position: 'absolute', width: 3, height: 58, backgroundColor: COLORS.orange, top: 10, zIndex: 10, borderRadius: 2 },
+  tick: { width: 1.5, height: 16, backgroundColor: '#3A3A5A', borderRadius: 1 },
+  tickFive: { height: 27, backgroundColor: '#55558A' },
+  tickMajor: { height: 42, backgroundColor: '#8080B8' },
+  tickLabel: { position: 'absolute', bottom: -22, color: COLORS.gray, fontSize: 13, fontWeight: '700' },
+  tickLabelSm: { position: 'absolute', bottom: -18, color: '#55558A', fontSize: 9, fontWeight: '600' },
+});
+
+// ─── Stable Input Screens (fora do componente principal para evitar perda de foco) ───
+// Esses componentes são definidos FORA do OnboardingScreen para que não sejam
+// recriados a cada render, evitando que o TextInput perca o foco ao digitar.
+
+function NameInputScreen({ value, onChange, onNext, disabled }) {
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
+        <View style={{ marginBottom: 32, marginTop: 10 }}>
+          <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.white, lineHeight: 40, marginBottom: 8, letterSpacing: -1 }}>
+            Como devemos te chamar?
+          </Text>
+        </View>
+        <TextInput
+          style={{ backgroundColor: '#161625', borderRadius: 16, paddingVertical: 20, paddingHorizontal: 24, fontSize: 20, color: COLORS.white, fontWeight: '700' }}
+          value={value}
+          onChangeText={onChange}
+          placeholder="Seu nome"
+          placeholderTextColor="#555"
+          autoCapitalize="words"
+          returnKeyType="done"
+          selectionColor={COLORS.white}
+        />
+      </View>
+      <View style={{ paddingBottom: 16, paddingTop: 8, backgroundColor: COLORS.bg }}>
+        <TouchableOpacity
+          onPress={onNext}
+          disabled={disabled}
+          activeOpacity={0.85}
+          style={{ borderRadius: 99, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? '#2A2A4A' : COLORS.purple, marginHorizontal: 0 }}
+        >
+          <Text style={{ color: disabled ? '#888' : COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>Continuar</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function EmailInputScreen({ value, onChange, onNext, disabled }) {
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
+        <View style={{ marginBottom: 32, marginTop: 10 }}>
+          <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.white, lineHeight: 40, marginBottom: 8, letterSpacing: -1 }}>
+            Qual o seu e-mail?
+          </Text>
+          <Text style={{ fontSize: 17, color: COLORS.gray, lineHeight: 24, fontWeight: '500' }}>
+            Para proteger sua conta e progresso.
+          </Text>
+        </View>
+        <TextInput
+          style={{ backgroundColor: '#161625', borderRadius: 16, paddingVertical: 20, paddingHorizontal: 24, fontSize: 20, color: COLORS.white, fontWeight: '700' }}
+          value={value}
+          onChangeText={onChange}
+          placeholder="seu@email.com"
+          placeholderTextColor="#555"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          returnKeyType="done"
+          selectionColor={COLORS.white}
+        />
+      </View>
+      <View style={{ paddingBottom: 16, paddingTop: 8, backgroundColor: COLORS.bg }}>
+        <TouchableOpacity
+          onPress={onNext}
+          disabled={disabled}
+          activeOpacity={0.85}
+          style={{ borderRadius: 99, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? '#2A2A4A' : COLORS.purple }}
+        >
+          <Text style={{ color: disabled ? '#888' : COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>Continuar</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function PhoneInputScreen({ value, onChange, onNext }) {
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
+        <View style={{ marginBottom: 32, marginTop: 10 }}>
+          <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.white, lineHeight: 40, marginBottom: 8, letterSpacing: -1 }}>
+            Qual o seu WhatsApp?
+          </Text>
+          <Text style={{ fontSize: 17, color: COLORS.gray, lineHeight: 24, fontWeight: '500' }}>
+            Para alertas importantes (opcional).
+          </Text>
+        </View>
+        <TextInput
+          style={{ backgroundColor: '#161625', borderRadius: 16, paddingVertical: 20, paddingHorizontal: 24, fontSize: 20, color: COLORS.white, fontWeight: '700' }}
+          value={value}
+          onChangeText={onChange}
+          placeholder="(11) 99999-9999"
+          placeholderTextColor="#555"
+          keyboardType="phone-pad"
+          returnKeyType="done"
+          selectionColor={COLORS.white}
+        />
+      </View>
+      <View style={{ paddingBottom: 16, paddingTop: 8, backgroundColor: COLORS.bg }}>
+        <TouchableOpacity
+          onPress={onNext}
+          activeOpacity={0.85}
+          style={{ borderRadius: 99, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.purple }}
+        >
+          <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>Continuar</Text>
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({ workoutDays: [] });
-  
+  const [answers, setAnswers] = useState({ workoutDays: [], height: '170', weight: '70', age: '25' });
+
   const [heightIdx, setHeightIdx] = useState(30); // 170cm
   const [weightIdx, setWeightIdx] = useState(30); // 70kg
-  const [kilosIdx, setKilosIdx] = useState(4); // 5kg
+  const [ageIdx, setAgeIdx] = useState(12); // age 25 (AGES starts at 13)
 
   const [loadingMsgIdx, setLoadingMsgIdx] = useState(0);
+  const [loadingPct, setLoadingPct] = useState(0);
   const [xpCount, setXpCount] = useState(0);
 
   const HEIGHTS = Array.from({ length: 81 }, (_, i) => String(140 + i)); // 140 to 220
   const WEIGHTS = Array.from({ length: 111 }, (_, i) => String(40 + i)); // 40 to 150
-  const KILOS = Array.from({ length: 40 }, (_, i) => String(1 + i)); // 1 to 40
+  const AGES = Array.from({ length: 68 }, (_, i) => String(13 + i)); // 13 to 80
 
   const fadeAnim      = useRef(new Animated.Value(1)).current;
   const slideAnim     = useRef(new Animated.Value(0)).current;
   const loadingProg   = useRef(new Animated.Value(0)).current;
   const featureAnims  = useRef(FEATURES.map(() => new Animated.Value(0))).current;
   const rewardScale   = useRef(new Animated.Value(0)).current;
+  const barAnim       = useRef(new Animated.Value(0)).current;
 
   // ── Transition ──
   const transition = useCallback((dir, fn) => {
@@ -205,9 +425,9 @@ export default function OnboardingScreen({ navigation }) {
     }
     
     let nextStep = step + 1;
-    // Condition: Skip "How many kilos" (Step 5) if goal is "maintain"
-    if (step === 4 && answers.goal === 'maintain') {
-      nextStep = 6;
+    // Skip "How many kilos" (Step 6) if goal is "maintain"
+    if (step === 5 && answers.goal === 'maintain') {
+      nextStep = 7;
     }
 
     transition(1, () => setStep(nextStep));
@@ -217,25 +437,24 @@ export default function OnboardingScreen({ navigation }) {
     if (step === 0) return;
 
     let prevStep = step - 1;
-    // Condition: Skip back over "How many kilos" if goal is "maintain"
-    if (step === 6 && answers.goal === 'maintain') {
-      prevStep = 4;
+    // Skip back over "How many kilos" if goal is "maintain"
+    if (step === 7 && answers.goal === 'maintain') {
+      prevStep = 5;
     }
 
     transition(-1, () => setStep(prevStep));
   }, [step, transition, answers.goal]);
 
-  const select = useCallback((key, value, autoAdvance = true) => {
+  const select = useCallback((key, value) => {
     setAnswers(prev => ({ ...prev, [key]: value }));
-    if (autoAdvance) {
-      setTimeout(goNext, 350);
-    }
-  }, [goNext]);
+  }, []);
 
   const toggleDay = (id) => {
     setAnswers(prev => {
       const days = prev.workoutDays || [];
+      const maxDays = Number(prev.freq) || 7;
       if (days.includes(id)) return { ...prev, workoutDays: days.filter(d => d !== id) };
+      if (days.length >= maxDays) return prev;
       return { ...prev, workoutDays: [...days, id] };
     });
   };
@@ -251,8 +470,8 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 17 (Index 16) - Reward XP
-    if (step !== 16) return;
+    // Tela 17 (Index 17) - Reward XP
+    if (step !== 17) return;
     setXpCount(0);
     rewardScale.setValue(0);
     Animated.spring(rewardScale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }).start();
@@ -262,15 +481,37 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 23 (Index 22) - Loading Plan
-    if (step !== 22) return;
+    // Tela 7 (Index 6) - Inicializa targetWeight com padrão baseado no objetivo
+    if (step !== 6) return;
+    setAnswers(prev => {
+      if (prev.targetWeight !== undefined) return prev;
+      const w = Number(prev.weight) || 70;
+      const def = prev.goal === 'lose' ? w - 5 : prev.goal === 'gain' ? w + 5 : w;
+      return { ...prev, targetWeight: def };
+    });
+  }, [step]);
+
+  useEffect(() => {
+    // Tela 23 (Index 25) - Loading Plan
+    if (step !== 25) return;
     loadingProg.setValue(0);
     setLoadingMsgIdx(0);
-    Animated.timing(loadingProg, { toValue: 1, duration: 4000, useNativeDriver: false }).start();
-    let i = 0;
-    const iv = setInterval(() => { i++; setLoadingMsgIdx(Math.min(i, LOADING_MSGS.length - 1)); }, 800);
-    const t = setTimeout(goNext, 4500);
-    return () => { clearInterval(iv); clearTimeout(t); };
+    setLoadingPct(0);
+    const id = loadingProg.addListener(({ value }) => {
+      setLoadingPct(Math.round(value * 100));
+    });
+    Animated.timing(loadingProg, { toValue: 1, duration: 5000, useNativeDriver: false }).start();
+    const t = setTimeout(goNext, 5500);
+    return () => {
+      clearTimeout(t);
+      loadingProg.removeListener(id);
+    };
+  }, [step]);
+
+  useEffect(() => {
+    if (step !== 10) return;
+    barAnim.setValue(0);
+    Animated.timing(barAnim, { toValue: 1, duration: 1100, delay: 200, useNativeDriver: false }).start();
   }, [step]);
 
   // ─── UI Atoms ────────────────────────────────────────────────────────────────
@@ -335,21 +576,6 @@ export default function OnboardingScreen({ navigation }) {
     );
   };
 
-  const InputField = ({ valueKey, placeholder, keyboardType = 'default', autoCapitalize = 'none' }) => (
-    <TextInput
-      style={s.textInput}
-      value={answers[valueKey] || ''}
-      onChangeText={(v) => setAnswers(p => ({ ...p, [valueKey]: v }))}
-      placeholder={placeholder}
-      placeholderTextColor={COLORS.grayDark}
-      keyboardType={keyboardType}
-      autoCapitalize={autoCapitalize}
-      returnKeyType="done"
-      onSubmitEditing={goNext}
-      selectionColor={COLORS.white}
-    />
-  );
-
   // ─── Steps ───────────────────────────────────────────────────────────────────
 
   // Tela 1: Mostra produto, agradecer, prova social
@@ -398,18 +624,71 @@ export default function OnboardingScreen({ navigation }) {
   const Step2 = () => (
     <>
       <View style={s.body}>
-        <QuestionHeader text="Por que o CapiFit funciona?" subtext="A maioria dos apps são apenas listas. Nós construímos sistemas de recompensa." />
-        <View style={s.featureList}>
+        <View style={{ marginBottom: 32, marginTop: 10 }}>
+          <Text style={{ fontSize: 36, fontWeight: '800', color: COLORS.white, lineHeight: 42, letterSpacing: -1 }}>
+            Por que o <Text style={{ color: COLORS.purpleLight }}>CapiFit</Text> funciona?
+          </Text>
+          <Text style={{ fontSize: 18, color: '#A0A0C0', lineHeight: 26, marginTop: 12, fontWeight: '500' }}>
+            A ciência do comportamento aplicada à sua evolução física.
+          </Text>
+        </View>
+
+        <View style={{ gap: 14, marginBottom: 24 }}>
           {FEATURES.map((f, i) => (
-            <Animated.View key={i} style={[s.featureRow, { opacity: featureAnims[i], transform: [{ translateX: featureAnims[i].interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
-              <View style={s.featureIcon}><Text style={s.featureEmoji}>{f.icon}</Text></View>
-              <View style={s.featureText}>
-                <Text style={s.featureLabel}>{f.label}</Text>
-                <Text style={s.featureDesc}>{f.desc}</Text>
+            <Animated.View key={i} style={[{ opacity: featureAnims[i], transform: [{ translateX: featureAnims[i].interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2A', borderRadius: 20, paddingVertical: 16, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' }}>
+                <LinearGradient colors={['#2A2A4A', '#161625']} style={{ width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <Text style={{ fontSize: 22 }}>{f.icon}</Text>
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white, marginBottom: 4 }}>{f.label}</Text>
+                  <Text style={{ fontSize: 13, color: '#A0A0C0', lineHeight: 18 }}>{f.desc}</Text>
+                </View>
               </View>
             </Animated.View>
           ))}
         </View>
+
+        <LinearGradient
+          colors={['#1A1A2E', '#161625']}
+          style={{ borderRadius: 24, padding: 22, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.3, shadowRadius: 15 }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.greenLight, marginRight: 8, shadowColor: COLORS.greenLight, shadowOpacity: 0.8, shadowRadius: 6, shadowOffset: {width: 0, height: 0} }} />
+            <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              Taxa de Sucesso (60 Dias)
+            </Text>
+          </View>
+
+          <View style={{ gap: 16 }}>
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <Text style={{ color: '#888', fontSize: 13, fontWeight: '600' }}>Outros métodos</Text>
+                <Text style={{ color: '#888', fontSize: 14, fontWeight: '800' }}>18%</Text>
+              </View>
+              <View style={{ height: 10, backgroundColor: '#0A0A18', borderRadius: 99 }}>
+                <View style={{ width: '18%', height: '100%', backgroundColor: '#333', borderRadius: 99 }} />
+              </View>
+            </View>
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <Text style={{ color: COLORS.purpleLight, fontSize: 14, fontWeight: '800' }}>Método CapiFit</Text>
+                <Text style={{ color: COLORS.purpleLight, fontSize: 18, fontWeight: '900' }}>71%</Text>
+              </View>
+              <View style={{ height: 12, backgroundColor: '#0A0A18', borderRadius: 99, overflow: 'hidden', position: 'relative' }}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#D8B4FE']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={{ width: '71%', height: '100%', borderRadius: 99 }}
+                />
+                <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: '29%', backgroundColor: '#fff', opacity: 0.2 }} />
+              </View>
+            </View>
+          </View>
+          <Text style={{ color: '#555', fontSize: 10, marginTop: 16, fontStyle: 'italic', textAlign: 'center' }}>
+            * Baseado na retenção de usuários ativos nos últimos 6 meses
+          </Text>
+        </LinearGradient>
       </View>
       <Btn />
     </>
@@ -425,6 +704,7 @@ export default function OnboardingScreen({ navigation }) {
             <Text style={s.pickerColTitle}>Altura</Text>
             <DrumPicker data={HEIGHTS} unit="cm" selectedIndex={heightIdx} onSelect={(v) => { setHeightIdx(HEIGHTS.indexOf(v)); setAnswers(p => ({ ...p, height: v })); }} />
           </View>
+          <View style={s.pickerSeparator} />
           <View style={s.pickerCol}>
             <Text style={s.pickerColTitle}>Peso</Text>
             <DrumPicker data={WEIGHTS} unit="kg" selectedIndex={weightIdx} onSelect={(v) => { setWeightIdx(WEIGHTS.indexOf(v)); setAnswers(p => ({ ...p, weight: v })); }} />
@@ -435,7 +715,25 @@ export default function OnboardingScreen({ navigation }) {
     </>
   );
 
-  // Tela 5: Objetivo principal
+  // Tela 5: Idade
+  const StepAge = () => (
+    <>
+      <View style={s.body}>
+        <QuestionHeader text="Qual é a sua idade?" subtext="Usamos isso para calcular seu metabolismo basal com precisão real." />
+        <View style={{ backgroundColor: '#161625', borderRadius: 20, paddingVertical: 16, marginTop: 8 }}>
+          <DrumPicker
+            data={AGES}
+            unit="anos"
+            selectedIndex={ageIdx}
+            onSelect={(v) => { setAgeIdx(AGES.indexOf(v)); setAnswers(p => ({ ...p, age: v })); }}
+          />
+        </View>
+      </View>
+      <Btn />
+    </>
+  );
+
+  // Tela 6: Objetivo principal
   const Step4 = () => (
     <>
       <View style={s.body}>
@@ -448,47 +746,67 @@ export default function OnboardingScreen({ navigation }) {
     </>
   );
 
-  // Tela 6: Quantos kilos? (Condicional)
-  const Step5 = () => (
-    <>
-      <View style={s.body}>
-        <QuestionHeader text={`Quantos quilos você quer ${answers.goal === 'lose' ? 'perder' : 'ganhar'}?`} />
-        <View style={{flex: 1, justifyContent: 'center'}}>
-           <View style={[s.pickerRow, {width: '60%', alignSelf: 'center'}]}>
-              <View style={s.pickerCol}>
-                <Text style={s.pickerColTitle}>Quilos</Text>
-                <DrumPicker data={KILOS} unit="kg" selectedIndex={kilosIdx} onSelect={(v) => { setKilosIdx(KILOS.indexOf(v)); setAnswers(p => ({ ...p, kilos_target: v })); }} />
-              </View>
-           </View>
-        </View>
-      </View>
-      <Btn />
-    </>
-  );
+  // Tela 6: Qual é seu peso desejado?
+  const Step5 = () => {
+    const currentWeight = Number(answers.weight) || 70;
 
-  // Tela 7: Realista / Grafico Sucesso
-  const Step6 = () => (
-    <>
-      <View style={s.body}>
-        <QuestionHeader text="Essa é uma meta realista." subtext="Com a nossa metodologia gamificada, suas chances de sucesso disparam." />
-        <View style={s.graphCard}>
-          <Text style={s.graphCardTitle}>Taxa de Sucesso (6 Meses)</Text>
-          <View style={s.barGraphWrap}>
-            <View style={s.barCol}>
-               <View style={[s.bar, {height: '40%', backgroundColor: COLORS.grayDark}]}></View>
-               <Text style={s.barLabel}>Sozinho</Text>
-            </View>
-            <View style={s.barCol}>
-               <View style={s.badgeFloat}><Text style={s.badgeFloatText}>2x Maior</Text></View>
-               <View style={[s.bar, {height: '90%', backgroundColor: COLORS.purple}]}></View>
-               <Text style={[s.barLabel, {color: COLORS.white, fontWeight: '700'}]}>CapiFit</Text>
+    // Range da escala baseado no objetivo
+    const scaleMin = answers.goal === 'lose' ? Math.max(30, currentWeight - 70) : currentWeight + 1;
+    const scaleMax = answers.goal === 'lose' ? Math.max(scaleMin + 1, currentWeight - 1) : Math.min(250, currentWeight + 100);
+    const defaultTarget = answers.goal === 'lose'
+      ? Math.max(scaleMin, currentWeight - 5)
+      : Math.min(scaleMax, currentWeight + 5);
+
+    const target = answers.targetWeight !== undefined
+      ? Math.max(scaleMin, Math.min(scaleMax, Number(answers.targetWeight)))
+      : defaultTarget;
+
+    return (
+      <>
+        <View style={s.body}>
+          <QuestionHeader text="Qual é seu peso desejado?" center />
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <InteractiveScale
+              min={scaleMin}
+              max={scaleMax}
+              initialValue={target}
+              currentWeight={currentWeight}
+              onSelect={(v) => setAnswers(p => ({ ...p, targetWeight: v }))}
+            />
+            <View style={s.currentWeightBadge}>
+              <Ionicons name="person-outline" size={16} color={COLORS.gray} />
+              <Text style={s.currentWeightLabel}>Seu peso atual:</Text>
+              <Text style={s.currentWeightVal}>{currentWeight} kg</Text>
             </View>
           </View>
         </View>
-      </View>
-      <Btn />
-    </>
-  );
+        <Btn />
+      </>
+    );
+  };
+
+  // Tela 7: Realista
+  const Step6 = () => {
+    const currentWeight = Number(answers.weight) || 70;
+    const target = answers.targetWeight !== undefined ? Number(answers.targetWeight) : currentWeight;
+    const diff = Math.abs(target - currentWeight);
+    const action = answers.goal === 'lose' ? 'Perder' : answers.goal === 'gain' ? 'Ganhar' : 'Manter';
+    const highlight = answers.goal === 'maintain' ? `${currentWeight} kg` : `${diff.toFixed(1)} kg`;
+
+    return (
+      <>
+        <View style={s.body}>
+           <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+              <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 34, lineHeight: 42}]}>
+                 {action} <Text style={{color: COLORS.orange}}>{highlight}</Text> é uma meta REALISTA. E acredite: não é nada difícil!
+              </Text>
+              <Text style={[s.heroSub, {textAlign: 'center', marginTop: 20}]}>O segredo para não desistir é começar com uma meta possível como a sua.</Text>
+           </View>
+        </View>
+        <Btn />
+      </>
+    );
+  };
 
   // Tela 8: Qual problema? Obstáculo
   const Step7 = () => (
@@ -517,58 +835,190 @@ export default function OnboardingScreen({ navigation }) {
   );
 
   // Tela 10: Vamos ajudar (Interlúdio)
-  const Step9 = () => (
-    <View style={s.body}>
-       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <View style={s.circleIcon}><Ionicons name="shield-checkmark" size={48} color={COLORS.purpleLight} /></View>
-          <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 32}]}>Nós vamos te ajudar.</Text>
-          <Text style={[s.heroSub, {textAlign: 'center'}]}>O CapiFit não exige motivação diária. Ele exige apenas compromisso. O sistema cuida do resto.</Text>
-       </View>
-       <Btn label="Vamos lá" />
-    </View>
-  );
+  const Step9 = () => {
+    const bars = [
+      { label: 'Sem 1', pct: 0.28, color: '#6D28D9' },
+      { label: 'Sem 2', pct: 0.44, color: '#7C3AED' },
+      { label: 'Sem 3', pct: 0.60, color: '#8B5CF6' },
+      { label: 'Sem 4', pct: 0.74, color: '#9F67FF' },
+      { label: 'Sem 5', pct: 0.88, color: '#A78BFA' },
+      { label: 'Sem 6', pct: 1.00, color: COLORS.gold },
+    ];
+
+    const statCards = [
+      { value: '47K+', label: 'usuários\nativos' },
+      { value: '92%', label: 'completam\na semana 1' },
+      { value: '4.8★', label: 'avaliação\nna loja' },
+    ];
+
+    const BAR_MAX = 72;
+
+    return (
+      <View style={s.body}>
+        <View style={{ flex: 1, paddingHorizontal: 22, justifyContent: 'center' }}>
+
+          {/* Headline */}
+          <View style={{ alignItems: 'center', marginBottom: 24 }}>
+            <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.white, textAlign: 'center', lineHeight: 37 }}>
+              {'Já ajudamos '}
+              <Text style={{ color: COLORS.purpleLight }}>47.832 pessoas</Text>
+              {'\ncomo você a não desistir.'}
+            </Text>
+          </View>
+
+          {/* Bar chart */}
+          <LinearGradient
+            colors={['#1C1C38', '#13132A']}
+            style={{ borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)', marginBottom: 14 }}
+          >
+            <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 14 }}>
+              CONSISTÊNCIA MÉDIA POR SEMANA
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: BAR_MAX }}>
+              {bars.map((bar, i) => (
+                <View key={i} style={{ alignItems: 'center', flex: 1 }}>
+                  <Animated.View style={{
+                    width: '55%',
+                    height: barAnim.interpolate({ inputRange: [0, 1], outputRange: [0, BAR_MAX * bar.pct] }),
+                    backgroundColor: bar.color,
+                    borderRadius: 5,
+                  }} />
+                  <Text style={{ color: COLORS.grayDark, fontSize: 9, marginTop: 5, fontWeight: '600' }}>{bar.label}</Text>
+                </View>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+              <Ionicons name="trending-up" size={13} color={COLORS.green} />
+              <Text style={{ color: COLORS.green, fontSize: 12, fontWeight: '700', marginLeft: 4 }}>+258% de consistência na semana 6</Text>
+            </View>
+          </LinearGradient>
+
+          {/* Stats */}
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+            {statCards.map((st, i) => (
+              <LinearGradient
+                key={i}
+                colors={['#1C1C38', '#13132A']}
+                style={{ flex: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)' }}
+              >
+                <Text style={{ color: COLORS.purpleLight, fontSize: 20, fontWeight: '800' }}>{st.value}</Text>
+                <Text style={{ color: COLORS.gray, fontSize: 10, textAlign: 'center', marginTop: 3, lineHeight: 14 }}>{st.label}</Text>
+              </LinearGradient>
+            ))}
+          </View>
+
+          {/* Testimonial */}
+          <LinearGradient
+            colors={['#1C1C38', '#13132A']}
+            style={{ borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)' }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 15 }}>R</Text>
+              </LinearGradient>
+              <View>
+                <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 13 }}>Ricardo T.</Text>
+                <Text style={{ color: COLORS.gold, fontSize: 12, letterSpacing: 1 }}>★★★★★</Text>
+              </View>
+              <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Text style={{ color: COLORS.green, fontSize: 10, fontWeight: '700' }}>✓ Verificado</Text>
+              </View>
+            </View>
+            <Text style={{ color: '#B0B0CC', fontSize: 13, lineHeight: 20, fontStyle: 'italic' }}>
+              "Em 6 semanas bati meu recorde de streak. Nunca fui consistente na academia — agora é diferente."
+            </Text>
+          </LinearGradient>
+
+        </View>
+        <Btn label="Quero isso também" />
+      </View>
+    );
+  };
 
   // Tela 11: Treinos por semana
   const Step10 = () => (
     <>
       <View style={s.body}>
-        <QuestionHeader text="Quantos treinos por semana você pretende fazer?" />
-        <View style={s.cardList}>
-          {WORKOUT_FREQ_OPTIONS.map(o => <OptionCard key={o.id} item={o} answerKey="freq" />)}
-        </View>
+        <QuestionHeader text="Quantos dias por semana você pretende treinar?" />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.cardList}>
+          {WORKOUT_FREQ_OPTIONS.map(o => (
+            <TouchableOpacity
+              key={o.id}
+              style={[s.card, answers.freq === o.id && s.cardSel]}
+              onPress={() => setAnswers(prev => ({ ...prev, freq: o.id, workoutDays: [] }))}
+              activeOpacity={0.7}
+            >
+              <View style={s.radioWrap}>
+                {answers.freq === o.id ? (
+                  <View style={s.radioSel}><View style={s.radioInner} /></View>
+                ) : (
+                  <View style={s.radio} />
+                )}
+              </View>
+              <View style={s.cardTextWrap}>
+                <Text style={[s.cardLabel, answers.freq === o.id && s.cardLabelSel]}>{o.label}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       </View>
       <Btn disabled={!answers.freq} />
     </>
   );
 
   // Tela 12: Quais dias?
-  const Step11 = () => (
-    <>
-      <View style={s.body}>
-        <QuestionHeader text="Quais são os dias que você vai treinar?" subtext="Isso configurará suas proteções de streak e XP semanal." />
-        <View style={s.pillWrap}>
-          {DAY_PILLS.map(d => {
-            const isSel = (answers.workoutDays || []).includes(d.id);
-            return (
-              <TouchableOpacity key={d.id} onPress={() => toggleDay(d.id)} activeOpacity={0.8}
-                style={[s.pillBtn, isSel && s.pillBtnSel]}>
-                <Text style={[s.pillText, isSel && s.pillTextSel]}>{d.label}</Text>
-              </TouchableOpacity>
-            )
-          })}
+  const Step11 = () => {
+    const maxDays = Number(answers.freq) || 0;
+    const selectedCount = (answers.workoutDays || []).length;
+    const remaining = maxDays - selectedCount;
+    const isComplete = selectedCount === maxDays;
+
+    return (
+      <>
+        <View style={s.body}>
+          <QuestionHeader
+            text="Quais dias você vai treinar?"
+            subtext={isComplete
+              ? '✅ Perfeito! Seus dias estão definidos.'
+              : remaining === 1
+                ? `Escolha mais 1 dia`
+                : `Escolha ${remaining} dias (${selectedCount}/${maxDays})`}
+          />
+          <View style={s.pillWrap}>
+            {DAY_PILLS.map(d => {
+              const isSel = (answers.workoutDays || []).includes(d.id);
+              const isDisabled = !isSel && selectedCount >= maxDays;
+              return (
+                <TouchableOpacity
+                  key={d.id}
+                  onPress={() => !isDisabled && toggleDay(d.id)}
+                  activeOpacity={0.8}
+                  style={[s.pillBtn, isSel && s.pillBtnSel, isDisabled && { opacity: 0.3 }]}
+                >
+                  <Text style={[s.pillText, isSel && s.pillTextSel]}>{d.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
-      <Btn disabled={(answers.workoutDays || []).length === 0} onPress={goNext} />
-    </>
-  );
+        <Btn disabled={!isComplete} onPress={goNext} />
+      </>
+    );
+  };
 
   // Tela 13: Ótimos dias
   const Step12 = () => (
     <View style={s.body}>
-       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <View style={s.circleIcon}><Ionicons name="calendar-outline" size={48} color={COLORS.purpleLight} /></View>
-          <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 32}]}>Ótima escolha.</Text>
-          <Text style={[s.heroSub, {textAlign: 'center'}]}>Esses dias foram separados e otimizados na sua grade de atividades.</Text>
+       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10}}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 30 }}>
+            <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: COLORS.purpleLight, opacity: 0.1 }} />
+            <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.purpleLight, opacity: 0.15 }} />
+            <LinearGradient colors={['#2A2A4A', '#161625']} style={{ width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+              <Ionicons name="calendar" size={42} color={COLORS.purpleLight} />
+            </LinearGradient>
+          </View>
+          <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 36, lineHeight: 42}]}>Ótima escolha.</Text>
+          <Text style={[s.heroSub, {textAlign: 'center', marginTop: 12, fontSize: 18, lineHeight: 26, color: '#A0A0C0'}]}>Esses dias foram separados e otimizados na sua grade de atividades.</Text>
        </View>
        <Btn label="Continuar" />
     </View>
@@ -614,19 +1064,81 @@ export default function OnboardingScreen({ navigation }) {
   // Tela 17: Já começou / XP
   const Step16 = () => (
     <View style={s.body}>
-       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <Animated.View style={{ transform: [{ scale: rewardScale }] }}>
-            <Ionicons name="medal" size={80} color={COLORS.gold} />
-          </Animated.View>
-          <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 24, color: COLORS.goldLight}]}>Você já começou!</Text>
-          <Text style={[s.heroSub, {textAlign: 'center', marginBottom: 12}]}>Apenas por planejar, você ganhou sua primeira recompensa.</Text>
+      <View style={{ flex: 1, justifyContent: 'center' }}>
+        
+        {/* Glowing Background Aura */}
+        <Animated.View style={{ position: 'absolute', top: '20%', alignSelf: 'center', width: 250, height: 250, borderRadius: 125, backgroundColor: COLORS.purpleLight, opacity: 0.1, transform: [{ scale: rewardScale.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.2] }) }] }} />
+
+        <Animated.View style={{ transform: [{ scale: rewardScale }], alignItems: 'center' }}>
           
-          <View style={s.xpBubble}>
-            <Text style={s.xpNum}>+{xpCount}</Text>
-            <Text style={s.xpLabel}>XP Base</Text>
+          <View style={{ marginBottom: -15, zIndex: 10 }}>
+            <LinearGradient
+              colors={['#FFD700', '#F59E0B']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 99, shadowColor: '#F59E0B', shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: {width: 0, height: 4} }}
+            >
+              <Text style={{ color: '#000', fontWeight: '900', fontSize: 11, letterSpacing: 1.5 }}>✦ JORNADA INICIADA ✦</Text>
+            </LinearGradient>
           </View>
-       </View>
-       <Btn label="Receber Recompensa" />
+
+          <LinearGradient
+            colors={['#1E1E3A', '#12122A']}
+            style={{ borderRadius: 28, padding: 24, paddingBottom: 28, width: '100%', borderWidth: 1, borderColor: '#3A3A5A', shadowColor: COLORS.purpleLight, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 15 }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(139, 92, 246, 0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#6D28D9']}
+                  style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontSize: 24 }}>🚀</Text>
+                </LinearGradient>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: COLORS.goldLight, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>Seu Perfil</Text>
+                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: '900', marginTop: 2 }}>Você já começou!</Text>
+              </View>
+            </View>
+
+            <View style={{ marginBottom: 24, backgroundColor: '#0A0A18', padding: 16, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, alignItems: 'flex-end' }}>
+                <Text style={{ color: '#A0A0C0', fontSize: 13, fontWeight: '600' }}>Experiência</Text>
+                <Text style={{ color: COLORS.white, fontSize: 14, fontWeight: '800' }}><Text style={{color: COLORS.purpleLight}}>+{xpCount}</Text> / 1000 XP</Text>
+              </View>
+              <View style={{ height: 10, backgroundColor: '#1A1A2E', borderRadius: 99, overflow: 'hidden' }}>
+                <LinearGradient
+                  colors={['#8B5CF6', '#C084FC']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={{ width: `${Math.round((xpCount / 1000) * 100)}%`, height: '100%', borderRadius: 99 }}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1, backgroundColor: '#161625', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.orange }}>🔥 1</Text>
+                <Text style={{ color: '#888', fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>Dia streak</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: '#161625', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.greenLight }}>0</Text>
+                <Text style={{ color: '#888', fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>Desafios</Text>
+              </View>
+              <View style={{ flex: 1, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.3)' }}>
+                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.purpleLight }}>+{xpCount}</Text>
+                <Text style={{ color: COLORS.purpleLight, fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>XP ganho</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
+
+        <Text style={{ color: COLORS.white, fontSize: 18, textAlign: 'center', lineHeight: 26, marginTop: 32, fontWeight: '700', paddingHorizontal: 10 }}>
+          Sua conta já está acumulando resultados!
+        </Text>
+        <Text style={{ color: '#A0A0C0', fontSize: 15, textAlign: 'center', lineHeight: 22, marginTop: 8, fontWeight: '500', paddingHorizontal: 20 }}>
+          Complete seu primeiro desafio hoje e suba de nível.
+        </Text>
+      </View>
+      <Btn label="Receber Recompensa" />
     </View>
   );
 
@@ -634,11 +1146,16 @@ export default function OnboardingScreen({ navigation }) {
   const Step17 = () => (
     <>
       <View style={s.body}>
-        <QuestionHeader text="Não perca seu streak." subtext="Ative as notificações para receber alertas de treino e recompensas." center />
-        <View style={{alignItems: 'center', marginTop: 30}}>
-            <View style={s.bellIconWrap}>
-               <Ionicons name="notifications" size={60} color={COLORS.white} />
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10}}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 30 }}>
+            <View style={{ position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: COLORS.purple, opacity: 0.1 }} />
+            <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: COLORS.purple, opacity: 0.15 }} />
+            <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.purple, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}>
+               <Ionicons name="notifications" size={46} color={COLORS.white} />
             </View>
+          </View>
+          <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 36, lineHeight: 42}]}>Não perca seu streak.</Text>
+          <Text style={[s.heroSub, {textAlign: 'center', marginTop: 12, fontSize: 18, lineHeight: 26, color: '#A0A0C0'}]}>Ative as notificações para receber alertas de treino e recompensas exclusivas.</Text>
         </View>
       </View>
       <View style={{paddingHorizontal: 24}}>
@@ -648,38 +1165,9 @@ export default function OnboardingScreen({ navigation }) {
     </>
   );
 
-  // Tela 19: Loguin Nome
-  const Step18 = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <View style={s.body}>
-        <QuestionHeader text="Como devemos te chamar?" />
-        <InputField valueKey="name" placeholder="Seu nome" autoCapitalize="words" />
-      </View>
-      <Btn disabled={!answers.name || answers.name.length < 2} />
-    </KeyboardAvoidingView>
-  );
+  // Telas 19-21: Input de nome/email/telefone
+  // Obs: renderizados separadamente no return principal para evitar perda de foco
 
-  // Tela 20: Loguin Email
-  const Step19 = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <View style={s.body}>
-        <QuestionHeader text="Qual o seu e-mail?" subtext="Para proteger sua conta e progresso." />
-        <InputField valueKey="email" placeholder="seu@email.com" keyboardType="email-address" />
-      </View>
-      <Btn disabled={!answers.email || !answers.email.includes('@')} />
-    </KeyboardAvoidingView>
-  );
-
-  // Tela 21: Loguin Telefone
-  const Step20 = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <View style={s.body}>
-        <QuestionHeader text="Qual o seu WhatsApp?" subtext="Para alertas importantes (opcional)." />
-        <InputField valueKey="phone" placeholder="(11) 99999-9999" keyboardType="phone-pad" />
-      </View>
-      <Btn />
-    </KeyboardAvoidingView>
-  );
 
   // Tela 22: Hora de gerar plano
   const Step21 = () => (
@@ -694,15 +1182,359 @@ export default function OnboardingScreen({ navigation }) {
   );
 
   // Tela 23: Gerando plano (Loading)
-  const Step22 = () => (
-    <View style={[s.body, {justifyContent: 'center', alignItems: 'center'}]}>
-      <Text style={[s.heroTitle, {textAlign: 'center', marginBottom: 30}]}>Processando...</Text>
-      <View style={s.loadingTrack}>
-        <Animated.View style={[s.loadingBar, { width: loadingProg.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+  const Step22 = () => {
+    const radius = 60;
+    const strokeWidth = 10;
+    const circumference = 2 * Math.PI * radius;
+    const strokeDashoffset = loadingProg.interpolate({
+      inputRange: [0, 1],
+      outputRange: [circumference, 0]
+    });
+
+    return (
+      <View style={[s.body, {justifyContent: 'center', alignItems: 'center'}]}>
+        <View style={{ position: 'relative', width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginBottom: 40 }}>
+          <Svg width={140} height={140}>
+            <Circle cx={70} cy={70} r={radius} stroke="#1E1E3A" strokeWidth={strokeWidth} fill="none" />
+            <AnimatedCircle
+              cx={70}
+              cy={70}
+              r={radius}
+              stroke={COLORS.purpleLight}
+              strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              rotation="-90"
+              origin="70, 70"
+            />
+          </Svg>
+          <Text style={{ position: 'absolute', fontSize: 28, fontWeight: '800', color: COLORS.white }}>{loadingPct}%</Text>
+        </View>
+
+        <Text style={[s.heroTitle, {textAlign: 'center', marginBottom: 30}]}>Quase pronto! Finalizando detalhes...</Text>
+
+        <View style={{ width: '100%', paddingHorizontal: 10 }}>
+          {LOADING_STEPS.map((stepText, idx) => {
+            const threshold = (idx + 1) * 25; // 25, 50, 75, 100
+            const isActive = loadingPct >= (threshold - 15);
+            return (
+              <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+                 <Ionicons name={isActive ? "checkmark-circle" : "ellipse-outline"} size={24} color={isActive ? COLORS.greenLight : COLORS.gray} />
+                 <Text style={{ marginLeft: 12, fontSize: 16, color: isActive ? COLORS.white : COLORS.gray, fontWeight: isActive ? '600' : '500' }}>
+                   {stepText}
+                 </Text>
+              </View>
+            )
+          })}
+        </View>
       </View>
-      <Text style={s.loadingMsg}>{LOADING_MSGS[loadingMsgIdx]}</Text>
-    </View>
-  );
+    );
+  };
+
+  const StepPlan = () => {
+    const weight = Number(answers.weight) || 70;
+    const height = Number(answers.height) || 170;
+    const age = Number(answers.age) || 25;
+    const isMale = answers.gender !== 'female';
+    const goal = answers.goal || 'maintain';
+    const targetWeight = answers.targetWeight !== undefined ? Number(answers.targetWeight) : weight;
+    const diff = Math.abs(targetWeight - weight);
+
+    // BMR + TDEE
+    const bmr = 10 * weight + 6.25 * height - 5 * age + (isMale ? 5 : -161);
+    const freqNum = Number(answers.freq) || 3;
+    const actMultiplier = freqNum >= 6 ? 1.9 : freqNum >= 5 ? 1.725 : freqNum >= 3 ? 1.55 : 1.375;
+    const tdee = Math.round(bmr * actMultiplier);
+
+    let calories = tdee;
+    let weeklyRate = 0;
+    let weeksToGoal = 0;
+
+    if (goal === 'lose') {
+      const deficit = diff > 15 ? 750 : diff > 5 ? 600 : 500;
+      calories = Math.max(1200, tdee - deficit);
+      weeklyRate = (tdee - calories) / 1100;
+      weeksToGoal = Math.ceil(diff / weeklyRate);
+    } else if (goal === 'gain') {
+      calories = tdee + 300;
+      weeklyRate = 0.25;
+      weeksToGoal = Math.ceil(diff / weeklyRate);
+    }
+
+    const monthsToGoal = weeksToGoal > 0 ? Math.round(weeksToGoal / 4.3) : 0;
+    const timelineLabel = goal === 'maintain'
+      ? 'Manutenção'
+      : monthsToGoal >= 1
+        ? `~${monthsToGoal} ${monthsToGoal === 1 ? 'mês' : 'meses'}`
+        : `~${weeksToGoal} semanas`;
+
+    const waterL = (weight * 35 / 1000).toFixed(1);
+    const proteinG = Math.round(weight * (goal === 'lose' ? 2.2 : goal === 'gain' ? 1.8 : 1.6));
+    const fatG = Math.round(weight * 0.8);
+    const carbsG = Math.max(50, Math.round((calories - proteinG * 4 - fatG * 9) / 4));
+    const goalColor = goal === 'lose' ? COLORS.orange : goal === 'gain' ? COLORS.green : COLORS.purple;
+    const actionLabel = goal === 'lose' ? 'Perder' : goal === 'gain' ? 'Ganhar' : 'Manter';
+
+    // Nível de comprometimento
+    let commitPct = 60;
+    if (diff > 15) commitPct += 20;
+    else if (diff > 5) commitPct += 12;
+    else if (diff > 0) commitPct += 6;
+    if (freqNum >= 5) commitPct += 10;
+    else if (freqNum >= 3) commitPct += 5;
+    if (answers.obstacle === 'always_stop' || answers.history === 'always_stop') commitPct += 10;
+    else if (answers.obstacle === 'motivation') commitPct += 7;
+    commitPct = Math.min(95, commitPct);
+
+    const commitColor = commitPct >= 85 ? COLORS.gold : commitPct >= 70 ? COLORS.purpleLight : COLORS.greenLight;
+    const commitTier = commitPct >= 85 ? '🏆 Elite' : commitPct >= 70 ? '💪 Dedicado' : '🌱 Consistente';
+
+    // Streak / treinos
+    const workoutsPerWeek = freqNum;
+    const workoutsPerMonth = freqNum * 4;
+    const selectedDays = answers.workoutDays || [];
+    const allDays = ['seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom'];
+    const dayLabels = { seg: 'Seg', ter: 'Ter', qua: 'Qua', qui: 'Qui', sex: 'Sex', sab: 'Sáb', dom: 'Dom' };
+
+    // XP projeção
+    const projectedXP = workoutsPerMonth * 300 + 25 * 50 + 300;
+    const projectedLevel = Math.max(2, Math.floor(projectedXP / 1000) + 1);
+
+    // SVG arco de comprometimento
+    const radius = 52;
+    const strokeW = 10;
+    const circ = 2 * Math.PI * radius;
+    const arcOffset = circ - (commitPct / 100) * circ;
+
+    return (
+      <>
+        <ScrollView style={s.body} contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
+
+          {/* Header */}
+          <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 20 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.greenLight, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
+              <Ionicons name="checkmark" size={34} color={COLORS.bg} />
+            </View>
+            <Text style={[s.heroTitle, { textAlign: 'center', fontSize: 26, lineHeight: 33, marginBottom: 12 }]}>
+              {answers.name ? `${answers.name}, ` : ''}seu plano está pronto!
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#161625', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 99 }}>
+              <Text style={{ fontSize: 15, color: goalColor, fontWeight: '800' }}>
+                {actionLabel}{diff > 0 ? ` ${diff} kg` : ''}
+              </Text>
+              {goal !== 'maintain' && (
+                <>
+                  <Text style={{ color: '#2A2A4A', fontSize: 18 }}>|</Text>
+                  <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+                  <Text style={{ fontSize: 14, color: COLORS.gray, fontWeight: '600' }}>{timelineLabel}</Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* COMPROMETIMENTO */}
+          <LinearGradient colors={['#1E0A4A', '#12122A']} style={pl.card}>
+            <Text style={pl.cardTitle}>💪 Nível de Comprometimento</Text>
+            <Text style={pl.cardSub}>Calculado pela sua meta, histórico e frequência</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 18 }}>
+              <View style={{ alignItems: 'center', justifyContent: 'center', width: 124, height: 124, position: 'relative' }}>
+                <Svg width={124} height={124}>
+                  <Circle cx={62} cy={62} r={radius} stroke="#1E1E3A" strokeWidth={strokeW} fill="none" />
+                  <Circle
+                    cx={62} cy={62} r={radius}
+                    stroke={commitColor}
+                    strokeWidth={strokeW}
+                    fill="none"
+                    strokeDasharray={circ}
+                    strokeDashoffset={arcOffset}
+                    strokeLinecap="round"
+                    rotation="-90"
+                    origin="62, 62"
+                  />
+                </Svg>
+                <View style={{ position: 'absolute', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 28, fontWeight: '800', color: COLORS.white }}>{commitPct}%</Text>
+                  <Text style={{ fontSize: 10, color: COLORS.gray, fontWeight: '600' }}>necessário</Text>
+                </View>
+              </View>
+              <View style={{ flex: 1, gap: 10 }}>
+                <View style={{ backgroundColor: '#0D0D20', borderRadius: 12, padding: 12 }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Seu perfil</Text>
+                  <Text style={{ color: commitColor, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{commitTier}</Text>
+                </View>
+                <Text style={{ color: COLORS.gray, fontSize: 12, lineHeight: 18 }}>
+                  Para alcançar <Text style={{ color: COLORS.white, fontWeight: '700' }}>{goal !== 'maintain' ? `${targetWeight} kg` : 'seu objetivo'}</Text> em <Text style={{ color: COLORS.purpleLight, fontWeight: '700' }}>{timelineLabel}</Text>, esse é o comprometimento mínimo.
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* STREAK 🔥 - principal */}
+          <LinearGradient colors={['#1A0A00', '#16131A']} style={pl.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <Text style={{ fontSize: 28 }}>🔥</Text>
+              <View>
+                <Text style={pl.cardTitle}>Streak — o coração do FitQuest</Text>
+                <Text style={pl.cardSub}>Consistência bate intensidade, sempre</Text>
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 16, marginBottom: 16 }}>
+              <View style={[pl.metaBox, { borderColor: COLORS.orange }]}>
+                <Text style={{ fontSize: 26, fontWeight: '800', color: COLORS.orange }}>{workoutsPerMonth}</Text>
+                <Text style={pl.metaLbl}>dias/mês</Text>
+              </View>
+              <View style={pl.metaBox}>
+                <Text style={{ fontSize: 26, fontWeight: '800', color: COLORS.white }}>{workoutsPerWeek}×</Text>
+                <Text style={pl.metaLbl}>por semana</Text>
+              </View>
+              <View style={[pl.metaBox, { borderColor: COLORS.purpleLight }]}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: COLORS.purpleLight }}>1+</Text>
+                <Text style={pl.metaLbl}>desafio/sem</Text>
+              </View>
+            </View>
+
+            <Text style={{ color: COLORS.gray, fontSize: 12, fontWeight: '600', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>Seus dias de treino:</Text>
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              {allDays.map(d => {
+                const active = selectedDays.includes(d);
+                return (
+                  <View key={d} style={[pl.dayDot, active && pl.dayDotActive]}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: active ? COLORS.white : COLORS.gray }}>{dayLabels[d]}</Text>
+                    {active && <Text style={{ fontSize: 9 }}>🔥</Text>}
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={[pl.infoBox, { marginTop: 14, borderLeftWidth: 3, borderLeftColor: COLORS.orange }]}>
+              <Text style={pl.infoText}>
+                Não precisa ser perfeito. <Text style={{ color: COLORS.white, fontWeight: '700' }}>Precisa ser consistente.</Text> Mesmo 20 minutos contam. A sequência é o que transforma treino em hábito.
+              </Text>
+            </View>
+          </LinearGradient>
+
+          {/* NUTRIÇÃO DIÁRIA */}
+          <View style={pl.card}>
+            <Text style={pl.cardTitle}>🍽️ Nutrição Diária</Text>
+            <Text style={pl.cardSub}>Calculado pelo seu perfil, idade e nível de atividade</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14, justifyContent: 'space-between' }}>
+              {[
+                { label: 'Calorias', val: `${calories}`, color: COLORS.white, pct: 0.75 },
+                { label: 'Proteína', val: `${proteinG}g`, color: '#FF6B6B', pct: 0.8 },
+                { label: 'Carboidratos', val: `${carbsG}g`, color: COLORS.orange, pct: 0.6 },
+                { label: 'Gorduras', val: `${fatG}g`, color: COLORS.blue, pct: 0.5 },
+              ].map(m => {
+                const r = 30; const sw = 5;
+                const c = 2 * Math.PI * r;
+                const off = c - m.pct * c;
+                return (
+                  <View key={m.label} style={{ width: '48%', backgroundColor: '#0D0D20', borderRadius: 16, padding: 14, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.gray, marginBottom: 8, textTransform: 'capitalize' }}>{m.label}</Text>
+                    <View style={{ position: 'relative', alignItems: 'center', justifyContent: 'center', width: 70, height: 70 }}>
+                      <Svg width={70} height={70}>
+                        <Circle cx={35} cy={35} r={r} stroke="#1E1E3A" strokeWidth={sw} fill="none" />
+                        <Circle cx={35} cy={35} r={r} stroke={m.color} strokeWidth={sw} fill="none"
+                          strokeDasharray={c} strokeDashoffset={off}
+                          strokeLinecap="round" rotation="-90" origin="35, 35" />
+                      </Svg>
+                      <Text style={{ position: 'absolute', fontSize: 13, fontWeight: '800', color: COLORS.white }}>{m.val}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+            <View style={[pl.infoBox, { marginTop: 10 }]}>
+              <Ionicons name="water" size={16} color={COLORS.blue} />
+              <Text style={pl.infoText}>
+                Água: <Text style={{ color: COLORS.white, fontWeight: '700' }}>{waterL}L/dia</Text> — hidratação essencial para acelerar resultados
+              </Text>
+            </View>
+          </View>
+
+          {/* ROTINA SEMANAL */}
+          <View style={pl.card}>
+            <Text style={pl.cardTitle}>📅 O Que Fazer Cada Semana</Text>
+            <View style={{ gap: 10, marginTop: 14 }}>
+              {[
+                {
+                  icon: '🏋️',
+                  label: `${workoutsPerWeek} treino${workoutsPerWeek > 1 ? 's' : ''} no app`,
+                  desc: 'Use os treinos do FitQuest — completos e prontos para você',
+                  badge: `+${workoutsPerWeek * 300} XP/sem`,
+                  badgeColor: COLORS.gold,
+                },
+                {
+                  icon: '🌊',
+                  label: 'Complete desafios diários',
+                  desc: 'Treino, hidratação ou caminhada — pelo menos 1 por dia',
+                  badge: '+50 XP/dia',
+                  badgeColor: COLORS.purpleLight,
+                },
+                {
+                  icon: '⚔️',
+                  label: 'Enfrente o Boss Semanal',
+                  desc: 'Desafio épico toda semana. Não perca.',
+                  badge: 'XP extra',
+                  badgeColor: COLORS.orange,
+                },
+                {
+                  icon: '🏆',
+                  label: 'Cheque o Ranking',
+                  desc: 'Veja seu streak e XP versus amigos e rivais',
+                  badge: 'Motivação',
+                  badgeColor: COLORS.greenLight,
+                },
+              ].map((item, i) => (
+                <View key={i} style={pl.featureRow}>
+                  <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{item.icon}</Text>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: '700', flex: 1 }}>{item.label}</Text>
+                      <View style={{ backgroundColor: '#0D0D20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 99, marginLeft: 8 }}>
+                        <Text style={{ color: item.badgeColor, fontSize: 11, fontWeight: '700' }}>{item.badge}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ color: COLORS.gray, fontSize: 12, marginTop: 2, lineHeight: 17 }}>{item.desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* PROJEÇÃO XP */}
+          <View style={{ marginBottom: 24 }}>
+            <Text style={[pl.cardTitle, { marginBottom: 12 }]}>📈 Projeção de 30 Dias</Text>
+            <LinearGradient colors={['#2D1B69', '#12122A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 20 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 }}>
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>XP total</Text>
+                  <Text style={{ color: COLORS.gold, fontSize: 26, fontWeight: '800', letterSpacing: -1 }}>~{projectedXP.toLocaleString('pt-BR')}</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: '#2A2A4A' }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Nível proj.</Text>
+                  <Text style={{ color: COLORS.purpleLight, fontSize: 26, fontWeight: '800' }}>Lv {projectedLevel}</Text>
+                </View>
+                <View style={{ width: 1, backgroundColor: '#2A2A4A' }} />
+                <View style={{ alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>🔥 Streak</Text>
+                  <Text style={{ color: COLORS.orange, fontSize: 26, fontWeight: '800' }}>{workoutsPerMonth}d</Text>
+                </View>
+              </View>
+              <Text style={{ color: '#4A4A7A', fontSize: 11, textAlign: 'center' }}>
+                {workoutsPerMonth} treinos × 300 XP + desafios diários + bônus de streak
+              </Text>
+            </LinearGradient>
+          </View>
+
+        </ScrollView>
+        <Btn label="Pegue os seus 7 dias grátis" />
+      </>
+    );
+  };
 
   // Tela 24: Realmente comprometida?
   const Step23 = () => (
@@ -718,114 +1550,185 @@ export default function OnboardingScreen({ navigation }) {
     </View>
   );
 
-  // Tela 25: Prova social (8k+)
+  // Tela 25: Prova social
   const Step24 = () => (
     <>
-      <View style={s.body}>
-        <QuestionHeader text="Junte-se a uma comunidade de alta performance." center />
-        <View style={s.socialBigCard}>
-           <Text style={s.socialBigNum}>8.432</Text>
-           <Text style={s.socialBigLbl}>pessoas já estão ativas usando o CapiFit agora.</Text>
+      <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
+        <View style={{paddingHorizontal: 24}}>
+          <Text style={[s.heroTitle, {marginTop: 10, fontSize: 34}]}>Junte-se a uma comunidade de pessoas como você</Text>
         </View>
-        <View style={s.userAvatarsWrap}>
-           {[1,2,3,4,5].map((_, i) => (
-             <View key={i} style={[s.avatarCircle, { zIndex: 5-i, marginLeft: i === 0 ? 0 : -15 }]} />
-           ))}
+        
+        <View style={s.communityStatsWrap}>
+          <View style={s.communityStatCol}>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+               <Text style={s.communityStatMain}>4.8</Text>
+               <Ionicons name="star" size={26} color={COLORS.goldLight} />
+            </View>
+            <Text style={s.communityStatSub}>avaliação média</Text>
+            <Text style={s.communityStatSubMin}>250K+ avaliações do app</Text>
+          </View>
+          
+          <View style={[s.communityStatCol, {alignItems: 'flex-end'}]}>
+             <View style={s.userAvatarsWrapSm}>
+               {[1,2,3].map((_, i) => (
+                 <View key={i} style={[s.avatarCircleSm, { zIndex: 3-i, marginLeft: i === 0 ? 0 : -12 }]} />
+               ))}
+             </View>
+             <Text style={[s.communityStatSubMin, {marginTop: 12}]}>Usuários do CapiFit</Text>
+          </View>
         </View>
-      </View>
-      <Btn label="Fazer Parte" />
+
+        <View style={s.reviewList}>
+           <View style={s.reviewCard}>
+              <View style={s.reviewHeader}>
+                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <Text style={s.reviewName}>Jake Sullivan</Text>
+                 <View style={{flex: 1}} />
+                 <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
+              </View>
+              <Text style={s.reviewText}>Perdi 7 kg em 2 meses! Eu estava prestes a tentar outras coisas, mas decidi tentar este app e funcionou :)</Text>
+           </View>
+
+           <View style={s.reviewCard}>
+              <View style={s.reviewHeader}>
+                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <Text style={s.reviewName}>Benny Marcs</Text>
+                 <View style={{flex: 1}} />
+                 <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
+              </View>
+              <Text style={s.reviewText}>O tempo que economizei por automatizar minha rotina foi inestimável. Tempo é dinheiro, e com certeza valeu a pena.</Text>
+           </View>
+
+           <View style={s.reviewCard}>
+              <View style={s.reviewHeader}>
+                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <Text style={s.reviewName}>Karel Carter</Text>
+                 <View style={{flex: 1}} />
+                 <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
+              </View>
+              <Text style={s.reviewText}>Já estou muito feliz com este app e usei por apenas um dia. Fiquei realmente impressionado.</Text>
+           </View>
+        </View>
+        <View style={{height: 24}}/>
+      </ScrollView>
+      <Btn />
     </>
   );
 
-  // Tela 26: Testar agora grátis
-  const Step25 = () => (
-    <>
-      <View style={[s.body, {alignItems: 'center'}]}>
-        <View style={s.productShowcase}>
-           <Image source={require('../../tela_inicial.png')} style={s.productImageSm} resizeMode="contain" />
-        </View>
-        <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 20}]}>Experimente o CapiFit Premium.</Text>
-        <Text style={[s.heroSub, {textAlign: 'center'}]}>Acesse todos os recursos avançados sem pagar nada hoje.</Text>
-      </View>
-      <View style={{paddingHorizontal: 24}}>
-        <Btn label="Testar agora" />
-      </View>
-    </>
-  );
-
-  // Tela 27: Notificação antes de acabar
-  const Step26 = () => (
-    <View style={s.body}>
-       <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <View style={s.circleIcon}><Ionicons name="mail-open" size={48} color={COLORS.greenLight} /></View>
-          <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 32}]}>Aviso de Transparência.</Text>
-          <Text style={[s.heroSub, {textAlign: 'center'}]}>Nós te enviaremos uma notificação antes do seu período de teste acabar. Você tem o controle total.</Text>
-       </View>
-       <View style={{width: '100%'}}>
-         <Btn label="Continuar Free" />
-       </View>
-    </View>
-  );
-
-  // Tela 28: Paywall
+  // Tela 26 (antiga 28): Paywall
   const Step27 = () => (
     <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
-      <View style={s.paywallHero}>
-        <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 16}]}>CapiFit Pro.</Text>
-        <Text style={[s.heroSub, {textAlign: 'center'}]}>Garanta sua vaga com desconto especial de lançamento.</Text>
+      <View style={{paddingHorizontal: 24, marginTop: 10, marginBottom: 30}}>
+        <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 32}]}>Inicie sua experiência GRÁTIS de 3 dias.</Text>
+        <Text style={[s.heroSub, {textAlign: 'center', color: COLORS.white, fontWeight: '700', marginTop: 8}]}>Não será cobrado do seu cartão agora</Text>
       </View>
 
-      <View style={s.paywallFeatures}>
-        {[
-          'Acesso vitalício ao plano adaptativo',
-          'Recuperações de streak ilimitadas',
-          'Métricas avançadas e ranking VIP',
-          'Sem anúncios, foco total',
-        ].map((f, i) => (
-          <View key={i} style={s.paywallFeatureRow}>
-            <Ionicons name="checkmark-circle" size={20} color={COLORS.purple} />
-            <Text style={s.paywallFeatureText}>{f}</Text>
-          </View>
-        ))}
+      <View style={s.timelineWrap}>
+         <View style={s.timelineLine} />
+         
+         <View style={s.timelineItem}>
+            <View style={[s.timelineIcon, {backgroundColor: COLORS.orange}]}><Ionicons name="lock-open" size={18} color={COLORS.white}/></View>
+            <View style={s.timelineContent}>
+               <Text style={s.timelineTitle}>Hoje</Text>
+               <Text style={s.timelineDesc}>Receba acesso total ao CapiFit para registrar seus treinos com IA</Text>
+            </View>
+         </View>
+
+         <View style={s.timelineItem}>
+            <View style={[s.timelineIcon, {backgroundColor: COLORS.orange}]}><Ionicons name="notifications" size={18} color={COLORS.white}/></View>
+            <View style={s.timelineContent}>
+               <Text style={s.timelineTitle}>Em 2 Dias - Lembrete</Text>
+               <Text style={s.timelineDesc}>Vamos enviar um lembrete que o seu teste grátis está acabando</Text>
+            </View>
+         </View>
+
+         <View style={s.timelineItem}>
+            <View style={[s.timelineIcon, {backgroundColor: '#1E1E30', borderWidth: 2, borderColor: '#475569'}]}><Ionicons name="star" size={18} color={COLORS.white}/></View>
+            <View style={s.timelineContent}>
+               <Text style={s.timelineTitle}>Em 3 Dias</Text>
+               <Text style={s.timelineDesc}>Sua inscrição vai começar se você não tiver cancelado</Text>
+            </View>
+         </View>
       </View>
 
-      <TouchableOpacity onPress={goNext} activeOpacity={0.9} style={{ marginBottom: 12, paddingHorizontal: 24 }}>
-        <View style={s.paywallPlanA}>
-          <View style={s.paywallBadge}>
-            <Text style={s.paywallBadgeText}>MELHOR ESCOLHA</Text>
-          </View>
-          <Text style={s.paywallPlanName}>Anual</Text>
-          <Text style={s.paywallPlanPrice}>R$ 149,00<Text style={s.paywallPlanPer}>/ano</Text></Text>
-          <Text style={s.paywallPlanTotal}>Faturado uma vez por ano</Text>
-        </View>
-      </TouchableOpacity>
+      <View style={s.paywallPlansRow}>
+         <TouchableOpacity onPress={() => {}} style={[s.paywallPlanCard, s.paywallPlanCardActive]} activeOpacity={0.9}>
+            <View style={s.paywallPopularBadge}><Text style={s.paywallPopularText}>MAIS POPULAR</Text></View>
+            <Text style={[s.paywallPlanType, {color: COLORS.white}]}>ANUAL</Text>
+            <View style={s.paywallCheckWrap}><Ionicons name="checkmark-circle" size={24} color={COLORS.white}/></View>
+         </TouchableOpacity>
 
-      <TouchableOpacity onPress={goNext} activeOpacity={0.9} style={[s.paywallPlanB, {marginHorizontal: 24}]}>
-        <Text style={s.paywallPlanBName}>Mensal</Text>
-        <Text style={s.paywallPlanBPrice}>R$ 29,90<Text style={s.paywallPlanPer}>/mês</Text></Text>
-      </TouchableOpacity>
+         <TouchableOpacity onPress={() => {}} style={s.paywallPlanCard} activeOpacity={0.9}>
+            <Text style={s.paywallPlanType}>MENSAL</Text>
+            <View style={s.paywallCheckWrapEmpty} />
+         </TouchableOpacity>
+      </View>
 
-      <View style={{paddingVertical: 10, alignItems: 'center', paddingHorizontal: 24}}>
-        <Btn label="Assinar agora" />
-        <Btn label="Restaurar compra" secondary />
+      <Text style={{textAlign: 'center', color: COLORS.white, fontWeight: '700', fontSize: 16, marginTop: 24, marginBottom: 12}}>Não perca a oportunidade de mudar seu corpo!</Text>
+      <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 24}}>
+         <Ionicons name="shield-checkmark" size={16} color={COLORS.gray}/>
+         <Text style={{color: COLORS.gray, fontWeight: '600'}}>Cancele quando quiser!</Text>
+      </View>
+
+      <View style={{paddingHorizontal: 24}}>
+        <Btn label="Continuar" />
+      </View>
+      
+      <View style={s.paywallFooterLinks}>
+         <Text style={s.paywallLink}>Privacidade</Text>
+         <Text style={s.paywallLink}>Restaurar Compras</Text>
+         <Text style={s.paywallLink}>Termos</Text>
       </View>
       <View style={{ height: 48 }} />
     </ScrollView>
   );
 
   const STEPS = [
-    Step0, Step1, Step2, Step3, Step4, Step5, Step6, Step7,
+    Step0, Step1, Step2, Step3, StepAge, Step4, Step5, Step6, Step7,
     Step8, Step9, Step10, Step11, Step12, Step13, Step14, Step15,
-    Step16, Step17, Step18, Step19, Step20, Step21, Step22, Step23,
-    Step24, Step25, Step26, Step27
+    Step16, Step24, Step17, null, null, null, Step23, Step21,
+    Step22, StepPlan, Step27
   ];
-  const StepComponent = STEPS[step] || STEPS[0];
+  const StepComponent = STEPS[step];
+
+  const renderStep = () => {
+    if (step === 20) {
+      return (
+        <NameInputScreen
+          value={answers.name || ''}
+          onChange={(v) => setAnswers(p => ({ ...p, name: v }))}
+          onNext={goNext}
+          disabled={!answers.name || answers.name.length < 2}
+        />
+      );
+    }
+    if (step === 21) {
+      return (
+        <EmailInputScreen
+          value={answers.email || ''}
+          onChange={(v) => setAnswers(p => ({ ...p, email: v }))}
+          onNext={goNext}
+          disabled={!answers.email || !answers.email.includes('@')}
+        />
+      );
+    }
+    if (step === 22) {
+      return (
+        <PhoneInputScreen
+          value={answers.phone || ''}
+          onChange={(v) => setAnswers(p => ({ ...p, phone: v }))}
+          onNext={goNext}
+        />
+      );
+    }
+    return StepComponent ? StepComponent() : null;
+  };
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <Header />
       <Animated.View style={[s.screen, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        <StepComponent />
+        {renderStep()}
       </Animated.View>
     </SafeAreaView>
   );
@@ -896,9 +1799,15 @@ const s = StyleSheet.create({
   featureDesc: { fontSize: 14, color: COLORS.gray, marginTop: 4, fontWeight: '400' },
 
   // Pickers (Tela 4, 6)
-  pickerRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#161625', borderRadius: 20, paddingVertical: 10 },
+  pickerRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: '#161625', borderRadius: 20, paddingVertical: 16 },
   pickerCol: { flex: 1, alignItems: 'center' },
   pickerColTitle: { fontSize: 14, fontWeight: '600', color: COLORS.gray, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  pickerSeparator: { width: 1, backgroundColor: '#2A2A4A', alignSelf: 'stretch', marginVertical: 8 },
+
+  // Target Weight (Tela 6)
+  currentWeightBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#161625', paddingHorizontal: 20, paddingVertical: 14, borderRadius: 16, marginTop: 28 },
+  currentWeightLabel: { fontSize: 14, color: COLORS.gray, fontWeight: '500' },
+  currentWeightVal: { fontSize: 16, fontWeight: '800', color: COLORS.white },
 
   // Graph (Tela 7)
   graphCard: { backgroundColor: '#161625', borderRadius: 20, padding: 24, marginTop: 10 },
@@ -931,6 +1840,11 @@ const s = StyleSheet.create({
   loadingTrack: { width: '80%', height: 6, backgroundColor: '#1E1E3A', borderRadius: 3, overflow: 'hidden' },
   loadingBar: { height: '100%', borderRadius: 3, backgroundColor: COLORS.purpleLight },
 
+  // Plan Card
+  planCard: { width: '48%', backgroundColor: '#1E1E3A', borderRadius: 16, padding: 16, alignItems: 'center', position: 'relative' },
+  planCardTitle: { fontSize: 14, fontWeight: '600', color: COLORS.gray, textTransform: 'capitalize' },
+  planEditIcon: { position: 'absolute', bottom: 16, right: 16, width: 24, height: 24, borderRadius: 12, backgroundColor: '#2A2A4A', alignItems: 'center', justifyContent: 'center' },
+
   // Social Proof (Tela 25)
   socialBigCard: { backgroundColor: '#161625', padding: 32, borderRadius: 20, alignItems: 'center', marginTop: 20 },
   socialBigNum: { fontSize: 56, fontWeight: '800', color: COLORS.white, letterSpacing: -2 },
@@ -942,19 +1856,92 @@ const s = StyleSheet.create({
   productShowcase: { width: '80%', height: 350, backgroundColor: '#161625', borderRadius: 24, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', padding: 20 },
   productImageSm: { width: '100%', height: '100%' },
 
-  // Paywall (Tela 28)
-  paywallHero: { alignItems: 'center', marginBottom: 24, marginTop: 10, paddingHorizontal: 24 },
-  paywallFeatures: { backgroundColor: '#161625', borderRadius: 20, padding: 24, marginBottom: 24, gap: 16, marginHorizontal: 24 },
-  paywallFeatureRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  paywallFeatureText: { fontSize: 15, color: COLORS.white, fontWeight: '600' },
-  paywallPlanA: { borderRadius: 20, padding: 24, alignItems: 'center', position: 'relative', backgroundColor: '#1E1E30', borderWidth: 1, borderColor: COLORS.purple },
-  paywallBadge: { position: 'absolute', top: -12, backgroundColor: COLORS.purple, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 },
-  paywallBadgeText: { fontSize: 10, fontWeight: '800', color: COLORS.white, letterSpacing: 0.5 },
-  paywallPlanName: { fontSize: 16, fontWeight: '700', color: COLORS.gray, marginBottom: 6 },
-  paywallPlanPrice: { fontSize: 36, fontWeight: '800', color: COLORS.white, letterSpacing: -1 },
-  paywallPlanPer: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
-  paywallPlanTotal: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 8, fontWeight: '600' },
-  paywallPlanB: { backgroundColor: '#161625', borderRadius: 20, padding: 20, alignItems: 'center', marginBottom: 24 },
-  paywallPlanBName: { fontSize: 15, color: COLORS.gray, marginBottom: 6, fontWeight: '600' },
-  paywallPlanBPrice: { fontSize: 24, fontWeight: '700', color: COLORS.white, letterSpacing: -0.5 },
+  // Paywall (Tela 28) Timeline & Plans
+  timelineWrap: { paddingHorizontal: 24, position: 'relative', marginVertical: 16 },
+  timelineLine: { position: 'absolute', left: 40, top: 20, bottom: 40, width: 2, backgroundColor: COLORS.orange, opacity: 0.5 },
+  timelineItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, gap: 16 },
+  timelineIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  timelineContent: { flex: 1, paddingTop: 4 },
+  timelineTitle: { fontSize: 16, fontWeight: '700', color: COLORS.white, marginBottom: 4 },
+  timelineDesc: { fontSize: 14, color: COLORS.gray, lineHeight: 20 },
+  paywallPlansRow: { flexDirection: 'row', paddingHorizontal: 24, gap: 12, marginTop: 10 },
+  paywallPlanCard: { flex: 1, backgroundColor: '#161625', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: '#2A2A4A', position: 'relative' },
+  paywallPlanCardActive: { borderColor: COLORS.orange, backgroundColor: '#1A1525' },
+  paywallPopularBadge: { position: 'absolute', top: -12, backgroundColor: COLORS.orange, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+  paywallPopularText: { fontSize: 10, fontWeight: '800', color: COLORS.white },
+  paywallPlanType: { fontSize: 16, fontWeight: '700', color: COLORS.gray, marginBottom: 12, marginTop: 4 },
+  paywallCheckWrap: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.orange, alignItems: 'center', justifyContent: 'center' },
+  paywallCheckWrapEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#475569' },
+  paywallFooterLinks: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 24 },
+  paywallLink: { color: COLORS.gray, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
+
+  // Plan Card
+  planCard: { width: '48%', backgroundColor: '#1E1E3A', borderRadius: 16, padding: 16, alignItems: 'center', position: 'relative' },
+  planCardTitle: { fontSize: 14, fontWeight: '600', color: COLORS.gray, textTransform: 'capitalize' },
+  planEditIcon: { position: 'absolute', bottom: 16, right: 16, width: 24, height: 24, borderRadius: 12, backgroundColor: '#2A2A4A', alignItems: 'center', justifyContent: 'center' },
+
+  // Community (Tela 25)
+  communityStatsWrap: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24, marginVertical: 30 },
+  communityStatCol: { flex: 1 },
+  communityStatMain: { fontSize: 40, fontWeight: '800', color: COLORS.white },
+  communityStatSub: { fontSize: 14, color: COLORS.gray, fontWeight: '600', marginTop: 4 },
+  communityStatSubMin: { fontSize: 12, color: '#64748B', marginTop: 4 },
+  userAvatarsWrapSm: { flexDirection: 'row' },
+  avatarCircleSm: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2A2A4A', borderWidth: 2, borderColor: COLORS.bg },
+  reviewList: { paddingHorizontal: 24, gap: 12 },
+  reviewCard: { backgroundColor: '#161625', padding: 20, borderRadius: 16 },
+  reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  reviewAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#2A2A4A', alignItems: 'center', justifyContent: 'center' },
+  reviewName: { fontSize: 15, fontWeight: '700', color: COLORS.white },
+  reviewText: { fontSize: 14, color: COLORS.gray, lineHeight: 22 },
+});
+
+// ─── Plan Screen Styles (pl) ─────────────────────────────────────────────────
+const pl = StyleSheet.create({
+  card: { backgroundColor: '#161625', borderRadius: 20, padding: 20, marginBottom: 14 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: COLORS.white, letterSpacing: -0.3 },
+  cardSub: { fontSize: 13, color: COLORS.gray, marginTop: 4, fontWeight: '500' },
+  metaBox: { flex: 1, backgroundColor: '#0D0D20', borderRadius: 14, padding: 14, alignItems: 'center', borderWidth: 1.5, borderColor: '#2A2A4A' },
+  metaLbl: { fontSize: 10, color: COLORS.gray, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 4 },
+  metaVal: { fontSize: 18, fontWeight: '800', color: COLORS.white, marginTop: 4 },
+  infoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#0D0D20', borderRadius: 12, padding: 12, marginTop: 12 },
+  infoText: { flex: 1, fontSize: 13, color: COLORS.gray, lineHeight: 19 },
+  macroBox: { flex: 1, minWidth: '45%', backgroundColor: '#0D0D20', borderRadius: 14, padding: 14, alignItems: 'center' },
+  macroVal: { fontSize: 22, fontWeight: '800', letterSpacing: -0.5 },
+  macroLbl: { fontSize: 11, color: COLORS.gray, fontWeight: '600', marginTop: 3, textTransform: 'capitalize' },
+  freqCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#2D1B69', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.purple },
+  chip: { backgroundColor: '#2D1B69', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 99 },
+  featureRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: '#0D0D20', borderRadius: 12, padding: 12 },
+
+  // Hero Banner
+  heroBanner: { borderRadius: 24, padding: 24, marginBottom: 14, overflow: 'hidden', position: 'relative' },
+  heroGlowOrb: { position: 'absolute', top: -70, right: -70, width: 240, height: 240, borderRadius: 120, backgroundColor: COLORS.purple, opacity: 0.18 },
+  heroGlowOrb2: { position: 'absolute', bottom: -50, left: -50, width: 180, height: 180, borderRadius: 90, backgroundColor: COLORS.purpleLight, opacity: 0.09 },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 99, marginBottom: 18 },
+  heroBadgeText: { color: 'white', fontSize: 11, fontWeight: '800', letterSpacing: 0.8 },
+  heroTitle: { fontSize: 34, fontWeight: '900', color: COLORS.white, letterSpacing: -1, lineHeight: 40 },
+  heroPill: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 99, alignSelf: 'flex-start', marginTop: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  heroPillGoal: { fontSize: 15, fontWeight: '800' },
+  heroPillSep: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.2)' },
+  heroPillTime: { fontSize: 14, color: COLORS.gray, fontWeight: '600' },
+
+  // Commitment
+  tierPill: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.35)', paddingHorizontal: 22, paddingVertical: 11, borderRadius: 99, marginTop: 18, borderWidth: 1 },
+  commitDesc: { color: COLORS.gray, fontSize: 13, lineHeight: 20, marginTop: 16, textAlign: 'center', paddingHorizontal: 8 },
+
+  // Section label
+  sectionLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+
+  // Day dots
+  dayDot: { paddingVertical: 6, paddingHorizontal: 8, borderRadius: 10, backgroundColor: '#0D0D20', alignItems: 'center', borderWidth: 1, borderColor: '#1E1E3A' },
+  dayDotActive: { backgroundColor: '#2A1200', borderColor: COLORS.orange },
+
+  // Nutrition
+  calorieBox: { borderRadius: 16, padding: 18, marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  calorieLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  calorieVal: { color: COLORS.white, fontSize: 38, fontWeight: '900', letterSpacing: -2 },
+  calorieIcon: { width: 54, height: 54, borderRadius: 27, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  macroCard: { flex: 1, backgroundColor: '#0D0D20', borderRadius: 14, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' },
+  macroVal2: { fontSize: 19, fontWeight: '900', marginTop: 6, letterSpacing: -0.5 },
+  macroLbl2: { color: COLORS.gray, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginTop: 3, letterSpacing: 0.4 },
 });
