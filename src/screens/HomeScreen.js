@@ -8,20 +8,26 @@ import {
   Animated,
   Dimensions,
   Modal,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import {
-  userData,
-  dailyChallenges as initialChallenges,
   bossData,
   recommendedWorkouts,
   quotes,
   groupsData,
   rivalsData,
 } from '../data/mockData';
+import { useUser } from '../context/UserContext';
+import ShopModal from '../components/ShopModal';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
@@ -121,27 +127,103 @@ function CheckinCelebration({ visible, event, onDismiss }) {
   );
 }
 
+// ─── VERIFICATION MODAL ──────────────────────────────────────────────────────
+function VerificationModal({ visible, status, message, onDismiss }) {
+  const scanAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible && status === 'verifying') {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+          Animated.timing(scanAnim, { toValue: 0, duration: 0, useNativeDriver: true })
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      scanAnim.stopAnimation();
+    }
+  }, [visible, status]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={status === 'error' ? onDismiss : undefined}>
+      <View style={s.verifyModalBg}>
+        {status === 'verifying' && (
+          <View style={s.verifyContent}>
+            <View style={s.verifyRadarWrap}>
+              <Animated.View style={[s.verifyRadarRing, {
+                transform: [{ scale: scanAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.8] }) }],
+                opacity: scanAnim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 1, 0] })
+              }]} />
+              <Animated.View style={[s.verifyRadarRing, {
+                position: 'absolute',
+                transform: [{ scale: scanAnim.interpolate({ inputRange: [0, 1], outputRange: [0.2, 1.3] }) }],
+                opacity: scanAnim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.5, 0.6, 0] })
+              }]} />
+              <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={s.verifyRadarCenter}>
+                <Ionicons name="scan" size={32} color="#fff" />
+              </LinearGradient>
+            </View>
+            <Text style={s.verifyTitle}>Analisando Foto</Text>
+            <Text style={s.verifySub}>Inteligência artificial verificando o ambiente...</Text>
+          </View>
+        )}
+        {status === 'success' && (
+          <View style={s.verifyContent}>
+            <View style={[s.verifyRadarCenter, { backgroundColor: '#10B981', width: 80, height: 80, borderRadius: 40 }]}>
+              <Ionicons name="checkmark-sharp" size={44} color="#fff" />
+            </View>
+            <Text style={[s.verifyTitle, { color: '#10B981', marginTop: 24 }]}>Academia Confirmada!</Text>
+            <Text style={s.verifySub}>Check-in validado com sucesso.</Text>
+          </View>
+        )}
+        {status === 'error' && (
+          <View style={s.verifyContent}>
+            <View style={[s.verifyRadarCenter, { backgroundColor: '#EF4444', width: 80, height: 80, borderRadius: 40 }]}>
+              <Ionicons name="close-sharp" size={44} color="#fff" />
+            </View>
+            <Text style={[s.verifyTitle, { color: '#EF4444', marginTop: 24 }]}>Não Reconhecido</Text>
+            <Text style={[s.verifySub, { textAlign: 'center', paddingHorizontal: 20 }]}>{message || 'A foto não parece ser de uma academia.'}</Text>
+            <TouchableOpacity style={s.verifyRetryBtn} onPress={onDismiss} activeOpacity={0.8}>
+              <Text style={s.verifyRetryText}>Tentar Novamente</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
 // ─── STREAK HERO CARD ────────────────────────────────────────────────────────
-function StreakHeroCard({ fireScale, fireTranslateY }) {
+function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
   const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const day = new Date().getDay();
   const todayIdx = day === 0 ? 6 : day - 1;
-  const trained = userData.weekTrainingDays;
+  const trained = user.weekTrainingDays;
+
+  const dayOfWeekNow  = new Date().getDay();
+  const daysLeftWeek  = dayOfWeekNow === 0 ? 0 : 7 - dayOfWeekNow;
+  const checkinsLeft  = Math.max(0, (user.weeklyFrequency ?? 3) - (user.weekCheckinsCount ?? 0));
+  const planAtRisk    = checkinsLeft > 0 && daysLeftWeek > 0 && daysLeftWeek <= checkinsLeft;
 
   let streakMsg;
-  if (userData.streak >= 30)      streakMsg = '🔥 Você é imparável!';
-  else if (userData.streak >= 14) streakMsg = `Faltam ${userData.streakGoal - userData.streak} dias para o recorde!`;
-  else if (userData.streak >= 7)  streakMsg = 'Ótimo ritmo! Continue assim!';
-  else                            streakMsg = 'Cada dia conta. Não pare agora!';
+  if (checkinsLeft === 0) {
+    streakMsg = '🎉 Meta da semana atingida! Incrível!';
+  } else if (planAtRisk) {
+    streakMsg = `⚠️ Faltam ${checkinsLeft} treino${checkinsLeft > 1 ? 's' : ''} essa semana — não deixe o plano zerar!`;
+  } else if (checkinsLeft > 0) {
+    streakMsg = `💪 Faltam ${checkinsLeft} treino${checkinsLeft > 1 ? 's' : ''} para bater a meta da semana!`;
+  } else if (user.streak >= 30) {
+    streakMsg = '🔥 Você é imparável!';
+  } else {
+    streakMsg = 'Cada dia conta. Não pare agora!';
+  }
 
-  // Comprometimento calculado aqui, exibido de forma compacta
-  const commitScore = Math.min(
-    Math.round(
-      Math.min(userData.streak / 30, 1) * 40 +
-      Math.min(userData.weekWorkouts / 5, 1) * 35 +
-      Math.min(userData.totalWorkouts / 100, 1) * 25
-    ), 100
-  );
+  // Usa o comprometimento real do Supabase (calculado pelo servidor com base em check-ins vs planejado)
+  const commitScore = user.commitment ?? 70;
   let commitCfg;
   if (commitScore >= 80)      commitCfg = { color: COLORS.green, emoji: '🚀', label: 'Excepcional' };
   else if (commitScore >= 60) commitCfg = { color: COLORS.blue,  emoji: '💪', label: 'Muito Bom' };
@@ -157,7 +239,7 @@ function StreakHeroCard({ fireScale, fireTranslateY }) {
             <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#F59E0B', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
             <Ionicons name="flame" size={56} color="#F97316" />
           </Animated.View>
-          <Text style={s.streakNumberBig}>{userData.streak}</Text>
+          <Text style={s.streakNumberBig}>{user.streak}</Text>
           <View style={s.streakDaysStack}>
             <Text style={s.streakDaysTop}>dias</Text>
             <Text style={s.streakDaysBot}>seguidos</Text>
@@ -166,19 +248,25 @@ function StreakHeroCard({ fireScale, fireTranslateY }) {
         <View style={s.streakRight}>
           <View style={s.streakRecordBox}>
             <Text style={s.streakRecordLabel}>🏆 Recorde</Text>
-            <Text style={s.streakRecordNum}>{userData.longestStreak} dias</Text>
+            <Text style={s.streakRecordNum}>{user.longestStreak} dias</Text>
           </View>
           <View style={s.streakGoalBox}>
             <Text style={s.streakGoalLabel}>🎯 Meta</Text>
-            <Text style={s.streakGoalNum}>{userData.streakGoal} dias</Text>
+            <Text style={s.streakGoalNum}>{user.streakGoal} dias</Text>
           </View>
+          {/* Botão discreto de proteção */}
+          <TouchableOpacity onPress={onProtect} activeOpacity={0.7} style={s.freezeIconBtn}>
+            {(user.streakFreezeDays ?? 0) > 0
+              ? <Text style={s.freezeIconActive}>🧊 {user.streakFreezeDays}d</Text>
+              : <Ionicons name="shield-outline" size={14} color={COLORS.grayDark} />}
+          </TouchableOpacity>
         </View>
       </View>
 
       {/* Marcos de milestone — substituem a barra de meta */}
       <View style={s.milestoneRow}>
         {[7, 14, 21, 30].map((m) => {
-          const done = userData.streak >= m;
+          const done = user.streak >= m;
           return (
             <View key={m} style={s.milestoneItem}>
               <LinearGradient
@@ -231,27 +319,45 @@ function StreakHeroCard({ fireScale, fireTranslateY }) {
         })}
       </View>
 
-      {/* Motivational message */}
+      {/* Motivational message + botão proteger */}
       <View style={s.streakMsgRow}>
-        <Text style={s.streakMsg}>{streakMsg}</Text>
+        <Text style={[s.streakMsg, planAtRisk && { color: COLORS.orange }]}>{streakMsg}</Text>
       </View>
 
-      {/* ── Comprometimento ── */}
-      <View style={[s.commitStrip, { borderColor: commitCfg.color + '30' }]}>
-        <View style={s.commitStripRow}>
-          <View>
-            <Text style={s.commitStripTitle}>🎯 Comprometimento</Text>
-            <Text style={[s.commitStripStatus, { color: commitCfg.color }]}>{commitCfg.emoji} {commitCfg.label}</Text>
-          </View>
-          <View style={[s.commitBadge, { borderColor: commitCfg.color + '50', backgroundColor: commitCfg.color + '18' }]}>
-            <Text style={[s.commitBadgeScore, { color: commitCfg.color }]}>{commitScore}</Text>
-            <Text style={s.commitBadgeOf}>/100</Text>
-          </View>
-        </View>
-        <View style={s.commitBarBg}>
-          <View style={[s.commitBarFill, { width: `${commitScore}%`, backgroundColor: commitCfg.color }]} />
-        </View>
-      </View>
+      {/* ── ÍNDICE DE DISCIPLINA ── */}
+      {(() => {
+        const R    = 24;
+        const SW   = 5;
+        const circ = 2 * Math.PI * R;
+        const fill = circ - (commitScore / 100) * circ;
+        const sz   = (R + SW) * 2;
+        return (
+          <LinearGradient colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.01)']} style={[s.commitStrip, { borderColor: commitCfg.color + '30' }]}>
+            <View style={s.commitStripRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.commitStripTitle}>ÍNDICE DE DISCIPLINA</Text>
+                <Text style={[s.commitStripStatus, { color: commitCfg.color }]}>{commitCfg.emoji} {commitCfg.label}</Text>
+                <Text style={s.commitStripSub}>Baseado na consistência do seu plano</Text>
+              </View>
+              {/* Anel circular */}
+              <View style={s.commitRingWrap}>
+                <Svg width={sz} height={sz}>
+                  <Circle cx={sz/2} cy={sz/2} r={R} stroke="rgba(0,0,0,0.4)" strokeWidth={SW} fill="none" />
+                  <Circle cx={sz/2} cy={sz/2} r={R}
+                    stroke={commitCfg.color} strokeWidth={SW} fill="none"
+                    strokeDasharray={circ} strokeDashoffset={fill}
+                    strokeLinecap="round" rotation="-90" origin={`${sz/2},${sz/2}`}
+                  />
+                </Svg>
+                <View style={s.commitRingValue}>
+                  <Text style={s.commitRingNum}>{commitScore}</Text>
+                  <Text style={s.commitRingPct}>%</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        );
+      })()}
     </LinearGradient>
   );
 }
@@ -265,91 +371,118 @@ function getWaterMsg(n) {
   return { text: '🌵 Você está desidratado! Beba água!', color: COLORS.red };
 }
 
-function WaterTracker() {
-  const [glasses, setGlasses] = useState([true, true, true, false, false, false, false, false]);
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const rippleAnims = useRef(Array.from({ length: 8 }, () => new Animated.Value(1))).current;
-  const filled = glasses.filter(Boolean).length;
-  const pct = (filled / 8) * 100;
-  const msg = getWaterMsg(filled);
+const WATER_KEY = '@capifit_water_daily';
 
-  const toggleGlass = (i) => {
-    const next = [...glasses];
-    next[i] = !next[i];
-    setGlasses(next);
-    if (next[i]) {
-      Animated.sequence([
-        Animated.timing(shakeAnim, { toValue: 7, duration: 55, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: -7, duration: 55, useNativeDriver: true }),
-        Animated.timing(shakeAnim, { toValue: 0, duration: 55, useNativeDriver: true }),
-      ]).start();
-      Animated.sequence([
-        Animated.timing(rippleAnims[i], { toValue: 1.25, duration: 120, useNativeDriver: true }),
-        Animated.spring(rippleAnims[i], { toValue: 1, friction: 4, useNativeDriver: true }),
-      ]).start();
-    }
+function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
+  const goalMl = Math.round(goalLiters * 1000);
+  const [mlDrank,   setMlDrank]   = useState(0);
+  const [goalGiven, setGoalGiven] = useState(false); // XP já dado hoje
+  const fillAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    const today = new Date().toDateString();
+    AsyncStorage.getItem(WATER_KEY).then(raw => {
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.date === today) {
+        setMlDrank(saved.ml ?? 0);
+        setGoalGiven(saved.goalGiven ?? false);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const persist = (ml, gv) => {
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    AsyncStorage.setItem(WATER_KEY, JSON.stringify({ date: new Date().toDateString(), ml, goalGiven: gv })).catch(() => {});
   };
 
-  const liters = (filled * 0.25).toFixed(2);
-  const goalColor = filled >= 8 ? '#10B981' : filled >= 6 ? '#38BDF8' : filled >= 4 ? '#3B82F6' : '#94A3B8';
+  const goalReached = mlDrank >= goalMl;
+
+  const add = (addMl) => {
+    setMlDrank(prev => {
+      if (prev >= goalMl) return prev; // já bateu, não passa
+      const next = Math.min(prev + addMl, goalMl);
+      persist(next, goalGiven || next >= goalMl);
+      // Dá XP quando bate a meta pela primeira vez no dia
+      if (!goalGiven && next >= goalMl) {
+        setGoalGiven(true);
+        onGoalReached?.();
+      }
+      return next;
+    });
+  };
+
+  const sub = () => {
+    if (goalReached) return; // bloqueado após bater a meta
+    setMlDrank(prev => {
+      const next = Math.max(prev - 250, 0);
+      persist(next, false);
+      return next;
+    });
+  };
+
+  const pct      = Math.min((mlDrank / goalMl) * 100, 100);
+  const liters   = (mlDrank / 1000).toFixed(2);
+  const filled   = Math.round(pct / 12.5);
+  const msg      = getWaterMsg(filled);
+  const goalColor = pct >= 100 ? '#10B981' : pct >= 75 ? '#38BDF8' : pct >= 50 ? '#3B82F6' : '#94A3B8';
+
+  useEffect(() => {
+    Animated.spring(fillAnim, { toValue: pct / 100, useNativeDriver: false, friction: 6 }).start();
+  }, [pct]);
 
   return (
     <LinearGradient colors={['#0C2D4A', '#071A2E', '#0A0A18']} style={s.waterCard}>
+
       {/* Header */}
       <View style={s.waterHeader}>
-        <Animated.View style={[s.waterDropWrap, { transform: [{ translateX: shakeAnim }] }]}>
-          <LinearGradient colors={['#0EA5E9', '#0369A1']} style={s.waterDropCircle}>
-            <Ionicons name="water" size={24} color="#fff" />
-          </LinearGradient>
-        </Animated.View>
-        <View style={{ flex: 1 }}>
+        <LinearGradient colors={['#0EA5E9', '#0369A1']} style={s.waterDropCircle}>
+          <Ionicons name="water" size={22} color="#fff" />
+        </LinearGradient>
+        <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.waterTitle}>Hidratação Diária</Text>
           <Text style={[s.waterMsg, { color: msg.color }]}>{msg.text}</Text>
         </View>
         <View style={[s.waterCountBadge, { borderColor: goalColor + '60', backgroundColor: goalColor + '18' }]}>
-          <Text style={[s.waterCountNum, { color: goalColor }]}>{filled}</Text>
-          <Text style={s.waterCountDen}>/8</Text>
+          <Text style={[s.waterCountNum, { color: goalColor }]}>{Math.round(pct)}%</Text>
         </View>
       </View>
 
-      {/* Glasses row */}
-      <View style={s.glassesRow}>
-        {glasses.map((full, i) => (
-          <TouchableOpacity key={i} onPress={() => toggleGlass(i)} activeOpacity={0.8}>
-            <Animated.View style={[s.glassWrap, full && s.glassWrapFull, { transform: [{ scale: rippleAnims[i] }] }]}>
-              {full ? (
-                <LinearGradient colors={['#38BDF8', '#0EA5E9', '#0369A1']} style={s.glassInner}>
-                  <Ionicons name="water" size={16} color="#fff" />
-                </LinearGradient>
-              ) : (
-                <View style={s.glassEmpty}>
-                  <View style={s.glassEmptyLine} />
-                  <View style={[s.glassEmptyLine, { width: '60%' }]} />
-                </View>
-              )}
-              <Text style={[s.glassNumText, full && s.glassNumFull]}>{i + 1}</Text>
-            </Animated.View>
-          </TouchableOpacity>
-        ))}
+      {/* Quantidade atual */}
+      <View style={{ alignItems: 'center', marginVertical: 8 }}>
+        <Text style={{ fontSize: 42, fontWeight: '900', color: COLORS.white, letterSpacing: -2 }}>
+          {liters}<Text style={{ fontSize: 20, fontWeight: '600', color: COLORS.gray }}>L</Text>
+        </Text>
+        <Text style={{ color: COLORS.gray, fontSize: 13, marginTop: 2 }}>
+          de {goalLiters.toFixed(1)}L diários
+        </Text>
       </View>
 
-      {/* Progress bar */}
+      {/* Barra de progresso */}
       <View style={s.waterBarBg}>
-        <LinearGradient
-          colors={['#0369A1', '#0EA5E9', '#38BDF8']}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-          style={[s.waterBarFill, { width: `${pct}%` }]}
-        />
-        {pct > 0 && (
-          <View style={[s.waterBarDot, { left: `${Math.min(pct, 97)}%` }]} />
+        <Animated.View style={{ overflow: 'hidden', borderRadius: 99, height: '100%',
+          width: fillAnim.interpolate({ inputRange: [0,1], outputRange: ['0%','100%'] }) }}>
+          <LinearGradient colors={['#0369A1','#0EA5E9','#38BDF8']}
+            start={{ x:0, y:0 }} end={{ x:1, y:0 }} style={{ flex:1 }} />
+        </Animated.View>
+      </View>
+
+      {/* Botões de incremento */}
+      <View style={s.waterBtnsRow}>
+        {[250, 500, 750, 1000].map(ml => (
+          <TouchableOpacity key={ml} onPress={() => add(ml)} activeOpacity={0.75}
+            style={[s.waterAddBtn, pct >= 100 && { opacity: 0.4 }]} disabled={pct >= 100}>
+            <Text style={s.waterAddBtnText}>+{ml >= 1000 ? '1L' : `${ml}ml`}</Text>
+          </TouchableOpacity>
+        ))}
+        {!goalReached && (
+          <TouchableOpacity onPress={sub} activeOpacity={0.75} style={s.waterSubBtn} disabled={mlDrank === 0}>
+            <Ionicons name="remove" size={16} color={COLORS.gray} />
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* Footer */}
-      <View style={s.waterFooter}>
-        <Text style={s.waterLiters}>💧 {liters}L de 2.0L diários</Text>
-        <Text style={[s.waterPct, { color: goalColor }]}>{Math.round(pct)}%</Text>
-      </View>
     </LinearGradient>
   );
 }
@@ -357,11 +490,33 @@ function WaterTracker() {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [challenges, setChallenges] = useState(initialChallenges);
-  const [todayXP, setTodayXP] = useState(userData.todayXP);
-  const [checkinDone, setCheckinDone] = useState(false);
+  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, avatarPhoto } = useUser();
   const [celebVisible, setCelebVisible] = useState(false);
   const [celebEvent, setCelebEvent]   = useState(null);
+  const bonusGivenRef    = useRef(false);
+  const bossXpGivenRef   = useRef(false);
+  const [grantsReady,    setGrantsReady]    = useState(false);
+  const [shopVisible,    setShopVisible]    = useState(false);
+
+  // Lê AsyncStorage para saber se XP já foi dado hoje/essa semana
+  useEffect(() => {
+    const AS = require('@react-native-async-storage/async-storage').default;
+    const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    AS.multiGet([`@capifit_bonus_${todayISO}`, `@capifit_boss_xp_${weekNum}`])
+      .then(([[, bonusDone], [, bossDone]]) => {
+        if (bonusDone === 'true') bonusGivenRef.current = true;
+        if (bossDone === 'true')  bossXpGivenRef.current = true;
+        setGrantsReady(true);
+      })
+      .catch(() => setGrantsReady(true));
+  }, []);
+  const [weightModal,     setWeightModal]     = useState(false);
+  const [newWeightInput,  setNewWeightInput]  = useState('');
+  const [verifyModalVisible, setVerifyModalVisible] = useState(false);
+  const [verifyStatus, setVerifyStatus]   = useState('verifying');
+  const [verifyMessage, setVerifyMessage] = useState('');
+  const todayISO = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const checkinDone = user.lastCheckinDate === todayISO;
 
   const fireScale = useRef(new Animated.Value(1)).current;
   const fireTranslateY = useRef(new Animated.Value(0)).current;
@@ -370,32 +525,83 @@ export default function HomeScreen({ navigation }) {
   const xpAnim = useRef(new Animated.Value(0)).current;
   const checkinScale = useRef(new Animated.Value(1)).current;
 
-  const userTitle  = getUserTitle(userData);
+  const [activeSquads, setActiveSquads] = useState([]);
+  const [activeDuels,  setActiveDuels]  = useState([]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const { getUserSquads, getUserDuels } = require('../services/socialService');
+    Promise.all([getUserSquads(user.id), getUserDuels(user.id)])
+      .then(([squads, duels]) => {
+        setActiveSquads((squads ?? []).filter(s => !s.is_duo));
+        // Duelos reais + duplas (is_duo squads) aparecem juntos na seção de rivais
+        const duoSquads = (squads ?? []).filter(s => s.is_duo).map(s => ({
+          id: s.id,
+          name: s.name,
+          isDuo: true,
+          myScore:    s.squad_members?.find(m => m.user_id === user.id)?.weekly_score ?? 0,
+          theirScore: s.squad_members?.find(m => m.user_id !== user.id)?.weekly_score ?? 0,
+          opponent:   { name: s.squad_members?.find(m => m.user_id !== user.id)?.users?.name ?? 'Parceiro' },
+          gradient:   ['#4C1D95','#2E1065'],
+          color:      '#C084FC',
+        }));
+        setActiveDuels([...duoSquads, ...(duels ?? [])]);
+      }).catch(() => {});
+  }, [user?.id]);
+
+  const userTitle  = getUserTitle(user);
   const todayQuote = quotes[new Date().getDay() % quotes.length];
   const completedChallenges = challenges.filter((c) => c.completed).length;
-  const xpPercent = (userData.xp / userData.nextLevelXp) * 100;
+  const xpPercent = (user.xp / user.nextLevelXp) * 100;
+
+  // ── Bônus +200 XP quando todas as missões do dia são concluídas ──
+  useEffect(() => {
+    if (!grantsReady || challenges.length === 0) return;
+    if (completedChallenges === challenges.length && !bonusGivenRef.current) {
+      bonusGivenRef.current = true;
+      const AS = require('@react-native-async-storage/async-storage').default;
+      AS.setItem(`@capifit_bonus_${todayISO}`, 'true').catch(() => {});
+      addXP?.(200);
+    }
+  }, [completedChallenges, challenges.length, grantsReady]);
+
+  // ── +XP ao derrotar o chefe da semana (apenas uma vez por semana) ──
+  useEffect(() => {
+    if (!grantsReady) return;
+    const bossTotal   = bossData.total;
+    const bossCurrent = user.boss_kills_this_week ?? 0;
+    if (bossCurrent >= bossTotal && !bossXpGivenRef.current) {
+      bossXpGivenRef.current = true;
+      const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+      const AS = require('@react-native-async-storage/async-storage').default;
+      AS.setItem(`@capifit_boss_xp_${weekNum}`, 'true').catch(() => {});
+      addXP?.(bossData.reward ?? 500);
+      setCelebEvent({ emoji: '👹', title: 'CHEFE DERROTADO!', desc: `+${bossData.reward ?? 500} XP conquistados!`, color: '#F59E0B', gradient: ['#78350F', '#3B1500'] });
+      setCelebVisible(true);
+    }
+  }, [user.boss_kills_this_week, grantsReady]);
 
   // ── GOAL CONFIG ──
-  const totalDiff = Math.abs(userData.startWeight - userData.targetWeight);
-  const weightChanged = Math.abs(userData.startWeight - userData.currentWeight);
-  const weightRemaining = Math.abs(userData.currentWeight - userData.targetWeight);
+  const totalDiff = Math.abs(user.startWeight - user.targetWeight);
+  const weightChanged = Math.abs(user.startWeight - user.currentWeight);
+  const weightRemaining = Math.abs(user.currentWeight - user.targetWeight);
   const goalPct = Math.min((weightChanged / totalDiff) * 100, 100);
   const currentPos = `${goalPct}%`;
 
   let goalCfg;
-  if (userData.goalType === 'emagrecer') {
+  if (user.goalType === 'emagrecer') {
     goalCfg = { label: 'Emagrecer', emoji: '🔻', color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'perdidos', msg: `Incrível! Você já perdeu ${weightChanged}kg — faltam só ${weightRemaining}kg para a meta! 🎯` };
-  } else if (userData.goalType === 'engordar') {
-    goalCfg = { label: 'Ganhar Massa', emoji: '📈', color: '#F97316', gradient: ['#431407', '#0A0A18'], barColors: ['#F97316', '#FB923C'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
+  } else if (user.goalType === 'engordar') {
+    goalCfg = { label: 'Ganhar Massa', emoji: '📈', color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
   } else {
     goalCfg = { label: 'Manter Peso', emoji: '⚖️', color: '#3B82F6', gradient: ['#172554', '#0A0A18'], barColors: ['#3B82F6', '#60A5FA'], changedLabel: 'variação', msg: `Peso sob controle! Continue com a consistência! ✅` };
   }
 
+  // Animações de entrada (só na montagem)
   useEffect(() => {
     Animated.parallel([
       Animated.timing(headerAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
       Animated.timing(contentAnim, { toValue: 0, duration: 600, delay: 150, useNativeDriver: true }),
-      Animated.timing(xpAnim, { toValue: xpPercent, duration: 1200, delay: 400, useNativeDriver: false }),
     ]).start();
 
     const pulse = Animated.loop(
@@ -408,32 +614,89 @@ export default function HomeScreen({ navigation }) {
     return () => pulse.stop();
   }, []);
 
-  const completeChallenge = useCallback((id) => {
-    setChallenges((prev) =>
-      prev.map((c) => {
-        if (c.id === id && !c.completed) {
-          setTodayXP((xp) => xp + c.xp);
-          return { ...c, completed: true };
-        }
-        return c;
-      })
-    );
-  }, []);
+  // Barra de XP — re-anima sempre que o XP mudar
+  useEffect(() => {
+    Animated.timing(xpAnim, {
+      toValue: xpPercent,
+      duration: 800,
+      useNativeDriver: false,
+    }).start();
+  }, [xpPercent]);
 
-  const handleCheckin = useCallback(() => {
-    if (checkinDone) return;
-    Animated.sequence([
-      Animated.timing(checkinScale, { toValue: 0.92, duration: 100, useNativeDriver: true }),
-      Animated.spring(checkinScale, { toValue: 1, friction: 4, useNativeDriver: true }),
-    ]).start();
-    setCheckinDone(true);
-    setTodayXP((xp) => xp + 30);
-    const ev = Math.random() < 0.38
-      ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
-      : null;
-    setCelebEvent(ev);
-    setCelebVisible(true);
-  }, [checkinDone]);
+  const completeChallenge = useCallback((id) => {
+    ctxCompleteChallenge(id);
+  }, [ctxCompleteChallenge]);
+
+  const handleCheckin = useCallback(async () => {
+    if (checkinDone || verifyModalVisible) return;
+
+    // 1. Solicita permissão de câmera
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Câmera necessária', 'Precisamos da câmera para verificar que você está na academia.');
+      return;
+    }
+
+    // 2. Abre câmera
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.5,        // comprime para reduzir tamanho
+      base64: true,        // necessário para enviar ao Claude
+      allowsEditing: false,
+    });
+
+    if (result.canceled || !result.assets?.[0]?.base64) return;
+
+    // 3. Mostra estado de verificação
+    setVerifyStatus('verifying');
+    setVerifyModalVisible(true);
+
+    try {
+      const base64 = result.assets[0].base64;
+      const mimeType = result.assets[0].mimeType ?? 'image/jpeg';
+
+      const resp = await fetch(
+        'https://kqlgycnpsruxrjhkcgnt.supabase.co/functions/v1/verify-gym-photo',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbGd5Y25wc3J1eHJqaGtjZ250Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDQ1MDMsImV4cCI6MjA5MzgyMDUwM30.H_C4UElyYpZlXODYG7gunrwPOJZYThkVjsLPWvdepk8',
+          },
+          body: JSON.stringify({ imageBase64: base64, mimeType }),
+        }
+      );
+
+      const data = await resp.json();
+
+      if (data.isGym) {
+        setVerifyStatus('success');
+        setTimeout(async () => {
+          setVerifyModalVisible(false);
+          // Anima o botão
+          Animated.sequence([
+            Animated.timing(checkinScale, { toValue: 0.92, duration: 100, useNativeDriver: true }),
+            Animated.spring(checkinScale, { toValue: 1, friction: 4, useNativeDriver: true }),
+          ]).start();
+
+          const success = await doCheckin();
+          if (success) {
+            const ev = Math.random() < 0.38
+              ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
+              : null;
+            setCelebEvent(ev);
+            setCelebVisible(true);
+          }
+        }, 1500);
+      } else {
+        setVerifyStatus('error');
+        setVerifyMessage(data.message || 'A foto não parece ser de uma academia.');
+      }
+    } catch (e) {
+      setVerifyStatus('error');
+      setVerifyMessage('Erro ao comunicar com o servidor. Tente novamente.');
+    }
+  }, [checkinDone, verifyModalVisible, doCheckin, checkinScale]);
 
   return (
     <View style={s.container}>
@@ -444,14 +707,18 @@ export default function HomeScreen({ navigation }) {
           <LinearGradient colors={['#1A1A3E', '#0A0A18']} style={[s.header, { paddingTop: insets.top + 12 }]}>
             <View style={s.headerRow}>
               <View style={s.userRow}>
-                <LinearGradient colors={['#8B5CF6', '#EC4899']} style={s.avatar}>
-                  <Text style={s.avatarText}>{userData.name[0]}</Text>
-                </LinearGradient>
+                <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
+                  <LinearGradient colors={['#8B5CF6', '#EC4899']} style={s.avatar}>
+                    {avatarPhoto
+                      ? <Image source={{ uri: avatarPhoto }} style={s.avatarImg} />
+                      : <Text style={s.avatarText}>{user.name[0]}</Text>}
+                  </LinearGradient>
+                </TouchableOpacity>
                 <View>
-                  <Text style={s.greeting}>Olá, {userData.name}! 💪</Text>
+                  <Text style={s.greeting}>Olá, {user.name}! 💪</Text>
                   <View style={s.levelRow}>
                     <Ionicons name="star" size={11} color={COLORS.gold} />
-                    <Text style={s.levelText}> Nível {userData.level}  •  Liga {userData.league} {userData.leagueEmoji}</Text>
+                    <Text style={s.levelText}> Nível {user.level}  •  Liga {user.league} {user.leagueEmoji}</Text>
                   </View>
                   <View style={[s.titleRow, { borderColor: userTitle.color + '40' }]}>
                     <Text style={s.titleEmoji}>{userTitle.emoji}</Text>
@@ -459,16 +726,16 @@ export default function HomeScreen({ navigation }) {
                   </View>
                 </View>
               </View>
-              <View style={s.coinsBadge}>
-                <Text style={s.coinsText}>🪙 {userData.coins}</Text>
-              </View>
+              <TouchableOpacity onPress={() => setShopVisible(true)} activeOpacity={0.8} style={s.gemBadge}>
+                <Text style={s.gemBadgeText}>💎 {user.gems ?? 0}</Text>
+              </TouchableOpacity>
             </View>
 
             {/* XP BAR */}
             <View style={s.xpSection}>
               <View style={s.xpLabels}>
-                <Text style={s.xpCurrent}>⚡ {userData.xp.toLocaleString()} XP</Text>
-                <Text style={s.xpNext}>→ Nível {userData.level + 1}  ({userData.nextLevelXp.toLocaleString()} XP)</Text>
+                <Text style={s.xpCurrent}>⚡ {user.xp.toLocaleString()} XP</Text>
+                <Text style={s.xpNext}>→ Nível {user.level + 1}  ({user.nextLevelXp.toLocaleString()} XP)</Text>
               </View>
               <View style={s.xpBarBg}>
                 <Animated.View
@@ -485,34 +752,51 @@ export default function HomeScreen({ navigation }) {
 
           {/* ── STREAK HERO (destaque principal) ── */}
           <View style={s.section}>
-            <StreakHeroCard fireScale={fireScale} fireTranslateY={fireTranslateY} />
+            <StreakHeroCard
+              user={user}
+              fireScale={fireScale}
+              fireTranslateY={fireTranslateY}
+              onProtect={() => setShopVisible(true)}
+            />
           </View>
 
           {/* ── CHECK-IN ── */}
           <Animated.View style={[s.checkinWrap, { transform: [{ scale: checkinScale }] }]}>
-            <TouchableOpacity onPress={handleCheckin} activeOpacity={0.88} disabled={checkinDone}>
+            <TouchableOpacity
+              onPress={handleCheckin}
+              activeOpacity={0.88}
+              disabled={checkinDone || verifyModalVisible}
+            >
               <LinearGradient
-                colors={checkinDone ? ['#064E3B', '#022C22', '#0A0A18'] : ['#059669', '#047857', '#065F46']}
+                colors={
+                  checkinDone ? ['#064E3B', '#022C22', '#0A0A18'] :
+                  ['#059669', '#047857', '#065F46']
+                }
                 style={s.checkinBtn}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               >
-                <View style={[s.checkinIconWrap, { backgroundColor: checkinDone ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.18)' }]}>
-                  {checkinDone ? <Ionicons name="checkmark-circle" size={24} color="#10B981" style={{shadowColor: '#10B981', shadowOpacity: 0.6, shadowRadius: 8}} /> : <Ionicons name="location" size={24} color="#fff" />}
+                {/* Ícone */}
+                <View style={[s.checkinIconWrap, {
+                  backgroundColor: checkinDone ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.18)'
+                }]}>
+                  {checkinDone
+                    ? <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                    : <Ionicons name="camera" size={24} color="#fff" />
+                  }
                 </View>
+
+                {/* Texto */}
                 <View style={s.checkinContent}>
-                  <Text style={s.checkinTitle}>{checkinDone ? 'Presença registrada!' : 'Check-in na Academia'}</Text>
+                  <Text style={s.checkinTitle}>
+                    {checkinDone ? 'Presença registrada!' : 'Check-in na Academia'}
+                  </Text>
                   <Text style={s.checkinSub}>
-                    {checkinDone
-                      ? `🔥 Sequência de ${userData.streak} dias mantida! +30 XP`
-                      : 'Toque para registrar sua presença hoje'}
+                    {checkinDone ? `🔥 Sequência de ${user.streak} dias! +30 XP` : 'Tire foto da academia para confirmar presença 📸'}
                   </Text>
                 </View>
-                {checkinDone ? (
-                  <View style={s.checkinXPBadge}>
-                    <Text style={s.checkinXPText}>+30</Text>
-                    <Text style={s.checkinXPLabel}>XP</Text>
-                  </View>
-                ) : (
+
+                {/* Badge XP */}
+                {!checkinDone && (
                   <View style={s.checkinXPBadge}>
                     <Text style={s.checkinXPText}>+30</Text>
                     <Text style={s.checkinXPLabel}>XP</Text>
@@ -524,22 +808,25 @@ export default function HomeScreen({ navigation }) {
 
           {/* ── ÁGUA ── */}
           <View style={s.section}>
-            <WaterTracker />
+            <WaterTracker
+              goalLiters={parseFloat(((user.currentWeight ?? 70) * 0.035).toFixed(1))}
+              onGoalReached={() => ctxCompleteChallenge(2)}
+            />
           </View>
 
           {/* ── STATS RÁPIDAS ── */}
           <View style={s.miniStatsRow}>
             <LinearGradient colors={['#D97706', '#92400E']} style={s.miniStat}>
               <Ionicons name="flash" size={20} color="#FCD34D" style={{shadowColor: '#FCD34D', shadowOpacity: 0.6, shadowRadius: 6}} />
-              <Text style={s.miniStatNum}>{todayXP}</Text>
+              <Text style={s.miniStatNum}>{user.todayXP}</Text>
               <Text style={s.miniStatLabel}>XP hoje</Text>
-              <Text style={s.miniStatSub}>{todayXP} / {userData.dailyGoal} meta</Text>
+              <Text style={s.miniStatSub}>{user.todayXP} / {user.dailyGoal} meta</Text>
             </LinearGradient>
             <LinearGradient colors={['#047857', '#064E3B']} style={s.miniStat}>
               <Ionicons name="barbell" size={20} color="#34D399" style={{shadowColor: '#34D399', shadowOpacity: 0.6, shadowRadius: 6}} />
-              <Text style={s.miniStatNum}>{userData.weekWorkouts}</Text>
+              <Text style={s.miniStatNum}>{user.weekWorkouts}</Text>
               <Text style={s.miniStatLabel}>treinos/semana</Text>
-              <Text style={s.miniStatSub}>meta: 5 por semana</Text>
+              <Text style={s.miniStatSub}>meta: {user.weeklyFrequency ?? 3} por semana</Text>
             </LinearGradient>
           </View>
 
@@ -598,30 +885,37 @@ export default function HomeScreen({ navigation }) {
                   <Text style={s.bossRewardLabel}>XP</Text>
                 </LinearGradient>
               </View>
-              <View style={s.bossProgress}>
-                <View style={s.bossProgressLabels}>
-                  <Text style={s.bossProgressText}>{bossData.current}/{bossData.total} treinos</Text>
-                  <Text style={s.bossProgressPct}>{Math.round((bossData.current / bossData.total) * 100)}%</Text>
-                </View>
-                <View style={s.bossBarBg}>
-                  <LinearGradient
-                    colors={['#8B5CF6', '#EC4899']}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={[s.bossBarFill, { width: `${(bossData.current / bossData.total) * 100}%` }]}
-                  />
-                </View>
-                <View style={s.bossSteps}>
-                  {Array.from({ length: bossData.total }).map((_, i) => (
-                    <View key={i} style={[s.bossStep, i < bossData.current && s.bossStepDone]}>
-                      {i < bossData.current ? (
-                        <Ionicons name="checkmark" size={10} color="#fff" />
-                      ) : (
-                        <Text style={s.bossStepNum}>{i + 1}</Text>
-                      )}
+              {(() => {
+                const bossTotal   = bossData.total;
+                const bossCurrent = Math.min(user.boss_kills_this_week ?? 0, bossTotal);
+                const bossPct     = Math.round((bossCurrent / bossTotal) * 100);
+                return (
+                  <View style={s.bossProgress}>
+                    <View style={s.bossProgressLabels}>
+                      <Text style={s.bossProgressText}>{bossCurrent}/{bossTotal} treinos</Text>
+                      <Text style={s.bossProgressPct}>{bossPct}%</Text>
                     </View>
-                  ))}
-                </View>
-              </View>
+                    <View style={s.bossBarBg}>
+                      <LinearGradient
+                        colors={['#8B5CF6', '#EC4899']}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        style={[s.bossBarFill, { width: `${bossPct}%` }]}
+                      />
+                    </View>
+                    <View style={s.bossSteps}>
+                      {Array.from({ length: bossTotal }).map((_, i) => (
+                        <View key={i} style={[s.bossStep, i < bossCurrent && s.bossStepDone]}>
+                          {i < bossCurrent ? (
+                            <Ionicons name="checkmark" size={10} color="#fff" />
+                          ) : (
+                            <Text style={s.bossStepNum}>{i + 1}</Text>
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })()}
             </LinearGradient>
           </View>
 
@@ -686,15 +980,17 @@ export default function HomeScreen({ navigation }) {
                 {/* Labels abaixo do trilho */}
                 <View style={s.goalTrackLabels}>
                   <View style={s.goalTrackLabelItem}>
-                    <Text style={s.goalTrackWeight}>{userData.startWeight}kg</Text>
+                    <Text style={s.goalTrackWeight}>{user.startWeight}kg</Text>
                     <Text style={s.goalTrackSub}>Início</Text>
                   </View>
-                  <View style={[s.goalTrackLabelItem, { position: 'absolute', left: currentPos, transform: [{ translateX: -28 }] }]}>
-                    <Text style={[s.goalTrackWeight, { color: goalCfg.color }]}>{userData.currentWeight}kg</Text>
-                    <Text style={[s.goalTrackSub, { color: goalCfg.color }]}>Você</Text>
-                  </View>
+                  {goalPct > 8 && goalPct < 92 && (
+                    <View style={[s.goalTrackLabelItem, { position: 'absolute', left: currentPos, transform: [{ translateX: -28 }] }]}>
+                      <Text style={[s.goalTrackWeight, { color: goalCfg.color }]}>{user.currentWeight}kg</Text>
+                      <Text style={[s.goalTrackSub, { color: goalCfg.color }]}>Você</Text>
+                    </View>
+                  )}
                   <View style={s.goalTrackLabelItem}>
-                    <Text style={[s.goalTrackWeight, { color: goalCfg.color }]}>{userData.targetWeight}kg</Text>
+                    <Text style={[s.goalTrackWeight, { color: goalCfg.color }]}>{user.targetWeight}kg</Text>
                     <Text style={[s.goalTrackSub, { color: goalCfg.color }]}>Meta</Text>
                   </View>
                 </View>
@@ -723,11 +1019,12 @@ export default function HomeScreen({ navigation }) {
                 <Text style={[s.goalMsg, { color: goalCfg.color }]}>{goalCfg.msg}</Text>
               </View>
 
+
             </LinearGradient>
           </View>
 
           {/* ── COMPETIÇÕES ── */}
-          {(groupsData.length > 0 || rivalsData.length > 0) && (
+          {(activeSquads.length > 0 || activeDuels.length > 0) ? (
             <View style={s.compSection}>
               <View style={s.compHeader}>
                 <Text style={s.compTitle}>⚡ Competições</Text>
@@ -736,58 +1033,49 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.compScroll}>
-                {groupsData.map((g) => {
-                  const allIn   = g.members.every((m) => m.checkedInToday);
-                  const present = g.members.filter((m) => m.checkedInToday).length;
+                {activeSquads.map(g => {
+                  const members = g.squad_members ?? [];
+                  const present = members.filter(m => m.checked_in_today).length;
+                  const allIn   = members.length > 0 && present === members.length;
                   const sc      = allIn ? '#10B981' : '#F59E0B';
                   return (
-                    <LinearGradient
-                      key={g.id}
-                      colors={['#7C3AED', '#4C1D95']}
-                      style={[s.compChip, { borderColor: '#8B5CF680' }]}
-                    >
+                    <LinearGradient key={g.id} colors={['#7C3AED','#4C1D95']}
+                      style={[s.compChip, { borderColor: '#8B5CF680' }]}>
                       <View style={s.compChipRow}>
                         <Ionicons name="shield-half" size={20} color="#A78BFA" />
                         <View style={[s.compChipDot, { backgroundColor: sc, shadowColor: sc }]} />
                       </View>
                       <Text style={[s.compChipBig, { color: '#A78BFA' }]}>
-                        {g.groupStreak}<Text style={s.compChipUnit}>d</Text>
+                        {g.group_streak ?? 0}<Text style={s.compChipUnit}>d</Text>
                       </Text>
                       <Text style={s.compChipName} numberOfLines={1}>{g.name}</Text>
-                      <LinearGradient
-                        colors={[sc + '35', sc + '12']}
-                        style={[s.compChipBadge, { borderColor: sc + '55' }]}
-                      >
+                      <LinearGradient colors={[sc+'35', sc+'12']}
+                        style={[s.compChipBadge, { borderColor: sc+'55' }]}>
                         <Text style={[s.compChipBadgeText, { color: sc }]}>
-                          {allIn ? '✅ Todos' : `⚡ ${present}/${g.members.length}`}
+                          {allIn ? '✅ Todos' : `⚡ ${present}/${members.length}`}
                         </Text>
                       </LinearGradient>
                     </LinearGradient>
                   );
                 })}
-                {rivalsData.map((r) => {
-                  const winning = r.userScore >= r.rivalScore;
-                  const pc      = winning ? '#10B981' : '#EF4444';
+                {activeDuels.map(d => {
+                  const winning = (d.myScore ?? 0) >= (d.theirScore ?? 0);
+                  const pc = winning ? '#10B981' : '#EF4444';
                   return (
-                    <LinearGradient
-                      key={r.id}
-                      colors={r.gradient}
-                      style={[s.compChip, { borderColor: r.color + '80' }]}
-                    >
+                    <LinearGradient key={d.id} colors={['#6D28D9','#4C1D95']}
+                      style={[s.compChip, { borderColor: '#A78BFA80' }]}>
                       <View style={s.compChipRow}>
                         <Ionicons name="flash-outline" size={20} color="#F87171" />
                         <Text style={{ fontSize: 13 }}>{winning ? '👑' : '🔴'}</Text>
                       </View>
                       <View style={s.compVsRow}>
-                        <Text style={[s.compChipBig, { color: winning ? '#10B981' : COLORS.white }]}>{r.userScore}</Text>
+                        <Text style={[s.compChipBig, { color: winning ? '#10B981' : COLORS.white }]}>{d.myScore ?? 0}</Text>
                         <Text style={s.compVsDivider}>–</Text>
-                        <Text style={[s.compChipBig, { color: !winning ? '#EF4444' : COLORS.white }]}>{r.rivalScore}</Text>
+                        <Text style={[s.compChipBig, { color: !winning ? '#EF4444' : COLORS.white }]}>{d.theirScore ?? 0}</Text>
                       </View>
-                      <Text style={s.compChipName} numberOfLines={1}>vs {r.rival.name.split(' ')[0]}</Text>
-                      <LinearGradient
-                        colors={[pc + '35', pc + '12']}
-                        style={[s.compChipBadge, { borderColor: pc + '55' }]}
-                      >
+                      <Text style={s.compChipName} numberOfLines={1}>vs {d.opponent?.name?.split(' ')[0] ?? 'Rival'}</Text>
+                      <LinearGradient colors={[pc+'35', pc+'12']}
+                        style={[s.compChipBadge, { borderColor: pc+'55' }]}>
                         <Text style={[s.compChipBadgeText, { color: pc }]}>
                           {winning ? '💪 Na frente' : '😤 Atrás'}
                         </Text>
@@ -796,6 +1084,23 @@ export default function HomeScreen({ navigation }) {
                   );
                 })}
               </ScrollView>
+            </View>
+          ) : (
+            <View style={s.compSection}>
+              <View style={s.compHeader}>
+                <Text style={s.compTitle}>⚡ Competições</Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Leaderboard')}>
+                  <Text style={s.compLink}>Ver tudo →</Text>
+                </TouchableOpacity>
+              </View>
+              <LinearGradient colors={['#1A1A2E', '#12122A']} style={s.compEmptyCard}>
+                <Text style={s.compEmptyEmoji}>🤝</Text>
+                <Text style={s.compEmptyTitle}>Nenhuma competição ainda</Text>
+                <Text style={s.compEmptySub}>Crie um Squad ou desafie alguém para um duelo.</Text>
+                <TouchableOpacity style={s.compEmptyBtn} onPress={() => navigation.navigate('CreateClan', {})} activeOpacity={0.8}>
+                  <Text style={s.compEmptyBtnText}>Criar Squad / Duelo →</Text>
+                </TouchableOpacity>
+              </LinearGradient>
             </View>
           )}
 
@@ -815,6 +1120,56 @@ export default function HomeScreen({ navigation }) {
         event={celebEvent}
         onDismiss={() => setCelebVisible(false)}
       />
+
+      <ShopModal visible={shopVisible} onClose={() => setShopVisible(false)} />
+
+      <VerificationModal
+        visible={verifyModalVisible}
+        status={verifyStatus}
+        message={verifyMessage}
+        onDismiss={() => setVerifyModalVisible(false)}
+      />
+
+      {/* Modal atualizar peso atual */}
+      <Modal visible={weightModal} transparent animationType="fade" onRequestClose={() => setWeightModal(false)}>
+        <TouchableOpacity style={{ flex:1, backgroundColor:'rgba(0,0,0,0.7)', justifyContent:'center', alignItems:'center' }}
+          activeOpacity={1} onPress={() => setWeightModal(false)}>
+          <TouchableOpacity activeOpacity={1} style={{ width:'80%', backgroundColor:'#1A1A2E', borderRadius:20, padding:24, borderWidth:1, borderColor:COLORS.border }}>
+            <Text style={{ color:COLORS.white, fontSize:18, fontWeight:'800', marginBottom:6 }}>⚖️ Meu peso atual</Text>
+            <Text style={{ color:COLORS.gray, fontSize:13, marginBottom:16 }}>
+              Atualize conforme for se pesando. A meta mostrará o quanto ainda falta.
+            </Text>
+            <View style={{ flexDirection:'row', alignItems:'center', backgroundColor:COLORS.bg, borderRadius:12, paddingHorizontal:16, marginBottom:20, borderWidth:1, borderColor:COLORS.border }}>
+              <TextInput
+                style={{ flex:1, color:COLORS.white, fontSize:28, fontWeight:'900', paddingVertical:14, letterSpacing:-1 }}
+                value={newWeightInput}
+                onChangeText={setNewWeightInput}
+                keyboardType="decimal-pad"
+                placeholder={String(user.currentWeight ?? 70)}
+                placeholderTextColor={COLORS.grayDark}
+                selectionColor={COLORS.purple}
+                autoFocus
+              />
+              <Text style={{ color:COLORS.gray, fontSize:18, fontWeight:'700' }}>kg</Text>
+            </View>
+            {newWeightInput ? (
+              <Text style={{ color:COLORS.gray, fontSize:13, textAlign:'center', marginBottom:16 }}>
+                Meta: {user.targetWeight}kg  ·  Faltam {Math.abs(parseFloat(newWeightInput || 0) - (user.targetWeight ?? 0)).toFixed(1)}kg
+              </Text>
+            ) : null}
+            <TouchableOpacity
+              style={{ backgroundColor:COLORS.purple, borderRadius:12, paddingVertical:14, alignItems:'center' }}
+              onPress={async () => {
+                const kg = parseFloat(newWeightInput);
+                if (!isNaN(kg) && kg > 0) { await updateCurrentWeight(kg); }
+                setWeightModal(false);
+              }}
+              activeOpacity={0.85}>
+              <Text style={{ color:COLORS.white, fontSize:16, fontWeight:'800' }}>Salvar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -827,13 +1182,16 @@ const s = StyleSheet.create({
   header: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.lg },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
   userRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  avatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   avatarText: { fontSize: 20, fontWeight: '800', color: '#fff' },
+  avatarImg: { width: 48, height: 48, borderRadius: 24 },
   greeting: { fontSize: 17, fontWeight: '700', color: COLORS.white },
   levelRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   levelText: { fontSize: 12, color: COLORS.gray },
-  coinsBadge: { backgroundColor: 'rgba(245,158,11,0.15)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
-  coinsText: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
+  gemBadge: { backgroundColor: 'rgba(96,165,250,0.15)', borderWidth: 1, borderColor: 'rgba(96,165,250,0.3)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
+  gemBadgeText: { color: '#60A5FA', fontSize: 13, fontWeight: '700' },
+  freezeIconBtn: { marginTop: 6, alignSelf: 'center', padding: 4 },
+  freezeIconActive: { fontSize: 11, color: '#60A5FA', fontWeight: '700' },
   xpSection: { gap: 6 },
   xpLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   xpCurrent: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
@@ -897,19 +1255,30 @@ const s = StyleSheet.create({
   commitStrip: {
     flexDirection: 'column',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: RADIUS.md,
-    padding: 12,
+    borderRadius: RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    gap: 10,
+    marginTop: 4,
   },
   commitStripRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  commitStripTitle: { color: COLORS.gray, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  commitStripStatus: { fontSize: 13, fontWeight: '700', marginTop: 3 },
-  commitBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
-  commitBadgeScore: { fontSize: 20, fontWeight: '900' },
-  commitBadgeOf: { color: COLORS.grayDark, fontSize: 12, fontWeight: '600' },
-  commitBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'hidden' },
-  commitBarFill: { height: '100%', borderRadius: RADIUS.full },
+  commitStripTitle: { color: COLORS.gray, fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
+  commitStripStatus: { fontSize: 15, fontWeight: '800', marginTop: 4 },
+  commitStripSub: { color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4, fontWeight: '500' },
+  commitRingWrap: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 6, borderRadius: 99 },
+  commitRingValue: { position: 'absolute', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
+  commitRingNum: { color: COLORS.white, fontSize: 14, fontWeight: '900' },
+  commitRingPct: { color: COLORS.gray, fontSize: 10, fontWeight: '700', marginLeft: 1, marginTop: 2 },
+  
+  // ── VERIFICATION MODAL ──
+  verifyModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  verifyContent: { alignItems: 'center', paddingHorizontal: 20, width: '100%' },
+  verifyRadarWrap: { width: 140, height: 140, alignItems: 'center', justifyContent: 'center', marginBottom: 30 },
+  verifyRadarRing: { position: 'absolute', width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#3B82F6' },
+  verifyRadarCenter: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center', shadowColor: '#3B82F6', shadowOpacity: 0.6, shadowRadius: 16, elevation: 8 },
+  verifyTitle: { color: COLORS.white, fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+  verifySub: { color: COLORS.gray, fontSize: 14, marginTop: 8 },
+  verifyRetryBtn: { marginTop: 32, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: '#EF4444', paddingHorizontal: 32, paddingVertical: 14, borderRadius: RADIUS.full },
+  verifyRetryText: { color: '#FCA5A5', fontSize: 15, fontWeight: '700' },
 
   // ── WATER ──
   waterCard: {
@@ -937,7 +1306,11 @@ const s = StyleSheet.create({
   glassEmptyLine: { width: '70%', height: 2, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 1 },
   glassNumText: { color: COLORS.grayDark, fontSize: 9, fontWeight: '700', marginTop: 2 },
   glassNumFull: { color: '#38BDF8' },
-  waterBarBg: { height: 7, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'visible', position: 'relative' },
+  waterBarBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'hidden', marginBottom: 14 },
+  waterBtnsRow: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  waterAddBtn: { flex: 1, backgroundColor: 'rgba(14,165,233,0.18)', borderRadius: RADIUS.md, paddingVertical: 9, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(14,165,233,0.35)' },
+  waterAddBtnText: { color: '#38BDF8', fontSize: 12, fontWeight: '700' },
+  waterSubBtn: { width: 36, height: 36, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   waterBarFill: { height: '100%', borderRadius: RADIUS.full },
   waterBarDot: { position: 'absolute', top: -3, width: 13, height: 13, borderRadius: 7, backgroundColor: '#38BDF8', borderWidth: 2, borderColor: '#0A0A18', marginLeft: -6 },
   waterFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -963,6 +1336,8 @@ const s = StyleSheet.create({
   checkinXPBadge: { backgroundColor: 'rgba(0,0,0,0.22)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
   checkinXPText: { color: '#FCD34D', fontSize: 16, fontWeight: '900' },
   checkinXPLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '700' },
+  retryCheckinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 8 },
+  retryCheckinText: { color: COLORS.gray, fontSize: 13, fontWeight: '600' },
 
   // ── CHALLENGES ──
   progressChip: { backgroundColor: COLORS.purple, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3 },
@@ -1041,10 +1416,19 @@ const s = StyleSheet.create({
   goalStatDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
   // message
   goalMsgRow: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: RADIUS.md, padding: 10, borderWidth: 1 },
+  updateWeightBtn: { flexDirection:'row', alignItems:'center', gap:8, marginTop:10, paddingVertical:10, paddingHorizontal:14, borderRadius:RADIUS.lg, backgroundColor:'rgba(255,255,255,0.04)', borderWidth:1 },
+  updateWeightText: { flex:1, fontSize:13, fontWeight:'600' },
+  updateWeightCurrent: { color:COLORS.gray, fontSize:12 },
   goalMsg: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
 
   // ── COMPETIÇÕES COMPACT ──
   compSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.md },
+  compEmptyCard: { borderRadius: 20, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginTop: 8 },
+  compEmptyEmoji: { fontSize: 36, marginBottom: 10 },
+  compEmptyTitle: { fontSize: 16, fontWeight: '800', color: COLORS.white, marginBottom: 6 },
+  compEmptySub:   { fontSize: 13, color: COLORS.gray, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
+  compEmptyBtn:   { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: 99, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  compEmptyBtnText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
   compHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   compTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
   compLink: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '600' },

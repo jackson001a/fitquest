@@ -24,42 +24,86 @@ export const userData = {
   targetWeight: 75,
 };
 
-export const dailyChallenges = [
-  {
-    id: 1,
-    emoji: '🏋️',
-    title: 'Complete um treino',
-    description: 'Qualquer treino conta!',
-    xp: 50,
-    completed: false,
-  },
-  {
-    id: 2,
-    emoji: '💧',
-    title: 'Beba 2L de água',
-    description: 'Hidratação é essencial',
-    xp: 20,
-    completed: true,
-  },
-  {
-    id: 3,
-    emoji: '🚶',
-    title: '10 min de caminhada',
-    description: 'Pode ser qualquer hora',
-    xp: 30,
-    completed: false,
-  },
+// ─── Pool de missões diárias — rotaciona a cada dia às 00:00 ─────────────────
+const ALL_DAILY_CHALLENGES = [
+  { emoji: '🏋️', title: 'Complete um treino',         description: 'Qualquer treino conta!',          xp: 50 },
+  { emoji: '💧', title: 'Beba sua meta de água',       description: 'Hidratação é essencial',          xp: 25 },
+  { emoji: '🚶', title: '10 min de caminhada',         description: 'Pode ser qualquer hora',          xp: 30 },
+  { emoji: '🧘', title: '10 min de alongamento',       description: 'Recuperação é parte do treino!',  xp: 25 },
+  { emoji: '🏃', title: '20 min de cardio',            description: 'Coração forte, corpo forte!',     xp: 40 },
+  { emoji: '📍', title: 'Faça check-in na academia',   description: 'Prove que você foi!',             xp: 35 },
+  { emoji: '⚖️', title: 'Registre seu peso',           description: 'Acompanhe sua evolução',          xp: 15 },
+  { emoji: '🥩', title: 'Bata sua meta de proteína',   description: 'Alimente os músculos!',           xp: 25 },
+  { emoji: '😴', title: 'Durma 7+ horas',              description: 'Sono = recuperação = crescimento', xp: 20 },
+  { emoji: '💪', title: 'Faça 2 exercícios de força',  description: 'Supino, agachamento, qualquer!',  xp: 45 },
+  { emoji: '🤸', title: '15 min de mobilidade',        description: 'Se mova, seja flexível!',         xp: 25 },
+  { emoji: '🧴', title: 'Use protetor solar',          description: 'Cuidado com a saúde total',       xp: 10 },
+  { emoji: '🥗', title: 'Coma 5 porções de vegetais',  description: 'Nutrição é metade do resultado',  xp: 20 },
+  { emoji: '🧗', title: 'Suba 5 lances de escada',    description: 'Pequenas escolhas, grande diferença', xp: 15 },
+  { emoji: '🏊', title: '20 min de natação ou bike',   description: 'Cardio alternativo conta!',       xp: 40 },
 ];
 
-export const bossData = {
-  emoji: '🦁',
-  name: 'O Leão de Ferro',
-  description: 'Complete 5 treinos para derrotá-lo!',
-  current: 3,
-  total: 5,
-  reward: 500,
-  timeLeft: '3 dias',
-};
+export function getDailyChallenges() {
+  const now   = new Date();
+  const start = new Date(now.getFullYear(), 0, 0);
+  const day   = Math.floor((now - start) / 86400000); // dia do ano
+  const pool  = ALL_DAILY_CHALLENGES;
+  return [
+    { ...pool[day % pool.length],           id: 1, completed: false },
+    { ...pool[(day + 5) % pool.length],     id: 2, completed: false },
+    { ...pool[(day + 11) % pool.length],    id: 3, completed: false },
+  ];
+}
+
+export const dailyChallenges = getDailyChallenges();
+
+// ─── Pool de chefes semanais ──────────────────────────────────────────────────
+const ALL_BOSSES = [
+  { emoji: '🦁', name: 'O Leão de Ferro',      description: 'Complete 5 treinos esta semana!',       total: 5, reward: 500 },
+  { emoji: '🐻', name: 'O Urso das Montanhas',  description: 'Faça 4 treinos de força!',              total: 4, reward: 400 },
+  { emoji: '🦅', name: 'A Águia da Força',      description: 'Complete 5 treinos em dias diferentes!', total: 5, reward: 450 },
+  { emoji: '🐯', name: 'O Tigre Sombrio',       description: 'Complete 6 treinos esta semana!',       total: 6, reward: 600 },
+  { emoji: '🦈', name: 'O Tubarão Atlético',    description: 'Faça 5 treinos de cardio!',             total: 5, reward: 500 },
+  { emoji: '🦏', name: 'O Rinoceronte',         description: 'Complete 7 treinos esta semana!',       total: 7, reward: 700 },
+  { emoji: '🦊', name: 'A Raposa Veloz',        description: 'Faça 3 treinos em 3 dias seguidos!',   total: 3, reward: 350 },
+  { emoji: '🐍', name: 'A Serpente Ágil',       description: 'Complete 4 treinos de mobilidade!',    total: 4, reward: 380 },
+];
+
+export function getBossOfWeek() {
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  const boss    = ALL_BOSSES[weekNum % ALL_BOSSES.length];
+  const now     = new Date();
+  const dayOfWeek = now.getDay();
+  const daysLeft  = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  return {
+    ...boss,
+    current:  0, // sempre começa do contexto do usuário
+    timeLeft: `${daysLeft} dia${daysLeft > 1 ? 's' : ''}`,
+  };
+}
+
+export const bossData = getBossOfWeek();
+
+// ─── Pool de desafios semanais de treino ──────────────────────────────────────
+const ALL_WEEKLY_CHALLENGES = [
+  { id: 'wc1', name: 'Força Total',       emoji: '🏋️', gradient: ['#7C3AED','#4C1D95'], xp: 200, description: 'Complete um treino de força de mais de 45min', targetWorkoutCategory: 'Parte Superior', difficulty: 'DIFÍCIL' },
+  { id: 'wc2', name: 'Cardio Extremo',    emoji: '🔥', gradient: ['#EF4444','#991B1B'], xp: 180, description: 'Complete um treino de cardio ou full body', targetWorkoutCategory: 'Cardio',        difficulty: 'MÉDIO' },
+  { id: 'wc3', name: 'Pernas de Aço',    emoji: '🦵', gradient: ['#2563EB','#1E40AF'], xp: 220, description: 'Complete um treino de pernas ou glúteos', targetWorkoutCategory: 'Parte Inferior', difficulty: 'DIFÍCIL' },
+  { id: 'wc4', name: 'Core de Guerreiro',emoji: '⚔️', gradient: ['#059669','#047857'], xp: 160, description: 'Complete um treino de core ou funcional',  targetWorkoutCategory: 'Core',          difficulty: 'MÉDIO' },
+  { id: 'wc5', name: 'Full Body Épico',  emoji: '⚡', gradient: ['#F59E0B','#D97706'], xp: 250, description: 'Complete um treino full body completo',    targetWorkoutCategory: 'Full Body',     difficulty: 'DIFÍCIL' },
+  { id: 'wc6', name: 'PPL Power',        emoji: '💪', gradient: ['#8B5CF6','#7C3AED'], xp: 190, description: 'Complete qualquer treino do programa PPL',  targetWorkoutCategory: 'PPL',           difficulty: 'MÉDIO' },
+  { id: 'wc7', name: 'Hiit Explosivo',   emoji: '💥', gradient: ['#EC4899','#BE185D'], xp: 210, description: 'Complete um treino HIIT ou funcional',     targetWorkoutCategory: 'Funcional',     difficulty: 'DIFÍCIL' },
+  { id: 'wc8', name: 'Mobilidade Total', emoji: '🧘', gradient: ['#06B6D4','#0284C7'], xp: 140, description: 'Complete um treino de mobilidade ou recuperação', targetWorkoutCategory: 'Mobilidade', difficulty: 'FÁCIL' },
+];
+
+export function getWeeklyWorkoutChallenge() {
+  const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+  const challenge = ALL_WEEKLY_CHALLENGES[weekNum % ALL_WEEKLY_CHALLENGES.length];
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const daysLeft  = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
+  return { ...challenge, weekNum, daysLeft };
+}
 
 export const recommendedWorkouts = [
   {
@@ -225,9 +269,216 @@ export const allWorkouts = [
       { name: 'Desaquecimento', sets: 1, reps: '5 min leve', rest: '—' },
     ],
   },
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // TREINOS EXTRAS — PPL, Iniciante, Avançado, Funcional, Mobilidade
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // ── PPL: PUSH (Peito + Ombro + Tríceps) ──────────────────────────────────
+  {
+    id: 9, name: 'PPL — Empurrar A', emoji: '🚀', duration: 50, xp: 120,
+    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    gradient: ['#7C3AED','#5B21B6'],
+    category: 'PPL', muscles: ['Peito', 'Ombro', 'Tríceps'], calories: 310,
+    exercises: [
+      { name: 'Supino Reto',          sets: 4, reps: '12, 10, 8, 6',    rest: '90s' },
+      { name: 'Supino Inclinado',     sets: 3, reps: '12, 10, 8',       rest: '90s' },
+      { name: 'Desenvolvimento',      sets: 3, reps: '12, 10, 8',       rest: '90s' },
+      { name: 'Elevação Lateral',     sets: 4, reps: '15, 15, 12, 12',  rest: '60s' },
+      { name: 'Tríceps Pulley',       sets: 3, reps: '15, 12, 10',      rest: '60s' },
+      { name: 'Tríceps Testa',        sets: 3, reps: '12, 10, 8',       rest: '60s' },
+    ],
+  },
+  // ── PPL: PULL (Costas + Bíceps) ───────────────────────────────────────────
+  {
+    id: 10, name: 'PPL — Puxar A', emoji: '🦅', duration: 50, xp: 120,
+    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    gradient: ['#1D4ED8','#1E40AF'],
+    category: 'PPL', muscles: ['Costas', 'Bíceps', 'Trapézio'], calories: 290,
+    exercises: [
+      { name: 'Puxada Frontal',       sets: 4, reps: '12, 10, 8, 8',   rest: '90s' },
+      { name: 'Remada Curvada',       sets: 4, reps: '12, 10, 8, 8',   rest: '90s' },
+      { name: 'Remada Unilateral',    sets: 3, reps: '12, 10, 10',      rest: '60s' },
+      { name: 'Face Pull',            sets: 3, reps: '15, 15, 15',      rest: '60s' },
+      { name: 'Rosca Direta',         sets: 3, reps: '12, 10, 8',       rest: '60s' },
+      { name: 'Rosca Martelo',        sets: 3, reps: '12, 10, 10',      rest: '60s' },
+    ],
+  },
+  // ── PPL: LEGS A ───────────────────────────────────────────────────────────
+  {
+    id: 11, name: 'PPL — Pernas A', emoji: '🦵', duration: 60, xp: 150,
+    difficulty: 'DIFÍCIL', difficultyColor: '#EF4444',
+    gradient: ['#059669','#065F46'],
+    category: 'PPL', muscles: ['Quadríceps', 'Posterior', 'Glúteos'], calories: 450,
+    exercises: [
+      { name: 'Agachamento',          sets: 5, reps: '10, 8, 6, 5, 5',  rest: '120s' },
+      { name: 'Leg Press',            sets: 4, reps: '15, 12, 10, 8',   rest: '90s'  },
+      { name: 'Stiff',                sets: 3, reps: '12, 10, 8',        rest: '90s'  },
+      { name: 'Cadeira Extensora',    sets: 3, reps: '15, 12, 12',       rest: '60s'  },
+      { name: 'Mesa Flexora',         sets: 3, reps: '15, 12, 12',       rest: '60s'  },
+      { name: 'Panturrilha',          sets: 4, reps: '20, 20, 15, 15',   rest: '45s'  },
+    ],
+  },
+
+  // ── INICIANTE ─────────────────────────────────────────────────────────────
+  {
+    id: 12, name: 'Iniciante: Upper Body', emoji: '⭐', duration: 35, xp: 65,
+    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    gradient: ['#047857','#065F46'],
+    category: 'Iniciante', muscles: ['Peito', 'Costas', 'Ombro'], calories: 170,
+    exercises: [
+      { name: 'Flexão',               sets: 3, reps: '10 reps',          rest: '60s' },
+      { name: 'Remada Sentado',       sets: 3, reps: '12 reps',          rest: '60s' },
+      { name: 'Elevação Lateral',     sets: 3, reps: '12 reps',          rest: '60s' },
+      { name: 'Rosca Martelo',        sets: 3, reps: '12 reps',          rest: '60s' },
+      { name: 'Tríceps Coice',        sets: 3, reps: '12 reps',          rest: '60s' },
+    ],
+  },
+  {
+    id: 13, name: 'Iniciante: Lower Body', emoji: '🌱', duration: 35, xp: 65,
+    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    gradient: ['#065F46','#064E3B'],
+    category: 'Iniciante', muscles: ['Pernas', 'Glúteos', 'Core'], calories: 180,
+    exercises: [
+      { name: 'Agachamento',          sets: 3, reps: '15 reps',          rest: '60s' },
+      { name: 'Afundo com Halteres',  sets: 3, reps: '10 cada',          rest: '60s' },
+      { name: 'Hip Thrust',           sets: 3, reps: '15 reps',          rest: '60s' },
+      { name: 'Panturrilha',          sets: 3, reps: '20 reps',          rest: '45s' },
+      { name: 'Prancha',              sets: 3, reps: '30s',              rest: '45s' },
+    ],
+  },
+  {
+    id: 14, name: 'Iniciante: Full Body', emoji: '🌟', duration: 40, xp: 70,
+    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    gradient: ['#0D9488','#0F766E'],
+    category: 'Iniciante', muscles: ['Full Body'], calories: 200,
+    exercises: [
+      { name: 'Agachamento',          sets: 3, reps: '15 reps',          rest: '60s' },
+      { name: 'Flexão',               sets: 3, reps: '10 reps',          rest: '60s' },
+      { name: 'Remada Sentado',       sets: 3, reps: '12 reps',          rest: '60s' },
+      { name: 'Hip Thrust',           sets: 3, reps: '15 reps',          rest: '60s' },
+      { name: 'Prancha',              sets: 3, reps: '30s',              rest: '45s' },
+      { name: 'Polichinelo',          sets: 3, reps: '30s',              rest: '30s' },
+    ],
+  },
+
+  // ── AVANÇADO ──────────────────────────────────────────────────────────────
+  {
+    id: 15, name: 'Volume Máximo — Peito', emoji: '🏆', duration: 65, xp: 160,
+    difficulty: 'DIFÍCIL', difficultyColor: '#EF4444',
+    gradient: ['#9D174D','#831843'],
+    category: 'Avançado', muscles: ['Peito', 'Tríceps'], calories: 380,
+    exercises: [
+      { name: 'Supino Reto',          sets: 5, reps: '10, 8, 6, 4, 4',  rest: '120s' },
+      { name: 'Supino Inclinado',     sets: 4, reps: '10, 8, 6, 6',     rest: '90s'  },
+      { name: 'Supino Declinado',     sets: 3, reps: '10, 8, 8',        rest: '90s'  },
+      { name: 'Fly com Halteres',     sets: 3, reps: '12, 12, 10',      rest: '60s'  },
+      { name: 'Crossover',            sets: 3, reps: '15, 12, 12',      rest: '60s'  },
+      { name: 'Tríceps Testa',        sets: 4, reps: '10, 8, 8, 6',     rest: '60s'  },
+    ],
+  },
+  {
+    id: 16, name: 'Força Pura — Power', emoji: '⚡', duration: 70, xp: 180,
+    difficulty: 'DIFÍCIL', difficultyColor: '#EF4444',
+    gradient: ['#7F1D1D','#991B1B'],
+    category: 'Avançado', muscles: ['Full Body', 'Força'], calories: 500,
+    exercises: [
+      { name: 'Deadlift',             sets: 5, reps: '5, 4, 3, 2, 1',  rest: '180s' },
+      { name: 'Agachamento',          sets: 5, reps: '5, 4, 3, 2, 1',  rest: '180s' },
+      { name: 'Supino Reto',          sets: 5, reps: '5, 4, 3, 2, 1',  rest: '180s' },
+      { name: 'Remada Curvada',       sets: 4, reps: '6, 5, 4, 4',     rest: '120s' },
+      { name: 'Desenvolvimento',      sets: 4, reps: '6, 5, 4, 4',     rest: '120s' },
+    ],
+  },
+  {
+    id: 17, name: 'Glúteos & Posterior', emoji: '🍑', duration: 55, xp: 140,
+    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    gradient: ['#9D174D','#7C3AED'],
+    category: 'Parte Inferior', muscles: ['Glúteos', 'Isquiotibiais', 'Abdutores'], calories: 360,
+    exercises: [
+      { name: 'Hip Thrust',           sets: 4, reps: '12, 10, 10, 8',   rest: '90s'  },
+      { name: 'Stiff',                sets: 4, reps: '12, 10, 8, 8',    rest: '90s'  },
+      { name: 'Agachamento Sumô',     sets: 3, reps: '15, 12, 10',      rest: '60s'  },
+      { name: 'Glúteo 4 Apoios',      sets: 3, reps: '15 cada',         rest: '45s'  },
+      { name: 'Abdução de Quadril',   sets: 3, reps: '20, 15, 15',      rest: '45s'  },
+      { name: 'Mesa Flexora',         sets: 3, reps: '15, 12, 12',      rest: '60s'  },
+    ],
+  },
+  {
+    id: 18, name: 'Abdômen Completo', emoji: '🎯', duration: 30, xp: 75,
+    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    gradient: ['#D97706','#B45309'],
+    category: 'Core', muscles: ['Abdômen', 'Core', 'Oblíquos'], calories: 160,
+    exercises: [
+      { name: 'Prancha',              sets: 4, reps: '45s',             rest: '30s' },
+      { name: 'Crunch',               sets: 3, reps: '25 reps',         rest: '45s' },
+      { name: 'Crunch Bicicleta',     sets: 3, reps: '20 reps',         rest: '45s' },
+      { name: 'Leg Raise',            sets: 3, reps: '15 reps',         rest: '45s' },
+      { name: 'Russian Twist',        sets: 3, reps: '20 reps',         rest: '45s' },
+      { name: 'Prancha Lateral',      sets: 3, reps: '30s cada',        rest: '30s' },
+    ],
+  },
+
+  // ── FUNCIONAL / CROSSFIT ──────────────────────────────────────────────────
+  {
+    id: 19, name: 'CrossFit Metcon', emoji: '💥', duration: 30, xp: 110,
+    difficulty: 'DIFÍCIL', difficultyColor: '#EF4444',
+    gradient: ['#DC2626','#B91C1C'],
+    category: 'Funcional', muscles: ['Full Body', 'Cardio'], calories: 400,
+    exercises: [
+      { name: 'Burpee',               sets: 5, reps: '10 reps',         rest: '30s' },
+      { name: 'Kettlebell Swing',     sets: 4, reps: '15 reps',         rest: '30s' },
+      { name: 'Box Jump',             sets: 4, reps: '10 reps',         rest: '30s' },
+      { name: 'Thruster',             sets: 4, reps: '10 reps',         rest: '30s' },
+      { name: 'Mountain Climber',     sets: 4, reps: '20 reps',         rest: '15s' },
+    ],
+  },
+  {
+    id: 20, name: 'Peso Corporal Total', emoji: '🤸', duration: 35, xp: 85,
+    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    gradient: ['#0891B2','#0E7490'],
+    category: 'Funcional', muscles: ['Full Body'], calories: 280,
+    exercises: [
+      { name: 'Flexão',               sets: 4, reps: '15, 12, 10, 10',  rest: '60s' },
+      { name: 'Afundo com Halteres',  sets: 3, reps: '12 cada',         rest: '60s' },
+      { name: 'Burpee',               sets: 3, reps: '10 reps',         rest: '45s' },
+      { name: 'Prancha',              sets: 3, reps: '45s',             rest: '30s' },
+      { name: 'Jump Squat',           sets: 3, reps: '15 reps',         rest: '60s' },
+      { name: 'Mountain Climber',     sets: 3, reps: '30s',             rest: '30s' },
+    ],
+  },
+
+  // ── MOBILIDADE E RECUPERAÇÃO ──────────────────────────────────────────────
+  {
+    id: 21, name: 'Mobilidade Completa', emoji: '🧘', duration: 30, xp: 50,
+    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    gradient: ['#4338CA','#3730A3'],
+    category: 'Mobilidade', muscles: ['Full Body', 'Flexibilidade'], calories: 80,
+    exercises: [
+      { name: 'Mobilidade de Quadril', sets: 3, reps: '10 cada',        rest: '30s' },
+      { name: 'Alongamento Posterior', sets: 3, reps: '30s cada',       rest: '30s' },
+      { name: 'Prancha',               sets: 3, reps: '30s',            rest: '30s' },
+      { name: 'Elevação Frontal',      sets: 2, reps: '10 reps leve',   rest: '30s' },
+    ],
+  },
+  {
+    id: 22, name: 'Recuperação Ativa', emoji: '🌊', duration: 25, xp: 40,
+    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    gradient: ['#0369A1','#075985'],
+    category: 'Mobilidade', muscles: ['Recuperação'], calories: 60,
+    exercises: [
+      { name: 'Aquecimento',           sets: 1, reps: '5 min',           rest: '—'   },
+      { name: 'Alongamento Posterior', sets: 3, reps: '40s cada',        rest: '20s' },
+      { name: 'Mobilidade de Quadril', sets: 3, reps: '10 reps',         rest: '20s' },
+      { name: 'Desaquecimento',        sets: 1, reps: '5 min',           rest: '—'   },
+    ],
+  },
 ];
 
-export const categories = ['Todos', 'Parte Superior', 'Parte Inferior', 'Core', 'Cardio', 'Full Body'];
+export const categories = [
+  'Todos', 'Iniciante', 'PPL', 'Parte Superior', 'Parte Inferior',
+  'Core', 'Cardio', 'Funcional', 'Avançado', 'Mobilidade', 'Full Body',
+];
 
 export const leaderboardData = [
   { rank: 1, name: 'Marina S.', xp: 8920, streak: 65, avatar: 'M', league: '💎', change: 0 },
@@ -370,12 +621,12 @@ export const feedData = [
 
 export const quotes = [
   { text: 'A dor que você sente hoje é a força que você sentirá amanhã.', author: 'Arnold Schwarzenegger' },
-  { text: 'Não pare quando estiver cansado. Pare quando estiver pronto.', author: 'Anônimo' },
-  { text: 'Seu corpo pode aguentar quase tudo. É sua mente que você precisa convencer.', author: 'Anônimo' },
+  { text: 'Não pare quando estiver cansado. Pare quando estiver pronto.', author: 'Capi' },
+  { text: 'Seu corpo pode aguentar quase tudo. É sua mente que você precisa convencer.', author: 'Capi' },
   { text: 'O sucesso é a soma de pequenos esforços repetidos dia após dia.', author: 'Robert Collier' },
   { text: 'Você não precisa ser ótimo para começar, mas precisa começar para ser ótimo.', author: 'Zig Ziglar' },
-  { text: 'Treinar é uma celebração do que seu corpo pode fazer.', author: 'Anônimo' },
-  { text: 'A academia não fica mais fácil. Você fica mais forte.', author: 'Anônimo' },
+  { text: 'Treinar é uma celebração do que seu corpo pode fazer.', author: 'Capi' },
+  { text: 'A academia não fica mais fácil. Você fica mais forte.', author: 'Capi' },
 ];
 
 export const recentActivity = [

@@ -6,7 +6,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
-import { userData, achievements, flameTiers } from '../data/mockData';
+import { flameTiers } from '../data/mockData';
+import { useUser } from '../context/UserContext';
+import { fetchUserAchievements } from '../services/achievementService';
 
 const CARD_W = (Dimensions.get('window').width - SPACING.md * 2 - 10) / 2;
 
@@ -119,20 +121,40 @@ function AchievementCard({ a }) {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function AchievementsScreen() {
   const insets = useSafeAreaInsets();
-  const [activeCat, setActiveCat] = useState('todos');
-  const fireScale = useRef(new Animated.Value(1)).current;
+  const { user } = useUser();
+  const [activeCat,    setActiveCat]    = useState('todos');
+  const [achievements, setAchievements] = useState([]);
+  const fireScale    = useRef(new Animated.Value(1)).current;
   const entranceAnim = useRef(new Animated.Value(0)).current;
-  const entranceY = useRef(new Animated.Value(24)).current;
+  const entranceY    = useRef(new Animated.Value(24)).current;
 
-  const currentTier = flameTiers.reduce((prev, t) => userData.streak >= t.min ? t : prev);
-  const nextTier = flameTiers.find(t => t.min > userData.streak);
-  const tierPct = nextTier
-    ? ((userData.streak - currentTier.min) / (nextTier.min - currentTier.min)) * 100
+  // Carrega conquistas reais do Supabase — normaliza campos para a tela
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchUserAchievements(user.id).then(data => {
+      const normalized = (data ?? []).map(a => ({
+        ...a,
+        xpReward: a.xp_reward ?? 0,
+        total:    a.condition_value ?? 1,
+      }));
+      setAchievements(normalized);
+    });
+  }, [user?.id, user?.streak, user?.totalWorkouts, user?.xp]);
+
+  const currentTier = flameTiers.reduce((prev, t) => (user?.streak ?? 0) >= t.min ? t : prev);
+  const nextTier    = flameTiers.find(t => t.min > (user?.streak ?? 0));
+  const tierPct     = nextTier
+    ? (((user?.streak ?? 0) - currentTier.min) / (nextTier.min - currentTier.min)) * 100
     : 100;
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
-  const nextTargets = achievements
-    .filter(a => !a.unlocked && a.progress != null)
+  const nextTargets   = achievements
+    .filter(a => !a.unlocked && a.condition_type !== 'manual')
+    .map(a => ({
+      ...a,
+      progress: a.progress ?? 0,
+      total:    a.condition_value ?? 1,
+    }))
     .sort((a, b) => (b.progress / b.total) - (a.progress / a.total))
     .slice(0, 3);
   const filtered = activeCat === 'todos'
@@ -194,11 +216,11 @@ export default function AchievementsScreen() {
                   <Animated.Text style={{ fontSize: 32, transform: [{ scale: fireScale }] }}>🔥</Animated.Text>
                   <View>
                     <Text style={[s.tierCompactName, { color: currentTier.color }]}>{currentTier.label}</Text>
-                    <Text style={s.tierCompactStreak}>{userData.streak} dias · {Math.round(tierPct)}% para {nextTier.label}</Text>
+                    <Text style={s.tierCompactStreak}>{user.streak} dias · {Math.round(tierPct)}% para {nextTier.label}</Text>
                   </View>
                 </View>
                 <View style={[s.tierCompactNext, { backgroundColor: nextTier.color + '18', borderColor: nextTier.color + '40' }]}>
-                  <Text style={[s.tierCompactNextDays, { color: nextTier.color }]}>+{nextTier.min - userData.streak}d</Text>
+                  <Text style={[s.tierCompactNextDays, { color: nextTier.color }]}>+{nextTier.min - user.streak}d</Text>
                 </View>
               </View>
               <View style={s.tierBarBg}>
@@ -220,7 +242,7 @@ export default function AchievementsScreen() {
                   <View style={s.flameTrackLine} />
                   {flameTiers.map((tier) => {
                     const isActive = tier.label === currentTier.label;
-                    const isUnlocked = userData.streak >= tier.min;
+                    const isUnlocked = user.streak >= tier.min;
                     return (
                       <View key={tier.label} style={s.flameTierItem}>
                         <LinearGradient

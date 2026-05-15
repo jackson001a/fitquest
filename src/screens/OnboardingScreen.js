@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import Svg, { Circle } from 'react-native-svg';
+import { useUser } from '../context/UserContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -381,6 +382,7 @@ function PhoneInputScreen({ value, onChange, onNext }) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function OnboardingScreen({ navigation }) {
+  const { completeOnboarding } = useUser();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ workoutDays: [], height: '170', weight: '70', age: '25' });
 
@@ -418,9 +420,9 @@ export default function OnboardingScreen({ navigation }) {
     });
   }, [fadeAnim, slideAnim]);
 
-  const goNext = useCallback(() => {
+  const goNext = useCallback(async () => {
     if (step + 1 >= TOTAL_STEPS) {
-      navigation.replace('Main');
+      await completeOnboarding(answers);
       return;
     }
     
@@ -431,7 +433,7 @@ export default function OnboardingScreen({ navigation }) {
     }
 
     transition(1, () => setStep(nextStep));
-  }, [transition, navigation, step, answers.goal]);
+  }, [transition, step, answers, completeOnboarding]);
 
   const goBack = useCallback(() => {
     if (step === 0) return;
@@ -623,7 +625,7 @@ export default function OnboardingScreen({ navigation }) {
   // Tela 3: Benefício
   const Step2 = () => (
     <>
-      <View style={s.body}>
+      <ScrollView style={s.body} contentContainerStyle={{ paddingBottom: 16 }} showsVerticalScrollIndicator={false}>
         <View style={{ marginBottom: 32, marginTop: 10 }}>
           <Text style={{ fontSize: 36, fontWeight: '800', color: COLORS.white, lineHeight: 42, letterSpacing: -1 }}>
             Por que o <Text style={{ color: COLORS.purpleLight }}>CapiFit</Text> funciona?
@@ -689,7 +691,7 @@ export default function OnboardingScreen({ navigation }) {
             * Baseado na retenção de usuários ativos nos últimos 6 meses
           </Text>
         </LinearGradient>
-      </View>
+      </ScrollView>
       <Btn />
     </>
   );
@@ -860,9 +862,9 @@ export default function OnboardingScreen({ navigation }) {
           {/* Headline */}
           <View style={{ alignItems: 'center', marginBottom: 24 }}>
             <Text style={{ fontSize: 30, fontWeight: '800', color: COLORS.white, textAlign: 'center', lineHeight: 37 }}>
-              {'Já ajudamos '}
-              <Text style={{ color: COLORS.purpleLight }}>47.832 pessoas</Text>
-              {'\ncomo você a não desistir.'}
+              {'Vamos te ajudar\na '}
+              <Text style={{ color: COLORS.purpleLight }}>não desistir</Text>
+              {'.\nComo já ajudamos milhares.'}
             </Text>
           </View>
 
@@ -893,19 +895,6 @@ export default function OnboardingScreen({ navigation }) {
             </View>
           </LinearGradient>
 
-          {/* Stats */}
-          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-            {statCards.map((st, i) => (
-              <LinearGradient
-                key={i}
-                colors={['#1C1C38', '#13132A']}
-                style={{ flex: 1, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)' }}
-              >
-                <Text style={{ color: COLORS.purpleLight, fontSize: 20, fontWeight: '800' }}>{st.value}</Text>
-                <Text style={{ color: COLORS.gray, fontSize: 10, textAlign: 'center', marginTop: 3, lineHeight: 14 }}>{st.label}</Text>
-              </LinearGradient>
-            ))}
-          </View>
 
           {/* Testimonial */}
           <LinearGradient
@@ -1096,7 +1085,7 @@ export default function OnboardingScreen({ navigation }) {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: COLORS.goldLight, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' }}>Seu Perfil</Text>
-                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: '900', marginTop: 2 }}>Você já começou!</Text>
+                <Text style={{ color: COLORS.white, fontSize: 22, fontWeight: '900', marginTop: 2 }}>Parabéns, você já começou!</Text>
               </View>
             </View>
 
@@ -1114,20 +1103,14 @@ export default function OnboardingScreen({ navigation }) {
               </View>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1, backgroundColor: '#161625', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.orange }}>🔥 1</Text>
-                <Text style={{ color: '#888', fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>Dia streak</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: '#161625', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.greenLight }}>0</Text>
-                <Text style={{ color: '#888', fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>Desafios</Text>
-              </View>
-              <View style={{ flex: 1, backgroundColor: 'rgba(139, 92, 246, 0.1)', borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139, 92, 246, 0.3)' }}>
-                <Text style={{ fontSize: 22, fontWeight: '900', color: COLORS.purpleLight }}>+{xpCount}</Text>
-                <Text style={{ color: COLORS.purpleLight, fontSize: 11, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' }}>XP ganho</Text>
-              </View>
-            </View>
+            <LinearGradient
+              colors={['rgba(139,92,246,0.25)', 'rgba(109,40,217,0.15)']}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={{ borderRadius: 20, paddingVertical: 20, alignItems: 'center', borderWidth: 1.5, borderColor: COLORS.purpleLight }}
+            >
+              <Text style={{ fontSize: 48, fontWeight: '900', color: COLORS.purpleLight, letterSpacing: -1 }}>+{xpCount}</Text>
+              <Text style={{ color: COLORS.purpleLight, fontSize: 13, marginTop: 4, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5 }}>XP Ganho</Text>
+            </LinearGradient>
           </LinearGradient>
         </Animated.View>
 
@@ -1531,7 +1514,13 @@ export default function OnboardingScreen({ navigation }) {
           </View>
 
         </ScrollView>
-        <Btn label="Pegue os seus 7 dias grátis" />
+        <View style={{ paddingHorizontal: 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 }}>
+            <Ionicons name="checkmark" size={16} color={COLORS.gray} />
+            <Text style={{ color: COLORS.gray, fontSize: 14, fontWeight: '600' }}>Você não paga nada agora</Text>
+          </View>
+          <Btn label="Experimente grátis" />
+        </View>
       </>
     );
   };

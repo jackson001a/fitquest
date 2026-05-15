@@ -7,23 +7,40 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
+import { useUser } from '../context/UserContext';
+import { savePersonalRecord } from '../services/achievementService';
+import { supabase } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 
-const PERSONAL_RECORDS = {
-  'Supino Reto': 70, 'Supino Inclinado': 60, 'Crossover': 25,
-  'Tríceps Pulley': 35, 'Tríceps Testa': 30, 'Rosca Direta': 32,
-  'Rosca Martelo': 24, 'Agachamento': 100, 'Leg Press': 180,
-  'Cadeira Extensora': 60, 'Mesa Flexora': 50, 'Panturrilha': 80,
-  'Deadlift': 120, 'Remada Curvada': 70, 'Puxada Frontal': 65,
-  'Desenvolvimento': 50, 'Elevação Lateral': 18, 'Hip Thrust': 90,
-};
+// Cache local de PRs durante a sessão (sincronizado com user.personal_records do Supabase)
+let PERSONAL_RECORDS = {};
 
 const REST_PRESETS = ['30s', '45s', '60s', '90s', '120s', '2min'];
 
 export default function WorkoutDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { workout, isUserCreated } = route.params;
+  const rawWorkout = route.params.workout ?? {};
+  const workout = {
+    gradient:  ['#8B5CF6', '#6D28D9'],
+    muscles:   [],
+    calories:  0,
+    duration:  0,
+    category:  '',
+    ...rawWorkout,
+    name:      rawWorkout.name      ?? rawWorkout.workout_name  ?? 'Treino',
+    emoji:     rawWorkout.emoji     ?? rawWorkout.workout_emoji ?? '💪',
+    xp:        rawWorkout.xp        ?? rawWorkout.xp_earned     ?? 0,
+    exercises: Array.isArray(rawWorkout.exercises) ? rawWorkout.exercises : [],
+    muscles:   Array.isArray(rawWorkout.muscles)   ? rawWorkout.muscles   : [],
+  };
+  const { isUserCreated, isHistory } = route.params;
+  const { user, completeWorkout, addXP } = useUser();
+
+  // Sincroniza cache local com PRs reais do usuário (sem valores padrão)
+  useEffect(() => {
+    PERSONAL_RECORDS = { ...(user?.personal_records ?? {}) };
+  }, [user?.personal_records]);
 
   const [started, setStarted]             = useState(false);
   const [completed, setCompleted]         = useState(false);
@@ -41,9 +58,10 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   const xpModalScale    = useRef(new Animated.Value(0)).current;
   const xpModalOpacity  = useRef(new Animated.Value(0)).current;
   const headerAnim      = useRef(new Animated.Value(0)).current;
-  const prAlertAnim     = useRef(new Animated.Value(0)).current;
-  const timerRef        = useRef(null);
-  const restIntervalRef = useRef(null);
+  const prAlertAnim        = useRef(new Animated.Value(0)).current;
+  const prAlertedExercises = useRef(new Set()); // 1 alerta por exercício por sessão
+  const timerRef           = useRef(null);
+  const restIntervalRef    = useRef(null);
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
@@ -62,10 +80,10 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     if (!started) return;
     const init = {};
     allExercises.forEach((ex, i) => {
-      const lastKg = PERSONAL_RECORDS[ex.name];
+      const lastKg = PERSONAL_RECORDS[ex.name]; // vazio para usuário novo
       const repsArr = String(ex.reps).split(',').map(r => r.trim());
       init[i] = Array.from({ length: ex.sets }, (_, si) => ({
-        kg: lastKg ? String(lastKg) : '',
+        kg: lastKg ? String(lastKg) : '', // só mostra peso se tem PR real
         reps: repsArr[si] || repsArr[repsArr.length - 1] || '10',
         done: false,
       }));
@@ -92,6 +110,24 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     clearInterval(restIntervalRef.current);
     setCompleted(true);
     setShowXPModal(true);
+    completeWorkout(workout, seconds);
+    // Verifica se este treino conta para o desafio semanal
+    try {
+      const { getWeeklyWorkoutChallenge } = require('../data/mockData');
+      const challenge = getWeeklyWorkoutChallenge();
+      const matchesChallenge = workout.category === challenge.targetWorkoutCategory
+        || (workout.muscles ?? []).some(m => m === challenge.targetWorkoutCategory);
+      if (matchesChallenge) {
+        const AS = require('@react-native-async-storage/async-storage').default;
+        const wKey = `@capifit_weekly_challenge_${challenge.weekNum}`;
+        AS.getItem(wKey).then(v => {
+          if (v !== 'done') {
+            AS.setItem(wKey, 'done').catch(() => {});
+            addXP?.(challenge.xp); // bônus do desafio semanal
+          }
+        }).catch(() => {});
+      }
+    } catch (_) {}
     Animated.parallel([
       Animated.spring(xpModalScale,   { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
       Animated.timing(xpModalOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
@@ -118,18 +154,28 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     if (!set) return;
     const nowDone = !set.done;
     if (nowDone && set.kg) {
-      const kg = parseFloat(set.kg);
+      const kg       = parseFloat(set.kg);
       const exercise = allExercises[exIdx];
-      const prev = PERSONAL_RECORDS[exercise.name];
-      if (!isNaN(kg) && prev && kg > prev) {
-        PERSONAL_RECORDS[exercise.name] = kg;
-        setPrAlert({ exerciseName: exercise.name, kg });
-        prAlertAnim.setValue(0);
-        Animated.sequence([
-          Animated.timing(prAlertAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.delay(2800),
-          Animated.timing(prAlertAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ]).start(() => setPrAlert(null));
+      if (!isNaN(kg) && kg > 0 && user?.id) {
+        const prevKg = user.personal_records?.[exercise.name]; // undefined = sem histórico
+
+        if (prevKg !== undefined && kg > prevKg && !prAlertedExercises.current.has(exercise.name)) {
+          // Novo recorde real — mostra alerta 1x por exercício
+          prAlertedExercises.current.add(exercise.name);
+          PERSONAL_RECORDS[exercise.name] = kg;
+          setPrAlert({ exerciseName: exercise.name, kg });
+          prAlertAnim.setValue(0);
+          Animated.sequence([
+            Animated.timing(prAlertAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+            Animated.delay(2800),
+            Animated.timing(prAlertAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+          ]).start(() => setPrAlert(null));
+          savePersonalRecord(user.id, exercise.name, kg, user).catch(() => {});
+        } else if (prevKg === undefined && kg > 0) {
+          // Primeiro registro — salva só no cache local da sessão (não aparece no perfil)
+          // Será salvo no perfil apenas quando bater esse valor futuramente
+          PERSONAL_RECORDS[exercise.name] = kg;
+        }
       }
     }
     updateSet(exIdx, setIdx, 'done', nowDone);
@@ -232,13 +278,19 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                 <Ionicons name="arrow-back" size={22} color="#fff" />
               </TouchableOpacity>
               <View style={styles.heroBadgeRow}>
-                {isUserCreated && (
+                {isHistory && (
+                  <View style={[styles.myCreatedBadge, { backgroundColor: 'rgba(16,185,129,0.25)' }]}>
+                    <Ionicons name="checkmark-circle" size={11} color="#34D399" />
+                    <Text style={[styles.myCreatedText, { color: '#34D399' }]}>Treino concluído</Text>
+                  </View>
+                )}
+                {isUserCreated && !isHistory && (
                   <View style={styles.myCreatedBadge}>
                     <Ionicons name="star" size={11} color="#FCD34D" />
                     <Text style={styles.myCreatedText}>Meu treino</Text>
                   </View>
                 )}
-                {!isUserCreated && (
+                {!isUserCreated && !isHistory && (
                   <TouchableOpacity style={styles.resetBtn} onPress={resetToDefault}>
                     <Ionicons name="refresh-outline" size={13} color="rgba(255,255,255,0.7)" />
                     <Text style={styles.resetBtnText}>Restaurar padrão</Text>
@@ -340,7 +392,18 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                       }
                     </View>
                     <View style={styles.exInfo}>
-                      <Text style={[styles.exName, isDone && styles.exNameDone]}>{exercise.name}</Text>
+                      <TouchableOpacity
+                        onPress={() => navigation.navigate('ExerciseDetail', {
+                          exerciseName: exercise.name,
+                          sets: exercise.sets,
+                          reps: exercise.reps,
+                          rest: exercise.rest,
+                        })}
+                        activeOpacity={0.7}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Text style={[styles.exName, isDone && styles.exNameDone]}>{exercise.name}</Text>
+                        <Ionicons name="information-circle-outline" size={14} color={isDone ? COLORS.gray : COLORS.purpleLight} />
+                      </TouchableOpacity>
                       <Text style={styles.exDetail}>{exercise.sets} séries  ·  {exercise.reps}</Text>
                     </View>
                   </View>
@@ -648,12 +711,41 @@ export default function WorkoutDetailScreen({ navigation, route }) {
               </View>
             </View>
             <View style={styles.modalBonus}>
-              <Text style={styles.modalBonusText}>🔥  Sequência mantida!  +10 XP</Text>
+              <Text style={styles.modalBonusText}>💪 Parabéns pelo treino!</Text>
             </View>
-            <TouchableOpacity style={styles.modalShareBtn} activeOpacity={0.8}>
-              <Ionicons name="share-social-outline" size={18} color={COLORS.purpleLight} />
-              <Text style={styles.modalShareText}>Compartilhar no Feed</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%', paddingHorizontal: 4 }}>
+              {/* Compartilhar no feed do app */}
+              <TouchableOpacity style={[styles.modalShareBtn, { flex: 1 }]} activeOpacity={0.8}
+                onPress={async () => {
+                  try {
+                    await supabase.from('feed_posts').insert({
+                      user_id: user.id,
+                      post_type: 'workout',
+                      emoji: workout.emoji ?? '💪',
+                      badge: `+${workout.xp} XP`,
+                      detail: `Completou "${workout.name}" em ${formatTime(seconds)}! 💪 ${workout.exercises?.length ?? 0} exercícios feitos.`,
+                    });
+                    const { Alert } = require('react-native');
+                    Alert.alert('✅ Publicado!', 'Treino compartilhado no Feed da Comunidade!');
+                  } catch (_) {
+                    const { Alert } = require('react-native');
+                    Alert.alert('Erro', 'Não foi possível publicar no feed.');
+                  }
+                }}>
+                <Ionicons name="people-outline" size={18} color={COLORS.green} />
+                <Text style={[styles.modalShareText, { color: COLORS.green }]}>No Feed</Text>
+              </TouchableOpacity>
+              {/* Compartilhar fora do app */}
+              <TouchableOpacity style={[styles.modalShareBtn, { flex: 1 }]} activeOpacity={0.8}
+                onPress={async () => {
+                  const { shareExternal, buildShareText } = require('../services/socialService');
+                  const msg = buildShareText(user ?? {}, 'workout', `${workout.name} — ${workout.xp} XP`);
+                  await shareExternal(msg);
+                }}>
+                <Ionicons name="share-social-outline" size={18} color={COLORS.purpleLight} />
+                <Text style={styles.modalShareText}>Fora do app</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity onPress={dismissModal} style={styles.modalBtn}>
               <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.modalBtnGrad}>
                 <Text style={styles.modalBtnText}>Continuar  →</Text>

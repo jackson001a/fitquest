@@ -1,34 +1,50 @@
 {
   "expo": {
-    "name": "FitQuest",
-    "slug": "fitquest",
+    "name": "CapiFit",
+    "slug": "capifit",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
+    "scheme": "capifit",
     "splash": {
       "resizeMode": "contain",
       "backgroundColor": "#0A0A18"
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.fitquest.app"
+      "bundleIdentifier": "com.capifit.app",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": ["capifit"],
+        "NSCameraUsageDescription": "O CapiFit precisa da câmera para verificar sua presença na academia.",
+        "NSPhotoLibraryUsageDescription": "Para salvar fotos do seu progresso."
+      }
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#0A0A18"
-      },
-      "package": "com.fitquest.app"
+      "adaptiveIcon": { "backgroundColor": "#0A0A18" },
+      "package": "com.capifit.app",
+      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [{ "scheme": "capifit" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
+    "web": { "favicon": "./assets/favicon.png" },
     "plugins": [
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#8B5CF6"
+        }
+      ]
     ]
   }
 }

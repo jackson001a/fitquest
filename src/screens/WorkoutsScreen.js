@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
   Animated, Dimensions, Modal, KeyboardAvoidingView, Platform,
@@ -7,7 +8,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
-import { allWorkouts, categories } from '../data/mockData';
+import { allWorkouts, categories, getWeeklyWorkoutChallenge } from '../data/mockData';
+import { useUser } from '../context/UserContext';
+import { supabase } from '../services/supabase';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - SPACING.md * 2 - 12) / 2;
@@ -15,28 +18,30 @@ const CARD_WIDTH = (width - SPACING.md * 2 - 12) / 2;
 const WORKOUT_EMOJIS = ['💪', '🔥', '⚡', '🏋️', '🦵', '🏃', '🤸', '🥊', '🎯', '⭐', '🏊', '🧘', '🚴', '🎽', '🦁', '🏆'];
 
 const ALL_MUSCLES = [
-  'Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps',
-  'Pernas', 'Glúteos', 'Panturrilha', 'Core', 'Cardio', 'Full Body',
+  'Peito', 'Costas', 'Ombros', 'Bíceps', 'Tríceps', 'Antebraço',
+  'Pernas', 'Glúteos', 'Panturrilha', 'Core', 'Lombar', 'Cardio', 'Full Body',
 ];
 
 const MUSCLE_COLORS = {
   Peito: '#8B5CF6', Costas: '#3B82F6', Ombros: '#06B6D4', Bíceps: '#10B981',
-  Tríceps: '#F97316', Pernas: '#EF4444', Glúteos: '#EC4899', Panturrilha: '#F59E0B',
-  Core: '#F97316', Cardio: '#EF4444', 'Full Body': '#8B5CF6',
+  Tríceps: '#F97316', Antebraço: '#84CC16', Pernas: '#EF4444', Glúteos: '#EC4899',
+  Panturrilha: '#F59E0B', Core: '#F97316', Lombar: '#A78BFA', Cardio: '#EF4444', 'Full Body': '#8B5CF6',
 };
 
 const EXERCISE_BANK = {
-  Peito:       ['Supino Reto', 'Supino Inclinado', 'Supino Declinado', 'Crossover', 'Flexão', 'Mergulho', 'Fly com Halteres', 'Peck Deck'],
-  Costas:      ['Puxada Frontal', 'Remada Curvada', 'Remada Unilateral', 'Remada Sentado', 'Pulldown', 'Deadlift', 'Hiperextensão', 'Face Pull'],
-  Ombros:      ['Desenvolvimento', 'Elevação Lateral', 'Elevação Frontal', 'Arnold Press', 'Remada Alta', 'Face Pull'],
-  Bíceps:      ['Rosca Direta', 'Rosca Martelo', 'Rosca Scott', 'Rosca Concentrada', 'Rosca 21'],
-  Tríceps:     ['Tríceps Pulley', 'Tríceps Testa', 'Tríceps Francês', 'Kickback', 'Tríceps Coice'],
-  Pernas:      ['Agachamento', 'Leg Press', 'Cadeira Extensora', 'Mesa Flexora', 'Stiff', 'Agachamento Sumô', 'Afundo', 'Agachamento Búlgaro'],
-  Glúteos:     ['Hip Thrust', 'Glúteo no Cross', 'Afundo Lateral', 'Cadeira Abdutora'],
-  Panturrilha: ['Panturrilha em Pé', 'Panturrilha Sentado', 'Panturrilha no Leg Press'],
-  Core:        ['Prancha', 'Crunch', 'Crunch Bicicleta', 'Russian Twist', 'Leg Raise', 'Ab Wheel', 'Prancha Lateral', 'Sit Up'],
-  Cardio:      ['Esteira', 'Bicicleta', 'Corda', 'Burpee', 'Jump Squat', 'Mountain Climber', 'High Knees', 'Box Jump'],
-  'Full Body': ['Deadlift', 'Clean', 'Kettlebell Swing', 'Thruster', 'Burpee', 'Agachamento'],
+  Peito:       ['Supino Reto', 'Supino Inclinado', 'Supino Declinado', 'Supino com Halteres', 'Crossover', 'Flexão', 'Flexão Inclinada', 'Mergulho', 'Fly com Halteres', 'Peck Deck', 'Pullover'],
+  Costas:      ['Puxada Frontal', 'Puxada Fechada', 'Remada Curvada', 'Remada Unilateral', 'Remada Sentado', 'Remada Cavalo', 'Pulldown', 'Barra Fixa', 'Deadlift', 'Hiperextensão', 'Face Pull', 'Remada Alta'],
+  Ombros:      ['Desenvolvimento', 'Desenvolvimento Halteres', 'Elevação Lateral', 'Elevação Frontal', 'Elevação Posterior', 'Encolhimento', 'Arnold Press', 'Remada Alta', 'Face Pull', 'Crucifixo Inverso'],
+  Bíceps:      ['Rosca Direta', 'Rosca Direta Halteres', 'Rosca Martelo', 'Rosca Scott', 'Rosca Concentrada', 'Rosca 21', 'Rosca Inversa', 'Rosca Cabo'],
+  Tríceps:     ['Tríceps Pulley', 'Tríceps Corda', 'Tríceps Testa', 'Tríceps Francês', 'Tríceps Coice', 'Mergulho', 'Extensão Unilateral', 'Tríceps Máquina'],
+  Antebraço:   ['Rosca Punho', 'Rosca Punho Inversa', 'Farmer Walk', 'Aperto de Mão', 'Extensão de Punho', 'Rosca Inversa'],
+  Pernas:      ['Agachamento', 'Agachamento Sumô', 'Agachamento Hack', 'Agachamento Búlgaro', 'Leg Press', 'Cadeira Extensora', 'Mesa Flexora', 'Stiff', 'Afundo', 'Afundo com Halteres', 'Avanço', 'Leg Press 45°'],
+  Glúteos:     ['Hip Thrust', 'Glúteo 4 Apoios', 'Afundo Lateral', 'Abdução de Quadril', 'Cadeira Abdutora', 'Elevação Quadril', 'Agachamento Sumô', 'Step Up'],
+  Panturrilha: ['Panturrilha', 'Panturrilha Sentado', 'Panturrilha no Leg Press', 'Panturrilha em Pé Unilateral', 'Panturrilha no Hack'],
+  Core:        ['Prancha', 'Prancha Lateral', 'Prancha com Alternância', 'Crunch', 'Crunch Bicicleta', 'Russian Twist', 'Leg Raise', 'Elevação de Pernas', 'Abdominal Infra', 'Superman', 'Dragon Flag', 'Ab Rollout', 'Sit Up'],
+  Lombar:      ['Hiperextensão', 'Deadlift Romeno', 'Superman', 'Bird Dog', 'Good Morning', 'Stiff', 'Extensão Lombar'],
+  Cardio:      ['Burpee', 'Jump Squat', 'Mountain Climber', 'High Knees', 'Box Jump', 'Polichinelo', 'Corrida', 'Pular Corda', 'Kettlebell Swing', 'Thruster', 'Rowing', 'Bicicleta', 'Elíptico', 'Esteira'],
+  'Full Body': ['Deadlift', 'Kettlebell Swing', 'Thruster', 'Burpee', 'Agachamento', 'Clean', 'Snatch', 'Turkish Get-Up'],
 };
 
 const DIFFICULTY_OPTIONS = [
@@ -96,21 +101,47 @@ function WorkoutCard({ workout, onPress }) {
 
 export default function WorkoutsScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { user } = useUser();
   const [search, setSearch]               = useState('');
   const [selectedCat, setSelectedCat]     = useState('Todos');
   const [userWorkouts, setUserWorkouts]   = useState([]);
   const [showCreate, setShowCreate]       = useState(false);
-  const [nw, setNw]                       = useState({ name: '', emoji: '💪', difficulty: 'MÉDIO', muscles: [], exercises: [] });
-  const [exForm, setExForm]               = useState({ name: '', sets: '3', reps: '10', rest: '60s' });
-  const [showBank, setShowBank]           = useState(false);
+
+  const [nw, setNw]           = useState({ name: '', emoji: '💪', difficulty: 'MÉDIO', muscles: [], exercises: [] });
+  const [exForm, setExForm]   = useState({ name: '', sets: '3', reps: '10', rest: '60s' });
+  const [showBank, setShowBank] = useState(false);
+
+  const [weeklyChallenge]                = useState(() => getWeeklyWorkoutChallenge());
+  const [weeklyChallengeDone, setWCD]  = useState(false);
+  const [history,             setHistory]        = useState([]);
+  const [showAllHistory,      setShowAllHistory] = useState(false);
+
+  // Recarrega ao entrar em foco (captura conclusão de treino que veio de WorkoutDetail)
+  useFocusEffect(useCallback(() => {
+    if (!user?.id) return;
+    const AS = require('@react-native-async-storage/async-storage').default;
+    const wKey = `@capifit_weekly_challenge_${weeklyChallenge.weekNum}`;
+    AS.getItem(wKey).then(v => { setWCD(v === 'done'); }).catch(() => {});
+
+    // Meus treinos criados
+    supabase.from('user_workouts').select('*').eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data?.length) setUserWorkouts(data.map(w => ({ ...w.workout_data, id: w.id, isUserCreated: true })));
+      }).catch(() => {});
+
+    // Histórico de treinos concluídos
+    supabase.from('workout_completions').select('*').eq('user_id', user.id)
+      .order('completed_at', { ascending: false }).limit(30)
+      .then(({ data }) => { if (data) setHistory(data); })
+      .catch(() => {});
+  }, [user?.id]));
 
   const filtered = allWorkouts.filter(w => {
     const ms = w.name.toLowerCase().includes(search.toLowerCase()) || w.category.toLowerCase().includes(search.toLowerCase());
     const mc = selectedCat === 'Todos' || w.category === selectedCat;
     return ms && mc;
   });
-
-  const featured = allWorkouts.find(w => w.difficulty === 'DIFÍCIL' && w.xp >= 120);
 
   const toggleMuscle = m => setNw(p => ({
     ...p, muscles: p.muscles.includes(m) ? p.muscles.filter(x => x !== m) : [...p.muscles, m],
@@ -162,6 +193,10 @@ export default function WorkoutsScreen({ navigation }) {
       isUserCreated: true,
     };
     setUserWorkouts(p => [w, ...p]);
+    // Persiste no Supabase
+    if (user?.id) {
+      supabase.from('user_workouts').insert({ user_id: user.id, workout_data: w }).then(() => {}).catch(() => {});
+    }
     setNw({ name: '', emoji: '💪', difficulty: 'MÉDIO', muscles: [], exercises: [] });
     setExForm({ name: '', sets: '3', reps: '10', rest: '60s' });
     setShowBank(false);
@@ -185,6 +220,13 @@ export default function WorkoutsScreen({ navigation }) {
               <Text style={s.headerTitle}>🏋️ Biblioteca de Treinos</Text>
               <Text style={s.headerSub}>{allWorkouts.length + userWorkouts.length} treinos disponíveis</Text>
             </View>
+            {/* Botão histórico */}
+            <TouchableOpacity onPress={() => setShowAllHistory(true)} activeOpacity={0.8} style={s.histBtn}>
+              <Ionicons name="time-outline" size={18} color={COLORS.purpleLight} />
+              {history.length > 0 && (
+                <View style={s.histBtnBadge}><Text style={s.histBtnBadgeText}>{history.length}</Text></View>
+              )}
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowCreate(true)} activeOpacity={0.85}>
               <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={s.createBtn}>
                 <Ionicons name="add" size={16} color="#fff" />
@@ -241,39 +283,45 @@ export default function WorkoutsScreen({ navigation }) {
           </View>
         )}
 
-        {/* FEATURED */}
-        {selectedCat === 'Todos' && !search && featured && (
-          <View style={s.section}>
-            <View style={s.sectionHeaderRow}>
-              <Text style={s.sectionTitle}>🔥 Desafio da Semana</Text>
-              <View style={s.hotBadge}><Text style={s.hotBadgeText}>QUENTE</Text></View>
-            </View>
-            <TouchableOpacity onPress={() => navigation.navigate('WorkoutDetail', { workout: featured })} activeOpacity={0.9}>
-              <LinearGradient colors={featured.gradient} style={s.featCard}>
-                <View style={s.featContent}>
-                  <Text style={s.featEmoji}>{featured.emoji}</Text>
-                  <View style={s.featInfo}>
-                    <View style={[s.diffBadge, { backgroundColor: featured.difficultyColor + '30' }]}>
-                      <Text style={[s.diffText, { color: featured.difficultyColor }]}>{featured.difficulty}</Text>
-                    </View>
-                    <Text style={s.featName}>{featured.name}</Text>
-                    <Text style={s.featSub}>{featured.category}</Text>
-                    <View style={s.featStats}>
-                      <Text style={s.featStatText}>⏱ {featured.duration}min</Text>
-                      <Text style={s.featStatText}>🔥 {featured.calories}kcal</Text>
-                      <Text style={s.featStatText}>⚡ +{featured.xp} XP</Text>
+        {/* DESAFIO SEMANAL DINÂMICO */}
+        {selectedCat === 'Todos' && !search && (() => {
+          // Encontra treino compatível com o desafio da semana
+          const challengeWorkout = allWorkouts.find(w =>
+            w.category === weeklyChallenge.targetWorkoutCategory ||
+            (w.muscles ?? []).some(m => m === weeklyChallenge.targetWorkoutCategory)
+          ) ?? allWorkouts[0];
+          return (
+            <View style={s.section}>
+              <View style={s.sectionHeaderRow}>
+                <Text style={s.sectionTitle}>🔥 Desafio da Semana</Text>
+                {weeklyChallengeDone
+                  ? <View style={[s.hotBadge, { backgroundColor: '#10B981' }]}><Text style={s.hotBadgeText}>✓ CONCLUÍDO</Text></View>
+                  : <View style={s.hotBadge}><Text style={s.hotBadgeText}>{weeklyChallenge.daysLeft}d restantes</Text></View>}
+              </View>
+              <TouchableOpacity
+                activeOpacity={weeklyChallengeDone ? 1 : 0.9}
+                onPress={() => !weeklyChallengeDone && navigation.navigate('WorkoutDetail', { workout: challengeWorkout })}
+              >
+                <LinearGradient colors={weeklyChallengeDone ? ['#064E3B','#022C22'] : weeklyChallenge.gradient} style={s.featCard}>
+                  <View style={s.featContent}>
+                    <Text style={s.featEmoji}>{weeklyChallengeDone ? '🏆' : weeklyChallenge.emoji}</Text>
+                    <View style={s.featInfo}>
+                      <View style={[s.diffBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                        <Text style={[s.diffText, { color: '#fff' }]}>{weeklyChallenge.difficulty}</Text>
+                      </View>
+                      <Text style={s.featName}>{weeklyChallengeDone ? 'Desafio Concluído! 🏆' : weeklyChallenge.name}</Text>
+                      <Text style={s.featSub}>{weeklyChallengeDone ? 'Você completou o desafio desta semana 🎉' : weeklyChallenge.description}</Text>
+                      <View style={s.featStats}>
+                        <Text style={s.featStatText}>⚡ +{weeklyChallenge.xp} XP bônus</Text>
+                        {!weeklyChallengeDone && <Text style={s.featStatText}>▶ {challengeWorkout.name}</Text>}
+                      </View>
                     </View>
                   </View>
-                </View>
-                <View style={s.muscleTags}>
-                  {featured.muscles.map(m => (
-                    <View key={m} style={s.muscleTag}><Text style={s.muscleTagText}>{m}</Text></View>
-                  ))}
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          );
+        })()}
 
         {/* ALL WORKOUTS */}
         <View style={s.section}>
@@ -296,6 +344,65 @@ export default function WorkoutsScreen({ navigation }) {
           )}
         </View>
       </ScrollView>
+
+      {/* ── HISTÓRICO COMPLETO MODAL ── */}
+      <Modal visible={showAllHistory} animationType="slide" onRequestClose={() => setShowAllHistory(false)}>
+        <View style={[s.modalBg, { paddingTop: insets.top }]}>
+          <LinearGradient colors={['#1A1A3E', '#12122A']} style={s.mHeader}>
+            <TouchableOpacity onPress={() => setShowAllHistory(false)} style={s.mCloseBtn}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+            <Text style={s.mHeaderTitle}>📋 Histórico de Treinos</Text>
+            <View style={{ width: 40 }} />
+          </LinearGradient>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: SPACING.md, paddingBottom: 40 }}>
+            {history.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 60 }}>
+                <Text style={{ fontSize: 48 }}>📋</Text>
+                <Text style={{ color: COLORS.gray, marginTop: 12 }}>Nenhum treino concluído ainda</Text>
+              </View>
+            ) : history.map((h, i) => {
+              const wdata = h.workout_data ?? {};
+              const mins  = h.duration_seconds ? Math.round(h.duration_seconds / 60) : null;
+              const date  = h.completed_at
+                ? new Date(h.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '';
+              const original   = allWorkouts.find(w => w.name === h.workout_name);
+              const fullWorkout = {
+                ...(original ?? {}),
+                ...(wdata ?? {}),
+                id:        h.id,
+                name:      h.workout_name  ?? wdata?.name  ?? 'Treino',
+                emoji:     h.workout_emoji ?? wdata?.emoji ?? '💪',
+                xp:        h.xp_earned     ?? wdata?.xp    ?? 0,
+                exercises: wdata?.exercises?.length ? wdata.exercises : (original?.exercises ?? []),
+                gradient:  wdata?.gradient  ?? original?.gradient ?? ['#8B5CF6','#6D28D9'],
+                muscles:   wdata?.muscles   ?? original?.muscles  ?? [],
+              };
+              return (
+                <TouchableOpacity
+                  key={h.id ?? i}
+                  style={[s.histRow, { marginBottom: 10 }]}
+                  onPress={() => {
+                    setShowAllHistory(false);
+                    setTimeout(() => navigation.navigate('WorkoutDetail', { workout: fullWorkout, isHistory: true }), 300);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={s.histEmoji}>{h.workout_emoji ?? '💪'}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.histName}>{h.workout_name ?? 'Treino'}</Text>
+                    <Text style={s.histMeta}>{date}{mins ? `  ·  ${mins}min` : ''}</Text>
+                    <Text style={s.histMeta}>+{h.xp_earned ?? 0} XP{wdata.exercises?.length ? `  ·  ${wdata.exercises.length} exercícios` : ''}</Text>
+                  </View>
+                  <View style={s.histXPBadge}><Text style={s.histXPText}>✓</Text></View>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.grayDark} />
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* ── CREATE WORKOUT MODAL ── */}
       <Modal visible={showCreate} animationType="slide">
@@ -551,6 +658,9 @@ const s = StyleSheet.create({
   headerTitle: { color: COLORS.white, fontSize: 22, fontWeight: '800' },
   headerSub: { color: COLORS.gray, fontSize: 13, marginTop: 2 },
   createBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 9 },
+  histBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)', alignItems: 'center', justifyContent: 'center' },
+  histBtnBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: COLORS.purple, borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  histBtnBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   createBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 10, gap: 8, borderWidth: 1, borderColor: COLORS.border },
   searchInput: { flex: 1, color: COLORS.white, fontSize: 14 },
@@ -602,6 +712,14 @@ const s = StyleSheet.create({
   muscleTags: { flexDirection: 'row', gap: 6, marginTop: 12, flexWrap: 'wrap' },
   muscleTag: { backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   muscleTagText: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' },
+
+  // Histórico
+  histRow:     { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border },
+  histEmoji:   { fontSize: 22, width: 32, textAlign: 'center' },
+  histName:    { color: COLORS.white, fontSize: 14, fontWeight: '700' },
+  histMeta:    { color: COLORS.gray, fontSize: 12, marginTop: 2 },
+  histXPBadge: { backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: RADIUS.full, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
+  histXPText:  { color: COLORS.green, fontSize: 12, fontWeight: '800' },
 
   // Empty
   empty: { alignItems: 'center', paddingVertical: 48, gap: 8 },

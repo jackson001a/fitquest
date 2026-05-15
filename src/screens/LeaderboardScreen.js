@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -6,12 +7,27 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
-import { leaderboardData, userData, groupsData, rivalsData, feedData } from '../data/mockData';
+import { useUser } from '../context/UserContext';
+import { fetchLeaderboard } from '../services/achievementService';
+import { supabase } from '../services/supabase';
+import { shareExternal, buildShareText } from '../services/socialService';
+
+function AvatarCircle({ photo, letter, size = 40, gradientColors = ['#8B5CF6','#6D28D9'], style }) {
+  if (photo) {
+    return <Image source={{ uri: photo }} style={[{ width: size, height: size, borderRadius: size / 2 }, style]} />;
+  }
+  return (
+    <LinearGradient colors={gradientColors} style={[{ width: size, height: size, borderRadius: size / 2, alignItems: 'center', justifyContent: 'center' }, style]}>
+      <Text style={{ color: '#fff', fontSize: size * 0.4, fontWeight: '800' }}>{letter}</Text>
+    </LinearGradient>
+  );
+}
 
 const LEAGUE_CONFIG = {
   Diamante: { emoji: '💎', color: '#67E8F9', gradient: ['#0E7490', '#0C4A6E'] },
@@ -22,7 +38,7 @@ const LEAGUE_CONFIG = {
 };
 
 // ─── GROUP CARD ──────────────────────────────────────────────────────────────
-function GroupCard({ group }) {
+function GroupCard({ group, avatarPhoto }) {
   const allIn   = group.members.every(m => m.checkedInToday);
   const missing = group.members.filter(m => !m.checkedInToday).length;
   const present = group.members.filter(m => m.checkedInToday).length;
@@ -59,12 +75,16 @@ function GroupCard({ group }) {
               styles.groupMemberRing,
               { borderColor: m.checkedInToday ? '#10B981' : '#F59E0B', shadowColor: m.checkedInToday ? '#10B981' : '#F59E0B', elevation: m.checkedInToday ? 4 : 0 },
             ]}>
-              <LinearGradient
-                colors={m.isUser ? ['#8B5CF6','#6D28D9'] : m.checkedInToday ? ['#047857','#065F46'] : ['#1E1B3A','#12122A']}
-                style={styles.groupMemberAvatar}
-              >
-                <Text style={styles.groupMemberText}>{m.avatar}</Text>
-              </LinearGradient>
+              {m.isUser && avatarPhoto ? (
+                <Image source={{ uri: avatarPhoto }} style={styles.groupMemberAvatar} />
+              ) : (
+                <LinearGradient
+                  colors={m.isUser ? ['#8B5CF6','#6D28D9'] : m.checkedInToday ? ['#047857','#065F46'] : ['#1E1B3A','#12122A']}
+                  style={styles.groupMemberAvatar}
+                >
+                  <Text style={styles.groupMemberText}>{m.avatar}</Text>
+                </LinearGradient>
+              )}
             </View>
             <Text style={styles.groupMemberName} numberOfLines={1}>{m.isUser ? 'Você' : m.name.split(' ')[0]}</Text>
             <View style={[styles.groupMemberDot, { backgroundColor: m.checkedInToday ? '#10B981' : '#F59E0B' }]} />
@@ -89,6 +109,20 @@ function GroupCard({ group }) {
 }
 
 function GruposView() {
+  const navigation  = useNavigation();
+  const { user: currentUser, avatarPhoto } = useUser();
+  const [squads, setSquads]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const { getUserSquads } = require('../services/socialService');
+    getUserSquads(currentUser.id)
+      .then(data => setSquads((data ?? []).filter(s => !s.is_duo)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [currentUser?.id]);
+
   return (
     <View style={styles.socialContainer}>
       <View style={styles.socialHeaderRow}>
@@ -96,12 +130,34 @@ function GruposView() {
           <Text style={styles.socialTitle}>🛡️ Grupos & Clãs</Text>
           <Text style={styles.socialSub}>Treinem juntos. Se alguém falhar, o escudo zera.</Text>
         </View>
-        <TouchableOpacity style={styles.createBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.createBtn} activeOpacity={0.8}
+          onPress={() => navigation.navigate('CreateClan', { isDuo: false })}>
           <Text style={styles.createBtnText}>+ Criar</Text>
         </TouchableOpacity>
       </View>
 
-      {groupsData.map(group => <GroupCard key={group.id} group={group} />)}
+      {squads.length > 0 ? squads.map(squad => (
+        <GroupCard key={squad.id} avatarPhoto={avatarPhoto} group={{
+          id: squad.id, name: squad.name, emoji: squad.emoji ?? '🛡️',
+          groupStreak: squad.group_streak ?? 0, daysPerWeek: squad.min_weekly_checkins ?? 3,
+          color: squad.color ?? '#8B5CF6',
+          gradient: ['#7C3AED','#5B21B6','#1E1B4B'],
+          members: (squad.squad_members ?? []).map(m => ({
+            name: m.users?.name ?? '?', avatar: m.users?.name?.[0] ?? '?',
+            checkedInToday: m.checked_in_today ?? false, isUser: m.user_id === currentUser?.id,
+          })),
+        }} />
+      )) : !loading && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>🛡️</Text>
+          <Text style={styles.emptyTitle}>Nenhum grupo ainda</Text>
+          <Text style={styles.emptySub}>Crie um grupo e convide amigos para treinar juntos.</Text>
+          <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.8}
+            onPress={() => navigation.navigate('CreateClan', { isDuo: false })}>
+            <Text style={styles.emptyBtnText}>Criar Squad</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.socialInfoBox}>
         <Text style={styles.socialInfoTitle}>Como funciona 🛡️</Text>
@@ -116,7 +172,7 @@ function GruposView() {
 }
 
 // ─── RIVAL MATCH CARD ────────────────────────────────────────────────────────
-function RivalMatchCard({ r }) {
+function RivalMatchCard({ r, avatarPhoto }) {
   const userWinning = r.userScore > r.rivalScore;
   const tied        = r.userScore === r.rivalScore;
   const diff        = Math.abs(r.userScore - r.rivalScore);
@@ -187,12 +243,13 @@ function RivalMatchCard({ r }) {
 
           {/* User fighter */}
           <View style={styles.rmcFighter}>
-            <LinearGradient
-              colors={['#8B5CF6', '#6D28D9']}
-              style={[styles.rmcAvatar, userWinning && diff > 0 && styles.rmcAvatarWin]}
-            >
-              <Text style={styles.rmcAvatarText}>L</Text>
-            </LinearGradient>
+            <AvatarCircle
+              photo={avatarPhoto}
+              letter={r.userAvatar ?? 'V'}
+              size={50}
+              gradientColors={['#8B5CF6', '#6D28D9']}
+              style={userWinning && diff > 0 ? styles.rmcAvatarWin : undefined}
+            />
             <Text style={styles.rmcFighterName}>Você</Text>
             <Text style={styles.rmcLastWorkout}>{r.userLastWorkout}</Text>
             <Text style={[styles.rmcScore, userWinning && diff > 0 && { color: '#10B981' }]}>{r.userScore}</Text>
@@ -275,26 +332,83 @@ function RivalMatchCard({ r }) {
 }
 
 function RivaisView() {
+  const navigation = useNavigation();
+  const { user: currentUser, avatarPhoto } = useUser();
+  const [duels,  setDuels]  = useState([]);
+  const [duos,   setDuos]   = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const { getUserSquads, getUserDuels } = require('../services/socialService');
+    Promise.all([
+      getUserDuels(currentUser.id),
+      getUserSquads(currentUser.id),
+    ]).then(([d, squads]) => {
+      setDuels(d ?? []);
+      setDuos((squads ?? []).filter(s => s.is_duo));
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, [currentUser?.id]);
+
   return (
     <View style={styles.socialContainer}>
       <View style={styles.socialHeaderRow}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.socialTitle}>⚔️ Rivais</Text>
+          <Text style={styles.socialTitle}>⚔️ Rivais & Duplas</Text>
           <Text style={styles.socialSub}>Duelos individuais. Quem treina mais, vence.</Text>
         </View>
-        <TouchableOpacity style={styles.createBtn} activeOpacity={0.8}>
-          <Text style={styles.createBtnText}>+ Criar Duelo</Text>
+        <TouchableOpacity style={styles.createBtn} activeOpacity={0.8}
+          onPress={() => navigation.navigate('CreateClan', { isDuo: true })}>
+          <Text style={styles.createBtnText}>+ Criar Dupla</Text>
         </TouchableOpacity>
       </View>
 
-      {rivalsData.map(r => <RivalMatchCard key={r.id} r={r} />)}
+      {duos.length > 0 && (
+        <>
+          <Text style={[styles.socialInfoTitle, { marginBottom: 8 }]}>🤝 Duplas</Text>
+          {duos.map(duo => (
+            <View key={duo.id} style={[styles.socialInfoBox, { marginBottom: 10 }]}>
+              <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 15 }}>{duo.emoji} {duo.name}</Text>
+              <Text style={{ color: COLORS.gray, fontSize: 12, marginTop: 4 }}>
+                {duo.squad_members?.length ?? 0}/2 membros  ·  Modo: {duo.mode === 'battle' ? 'Rival' : 'Colaborativa'}
+              </Text>
+              <Text style={{ color: COLORS.purpleLight, fontSize: 12, marginTop: 2, letterSpacing: 2 }}>
+                Código: {duo.invite_code}
+              </Text>
+            </View>
+          ))}
+        </>
+      )}
+
+      {duels.length > 0 ? duels.map(duel => (
+        <RivalMatchCard key={duel.id} avatarPhoto={avatarPhoto} r={{
+          id: duel.id, name: duel.name, gradient: ['#6D28D9','#4C1D95','#2E1065'],
+          color: '#A78BFA', endDate: duel.end_date,
+          userScore: duel.myScore ?? 0, rivalScore: duel.theirScore ?? 0,
+          userAvatar: currentUser?.name?.[0] ?? 'V',
+          rival: { name: duel.opponent?.name ?? 'Rival', avatar: duel.opponent?.name?.[0] ?? '?' },
+          userHasMomentum: (duel.myScore ?? 0) > (duel.theirScore ?? 0),
+          daysLeft: Math.max(0, Math.ceil((new Date(duel.end_date) - new Date()) / 86400000)),
+          totalDays: duel.duration_days ?? 7,
+        }} />
+      )) : !loading && duos.length === 0 && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>⚔️</Text>
+          <Text style={styles.emptyTitle}>Nenhum duelo ativo</Text>
+          <Text style={styles.emptySub}>Crie uma dupla colaborativa ou rival e desafie alguém.</Text>
+          <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.8}
+            onPress={() => navigation.navigate('CreateClan', { isDuo: true })}>
+            <Text style={styles.emptyBtnText}>Criar Dupla</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <View style={styles.socialInfoBox}>
         <Text style={styles.socialInfoTitle}>Como funciona ⚔️</Text>
         <Text style={styles.socialInfoText}>
           Seu streak pessoal 🔥{' '}
           <Text style={{ fontWeight: '700', color: COLORS.white }}>não é afetado</Text>{' '}
-          pelos duelos. A pontuação é o total de treinos no período — quem treinar mais ao final vence.
+          pelos duelos. A pontuação é o total de treinos no período.
         </Text>
       </View>
     </View>
@@ -317,49 +431,108 @@ const REACTIONS = [
 ];
 
 function FeedSection() {
+  const { user, avatarPhoto } = useUser();
   const [myReactions, setMyReactions] = useState({});
+  const [posts, setPosts]             = useState([]);
+  const [loadingFeed, setLoadingFeed] = useState(true);
 
-  const toggle = (postId, key) => {
+  useEffect(() => {
+    Promise.all([
+      supabase.from('feed_posts').select('*, users(name)').order('created_at', { ascending: false }).limit(20),
+      user?.id
+        ? supabase.from('feed_reactions').select('post_id, reaction_type').eq('user_id', user.id)
+        : Promise.resolve({ data: [] }),
+    ]).then(([{ data: postsData }, { data: reactsData }]) => {
+      setPosts(postsData ?? []);
+      // Restaura reações do usuário
+      const restored = {};
+      (reactsData ?? []).forEach(r => { restored[`${r.post_id}_${r.reaction_type}`] = true; });
+      setMyReactions(restored);
+      setLoadingFeed(false);
+    }).catch(() => setLoadingFeed(false));
+  }, [user?.id]);
+
+  const toggle = async (postId, key) => {
     const id = `${postId}_${key}`;
-    setMyReactions((prev) => ({ ...prev, [id]: !prev[id] }));
+    const isActive = !!myReactions[id];
+    setMyReactions((prev) => ({ ...prev, [id]: !isActive }));
+
+    // Persiste no Supabase
+    try {
+      if (!isActive) {
+        await supabase.from('feed_reactions').upsert(
+          { post_id: postId, user_id: user?.id, reaction_type: key },
+          { onConflict: 'post_id,user_id,reaction_type', ignoreDuplicates: true }
+        );
+      } else {
+        await supabase.from('feed_reactions')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user?.id)
+          .eq('reaction_type', key);
+      }
+    } catch (_) {
+      // Rollback se falhar
+      setMyReactions((prev) => ({ ...prev, [id]: isActive }));
+    }
   };
 
   return (
     <View style={styles.feedSection}>
       <View style={styles.feedHeader}>
         <Text style={styles.feedTitle}>📣 Feed da Comunidade</Text>
-        <TouchableOpacity style={styles.shareBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.shareBtn} activeOpacity={0.8}
+          onPress={() => shareExternal(buildShareText(user ?? {}, 'streak', ''), '')}>
           <Text style={styles.shareBtnText}>+ Compartilhar</Text>
         </TouchableOpacity>
       </View>
 
-      {feedData.map((item) => {
-        const accent = FEED_TYPE_COLOR[item.type] ?? COLORS.purple;
+      {!loadingFeed && posts.length === 0 && (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyEmoji}>📣</Text>
+          <Text style={styles.emptyTitle}>Feed vazio por enquanto</Text>
+          <Text style={styles.emptySub}>Complete treinos, bata recordes e conquistas para aparecer aqui!</Text>
+        </View>
+      )}
+
+      {posts.map((item) => {
+        const accent    = FEED_TYPE_COLOR[item.post_type] ?? COLORS.purple;
+        const userName  = item.users?.name ?? 'Usuário';
+        const avatarLetter = userName[0]?.toUpperCase() ?? '?';
+        const timeAgo   = (() => {
+          const diff = Date.now() - new Date(item.created_at).getTime();
+          const mins = Math.floor(diff / 60000);
+          if (mins < 60) return `${mins}min`;
+          const hrs = Math.floor(mins / 60);
+          if (hrs < 24) return `${hrs}h`;
+          return `${Math.floor(hrs / 24)}d`;
+        })();
         return (
           <View key={item.id} style={[styles.feedCard, { borderColor: accent + '28' }]}>
-            {/* ── Cabeçalho: avatar + nome/tempo + badge ── */}
             <View style={styles.feedCardTop}>
-              <LinearGradient colors={[accent + '55', accent + '25']} style={styles.feedAvatar}>
-                <Text style={styles.feedAvatarText}>{item.avatar}</Text>
-              </LinearGradient>
+              {item.user_id === user?.id && avatarPhoto ? (
+                <Image source={{ uri: avatarPhoto }} style={styles.feedAvatar} />
+              ) : (
+                <LinearGradient colors={[accent + '55', accent + '25']} style={styles.feedAvatar}>
+                  <Text style={styles.feedAvatarText}>{avatarLetter}</Text>
+                </LinearGradient>
+              )}
               <View style={styles.feedMeta}>
-                <Text style={styles.feedUser}>{item.user}</Text>
-                <Text style={styles.feedTime}>{item.time} atrás</Text>
+                <Text style={styles.feedUser}>{userName}</Text>
+                <Text style={styles.feedTime}>{timeAgo} atrás</Text>
               </View>
               <View style={[styles.feedBadge, { backgroundColor: accent + '20', borderColor: accent + '45' }]}>
-                <Text style={styles.feedBadgeEmoji}>{item.emoji}</Text>
-                <Text style={[styles.feedBadgeText, { color: accent }]} numberOfLines={1}>{item.badge}</Text>
+                <Text style={styles.feedBadgeEmoji}>{item.emoji ?? '🏆'}</Text>
+                <Text style={[styles.feedBadgeText, { color: accent }]} numberOfLines={1}>{item.badge ?? item.post_type}</Text>
               </View>
             </View>
 
-            {/* ── Conteúdo principal ── */}
             <Text style={styles.feedContent}>{item.detail}</Text>
 
-            {/* ── Reações ── */}
             <View style={styles.feedReactRow}>
               {REACTIONS.map(({ key, emoji, activeColor }) => {
                 const active = !!myReactions[`${item.id}_${key}`];
-                const count  = item.reactions[key] + (active ? 1 : 0);
+                const count  = active ? 1 : 0;
                 return (
                   <TouchableOpacity
                     key={key}
@@ -384,7 +557,7 @@ function FeedSection() {
 }
 
 // ─── PODIUM ──────────────────────────────────────────────────────────────────
-function PodiumItem({ user, position }) {
+function PodiumItem({ user, position, avatarPhoto }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const heightMap = { 1: 80, 2: 60, 3: 50 };
   const colorMap  = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32' };
@@ -394,15 +567,36 @@ function PodiumItem({ user, position }) {
     Animated.spring(scaleAnim, { toValue: 1, delay: position * 150, friction: 5, useNativeDriver: true }).start();
   }, []);
 
+  // Ainda carregando ou posição vazia
+  if (!user) return (
+    <Animated.View style={[styles.podiumItem, { transform: [{ scale: scaleAnim }] }]}>
+      <View style={styles.podiumAvatar}>
+        <View style={[styles.podiumAvatarCircle, { backgroundColor: '#1A1A2E' }]} />
+        <Text style={styles.podiumMedal}>{emojiMap[position]}</Text>
+      </View>
+      <Text style={[styles.podiumRank, { color: colorMap[position] }]}>-</Text>
+      <View style={[styles.podiumBar, { height: heightMap[position], backgroundColor: colorMap[position] + '15', borderColor: colorMap[position] + '30' }]}>
+        <Text style={[styles.podiumRank, { color: colorMap[position] }]}>#{position}</Text>
+      </View>
+    </Animated.View>
+  );
+
   return (
     <Animated.View style={[styles.podiumItem, { transform: [{ scale: scaleAnim }] }]}>
       <View style={styles.podiumAvatar}>
-        <LinearGradient
-          colors={position === 1 ? ['#F59E0B', '#D97706'] : ['#8B5CF6', '#6D28D9']}
-          style={[styles.podiumAvatarCircle, user.isUser && styles.podiumAvatarUser]}
-        >
-          <Text style={styles.podiumAvatarText}>{user.avatar}</Text>
-        </LinearGradient>
+        {user.isUser && avatarPhoto ? (
+          <Image
+            source={{ uri: avatarPhoto }}
+            style={[styles.podiumAvatarCircle, styles.podiumAvatarUser]}
+          />
+        ) : (
+          <LinearGradient
+            colors={position === 1 ? ['#F59E0B', '#D97706'] : ['#8B5CF6', '#6D28D9']}
+            style={[styles.podiumAvatarCircle, user.isUser && styles.podiumAvatarUser]}
+          >
+            <Text style={styles.podiumAvatarText}>{user.avatar}</Text>
+          </LinearGradient>
+        )}
         <Text style={styles.podiumMedal}>{emojiMap[position]}</Text>
       </View>
       <Text style={styles.podiumName} numberOfLines={1}>{user.isUser ? 'Você' : user.name.split(' ')[0]}</Text>
@@ -415,9 +609,12 @@ function PodiumItem({ user, position }) {
 }
 
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
-export default function LeaderboardScreen() {
+export default function LeaderboardScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [tab, setTab] = useState('Geral');
+  const { user: currentUser, avatarPhoto } = useUser();
+  const [tab, setTab]               = useState('Geral');
+  const [rankingData, setRankingData] = useState([]);
+  const [loadingRank, setLoadingRank] = useState(true);
   const headerAnim = useRef(new Animated.Value(0)).current;
   const listAnim   = useRef(new Animated.Value(20)).current;
 
@@ -428,10 +625,25 @@ export default function LeaderboardScreen() {
     ]).start();
   }, []);
 
-  const top3      = leaderboardData.slice(0, 3);
-  const rest      = leaderboardData.slice(3);
-  const userEntry = leaderboardData.find((u) => u.isUser);
-  const currentLeague = LEAGUE_CONFIG[userData.league] || LEAGUE_CONFIG['Ouro'];
+  // Carrega ranking real do Supabase
+  useEffect(() => {
+    fetchLeaderboard(50).then(data => {
+      const marked = data.map(u => ({ ...u, isUser: u.id === currentUser?.id }));
+      setRankingData(marked);
+      setLoadingRank(false);
+    }).catch(() => setLoadingRank(false));
+  }, [currentUser?.id]);
+
+  const top3      = rankingData.slice(0, 3);
+  const rest      = rankingData.slice(3);
+  const userEntry = rankingData.find(u => u.isUser) ?? {
+    rank: 99, name: currentUser?.name ?? 'Você',
+    xp: currentUser?.xp ?? 0, streak: currentUser?.streak ?? 0,
+    league: currentUser?.league ?? 'Bronze',
+    league_emoji: currentUser?.leagueEmoji ?? '🥉',
+    avatar: currentUser?.name?.[0] ?? '?', isUser: true,
+  };
+  const currentLeague = LEAGUE_CONFIG[currentUser?.league] || LEAGUE_CONFIG['Bronze'];
 
   const getChangeIcon = (change) => {
     if (change > 0) return { icon: 'arrow-up',   color: COLORS.green };
@@ -449,13 +661,22 @@ export default function LeaderboardScreen() {
             colors={['#1A1A3E', '#0A0A18']}
             style={[styles.header, { paddingTop: insets.top + 12 }]}
           >
-            <Text style={styles.headerTitle}>🏆 Ranking</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={styles.headerTitle}>🏆 Ranking</Text>
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' }}
+                onPress={() => navigation.navigate('Friends')}
+                activeOpacity={0.8}>
+                <Text style={{ fontSize: 14 }}>👥</Text>
+                <Text style={{ color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' }}>Amigos</Text>
+              </TouchableOpacity>
+            </View>
 
             <LinearGradient colors={currentLeague.gradient} style={styles.leagueCard}>
               <View style={styles.leagueLeft}>
                 <Text style={styles.leagueEmoji}>{currentLeague.emoji}</Text>
                 <View>
-                  <Text style={styles.leagueName}>Liga {userData.league}</Text>
+                  <Text style={styles.leagueName}>Liga {currentUser.league}</Text>
                   <Text style={styles.leagueSub}>Sua liga atual</Text>
                 </View>
               </View>
@@ -484,15 +705,21 @@ export default function LeaderboardScreen() {
           <>
             <View style={styles.podiumSection}>
               <View style={styles.podiumRow}>
-                <PodiumItem user={top3[1]} position={2} />
-                <PodiumItem user={top3[0]} position={1} />
-                <PodiumItem user={top3[2]} position={3} />
+                <PodiumItem user={top3[1]} position={2} avatarPhoto={avatarPhoto} />
+                <PodiumItem user={top3[0]} position={1} avatarPhoto={avatarPhoto} />
+                <PodiumItem user={top3[2]} position={3} avatarPhoto={avatarPhoto} />
               </View>
             </View>
 
             <Animated.View style={[styles.listSection, { transform: [{ translateY: listAnim }] }]}>
+              {loadingRank && rest.length === 0 && (
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 14 }}>Carregando ranking...</Text>
+                </View>
+              )}
               {rest.map((user) => {
-                const change = getChangeIcon(user.change);
+                if (!user) return null;
+                const change = getChangeIcon(user.change ?? 0);
                 return (
                   <View key={user.rank} style={[styles.listItem, user.isUser && styles.listItemUser]}>
                     {user.isUser && (
@@ -502,12 +729,16 @@ export default function LeaderboardScreen() {
                       />
                     )}
                     <Text style={styles.rankNum}>#{user.rank}</Text>
-                    <LinearGradient
-                      colors={user.isUser ? ['#8B5CF6', '#6D28D9'] : ['#2A2A4A', '#1A1A3E']}
-                      style={styles.listAvatar}
-                    >
-                      <Text style={styles.listAvatarText}>{user.avatar}</Text>
-                    </LinearGradient>
+                    {user.isUser && avatarPhoto ? (
+                      <Image source={{ uri: avatarPhoto }} style={styles.listAvatar} />
+                    ) : (
+                      <LinearGradient
+                        colors={user.isUser ? ['#8B5CF6', '#6D28D9'] : ['#2A2A4A', '#1A1A3E']}
+                        style={styles.listAvatar}
+                      >
+                        <Text style={styles.listAvatarText}>{user.avatar}</Text>
+                      </LinearGradient>
+                    )}
                     <View style={styles.listInfo}>
                       <Text style={[styles.listName, user.isUser && styles.listNameUser]}>
                         {user.isUser ? 'Você 👑' : user.name}
@@ -541,7 +772,7 @@ export default function LeaderboardScreen() {
                   <View key={name} style={styles.guideItem}>
                     <Text style={styles.guideEmoji}>{config.emoji}</Text>
                     <Text style={[styles.guideName, { color: config.color }]}>{name}</Text>
-                    {name === userData.league && (
+                    {name === currentUser.league && (
                       <View style={styles.currentBadge}>
                         <Text style={styles.currentBadgeText}>Atual</Text>
                       </View>
@@ -636,6 +867,12 @@ const styles = StyleSheet.create({
   socialTitle: { color: COLORS.white, fontSize: 22, fontWeight: '900' },
   socialSub: { color: COLORS.gray, fontSize: 13, marginTop: 3, lineHeight: 18 },
   createBtn: { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', marginTop: 4 },
+  emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
+  emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: COLORS.white, marginBottom: 8 },
+  emptySub:   { fontSize: 14, color: COLORS.gray, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
+  emptyBtn:   { backgroundColor: COLORS.purple, borderRadius: RADIUS.full, paddingHorizontal: 24, paddingVertical: 12 },
+  emptyBtnText: { color: COLORS.white, fontSize: 14, fontWeight: '700' },
   createBtnText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   socialInfoBox: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginTop: 4, gap: 6 },
   socialInfoTitle: { color: COLORS.white, fontSize: 13, fontWeight: '700' },
