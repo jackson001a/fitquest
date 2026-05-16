@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   View,
@@ -8,6 +8,9 @@ import {
   StyleSheet,
   Animated,
   Image,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,8 +40,69 @@ const LEAGUE_CONFIG = {
   Bronze:   { emoji: '🥉', color: '#CD7F32', gradient: ['#92400E', '#451A03'] },
 };
 
+// ─── COPY HELPER ────────────────────────────────────────────────────────────
+async function copyToClipboard(text, label = 'Código') {
+  try {
+    const Clipboard = require('expo-clipboard');
+    await Clipboard.setStringAsync(text);
+    Alert.alert('Copiado! 📋', `${label} "${text}" copiado.\nCompartilhe com seus amigos.`);
+  } catch {
+    Alert.alert(label, text);
+  }
+}
+
+// ─── JOIN MODAL ──────────────────────────────────────────────────────────────
+function JoinModal({ visible, title, subtitle, onJoin, onClose }) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleJoin = async () => {
+    if (code.trim().length < 6) return;
+    setLoading(true);
+    try {
+      await onJoin(code.trim().toUpperCase());
+      setCode('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.joinCard}>
+          <Text style={styles.joinTitle}>{title}</Text>
+          <Text style={styles.joinSub}>{subtitle}</Text>
+          <TextInput
+            style={styles.joinInput}
+            value={code}
+            onChangeText={t => setCode(t.toUpperCase())}
+            placeholder="EX: ABC123"
+            placeholderTextColor={COLORS.grayDark}
+            maxLength={6}
+            autoCapitalize="characters"
+            autoFocus
+          />
+          <View style={styles.joinBtnRow}>
+            <TouchableOpacity style={styles.joinBtnCancel} onPress={() => { setCode(''); onClose(); }}>
+              <Text style={styles.joinBtnCancelText}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.joinBtnConfirm, { opacity: code.length < 6 ? 0.4 : 1 }]}
+              onPress={handleJoin}
+              disabled={loading || code.length < 6}
+            >
+              <Text style={styles.joinBtnConfirmText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── GROUP CARD ──────────────────────────────────────────────────────────────
-function GroupCard({ group, avatarPhoto }) {
+function GroupCard({ group, avatarPhoto, onCopyCode }) {
   const allIn   = group.members.every(m => m.checkedInToday);
   const missing = group.members.filter(m => !m.checkedInToday).length;
   const present = group.members.filter(m => m.checkedInToday).length;
@@ -51,14 +115,14 @@ function GroupCard({ group, avatarPhoto }) {
     >
       {/* ── Topo: escudo + nome + frequência ── */}
       <View style={styles.groupTopRow}>
-        <View style={[styles.groupShieldBox, { backgroundColor: group.color + '28', borderColor: group.color + '70', shadowColor: group.color }]}>
+        <View style={[styles.groupShieldBox, { backgroundColor: group.color + '28', borderColor: group.color + '70' }]}>
           <Text style={styles.groupShieldEmoji}>🛡️</Text>
           <Text style={[styles.groupShieldNum, { color: group.color }]}>{group.groupStreak}</Text>
-          <Text style={[styles.groupShieldSub, { color: group.color + 'AA' }]}>dias</Text>
+          <Text style={[styles.groupShieldSub, { color: group.color + 'AA' }]}>DIAS</Text>
         </View>
         <View style={styles.groupTitleBlock}>
-          <Text style={styles.groupName}>{group.name}</Text>
-          <Text style={styles.groupFreq}>{group.daysPerWeek}× por semana</Text>
+          <Text style={styles.groupName} numberOfLines={1}>{group.name}</Text>
+          <Text style={styles.groupFreq}>{group.daysPerWeek}× por semana · {group.members.length}/{group.maxMembers ?? 4} membros</Text>
           <View style={[styles.groupAttendBadge, { backgroundColor: allIn ? '#10B98122' : alertColor + '22', borderColor: allIn ? '#10B98145' : alertColor + '45' }]}>
             <Text style={[styles.groupAttendText, { color: allIn ? '#10B981' : alertColor }]}>
               {allIn ? '✅' : '⚡'} {present}/{group.members.length} treinaram hoje
@@ -71,10 +135,7 @@ function GroupCard({ group, avatarPhoto }) {
       <View style={styles.groupMembersRow}>
         {group.members.map((m, i) => (
           <View key={i} style={styles.groupMemberItem}>
-            <View style={[
-              styles.groupMemberRing,
-              { borderColor: m.checkedInToday ? '#10B981' : '#F59E0B', shadowColor: m.checkedInToday ? '#10B981' : '#F59E0B', elevation: m.checkedInToday ? 4 : 0 },
-            ]}>
+            <View style={[styles.groupMemberRing, { borderColor: m.checkedInToday ? '#10B981' : '#F59E0B' }]}>
               {m.isUser && avatarPhoto ? (
                 <Image source={{ uri: avatarPhoto }} style={styles.groupMemberAvatar} />
               ) : (
@@ -87,44 +148,84 @@ function GroupCard({ group, avatarPhoto }) {
               )}
             </View>
             <Text style={styles.groupMemberName} numberOfLines={1}>{m.isUser ? 'Você' : m.name.split(' ')[0]}</Text>
-            <View style={[styles.groupMemberDot, { backgroundColor: m.checkedInToday ? '#10B981' : '#F59E0B' }]} />
+            {m.checkedInToday
+              ? <Ionicons name="checkmark-circle" size={12} color="#10B981" style={{ marginTop: 2 }} />
+              : <Ionicons name="time-outline" size={12} color="#F59E0B" style={{ marginTop: 2 }} />}
           </View>
         ))}
+        {/* Slot vazio para convidar */}
+        {group.members.length < (group.maxMembers ?? 4) && (
+          <View style={styles.groupMemberItem}>
+            <View style={[styles.groupMemberRing, { borderColor: 'rgba(255,255,255,0.2)', borderStyle: 'dashed' }]}>
+              <View style={[styles.groupMemberAvatar, { backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
+                <Ionicons name="add" size={22} color="rgba(255,255,255,0.3)" />
+              </View>
+            </View>
+            <Text style={[styles.groupMemberName, { color: 'rgba(255,255,255,0.35)' }]}>Convidar</Text>
+          </View>
+        )}
       </View>
 
       {/* ── Barra de status ── */}
       <LinearGradient
-        colors={allIn ? ['#10B98120', '#10B98108'] : [alertColor + '20', alertColor + '08']}
+        colors={allIn ? ['#10B98120','#10B98108'] : [alertColor + '20', alertColor + '08']}
         style={[styles.groupStatusBar, { borderColor: allIn ? '#10B98140' : alertColor + '40' }]}
       >
         <Text style={[styles.groupStatusText, { color: allIn ? '#10B981' : alertColor }]}>
           {allIn
-            ? `🔥 Incrível! Todos foram hoje — escudo em ${group.groupStreak} dias!`
-            : `⚡ ${missing} membro${missing > 1 ? 's' : ''} faltando — vai hoje ainda!`
-          }
+            ? `🔥 Todos treinaram hoje — escudo em ${group.groupStreak} dias!`
+            : `⚡ ${missing} membro${missing > 1 ? 's' : ''} faltando — vai hoje ainda!`}
         </Text>
       </LinearGradient>
+
+      {/* ── Código de convite ── */}
+      {group.inviteCode ? (
+        <TouchableOpacity style={styles.groupCodeRow} onPress={() => onCopyCode?.(group.inviteCode)} activeOpacity={0.7}>
+          <Text style={styles.groupCodeLabel}>Código para convidar amigos:</Text>
+          <View style={[styles.groupCodePill, { borderColor: group.color + '60' }]}>
+            <Text style={[styles.groupCodeText, { color: group.color }]}>{group.inviteCode}</Text>
+            <Ionicons name="copy-outline" size={13} color={group.color} />
+          </View>
+        </TouchableOpacity>
+      ) : null}
     </LinearGradient>
   );
 }
 
 function GruposView() {
-  const navigation  = useNavigation();
+  const navigation = useNavigation();
   const { user: currentUser, avatarPhoto } = useUser();
-  const [squads, setSquads]   = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [squads,    setSquads]    = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [joinModal, setJoinModal] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!currentUser?.id) return;
     const { getUserSquads } = require('../services/socialService');
     getUserSquads(currentUser.id)
-      .then(data => setSquads((data ?? []).filter(s => !s.is_duo)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .then(data => { setSquads((data ?? []).filter(s => !s.is_duo)); setLoading(false); })
+      .catch(() => setLoading(false));
   }, [currentUser?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleJoin = async (code) => {
+    const { joinSquadByCode } = require('../services/socialService');
+    try {
+      await joinSquadByCode(currentUser.id, code);
+      setJoinModal(false);
+      load();
+      Alert.alert('Entrou! 🛡️', 'Você entrou no grupo. Treinem juntos!');
+    } catch (e) {
+      Alert.alert('Erro', e.message ?? 'Código inválido ou grupo cheio.');
+      throw e;
+    }
+  };
 
   return (
     <View style={styles.socialContainer}>
+
+      {/* Header */}
       <View style={styles.socialHeaderRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.socialTitle}>🛡️ Grupos & Clãs</Text>
@@ -136,209 +237,316 @@ function GruposView() {
         </TouchableOpacity>
       </View>
 
-      {squads.length > 0 ? squads.map(squad => (
-        <GroupCard key={squad.id} avatarPhoto={avatarPhoto} group={{
-          id: squad.id, name: squad.name, emoji: squad.emoji ?? '🛡️',
-          groupStreak: squad.group_streak ?? 0, daysPerWeek: squad.min_weekly_checkins ?? 3,
-          color: squad.color ?? '#8B5CF6',
-          gradient: ['#7C3AED','#5B21B6','#1E1B4B'],
-          members: (squad.squad_members ?? []).map(m => ({
-            name: m.users?.name ?? '?', avatar: m.users?.name?.[0] ?? '?',
-            checkedInToday: m.checked_in_today ?? false, isUser: m.user_id === currentUser?.id,
-          })),
-        }} />
-      )) : !loading && (
+      {/* Entrar com código */}
+      <TouchableOpacity style={styles.enterCodeBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
+        <Ionicons name="enter-outline" size={15} color={COLORS.purpleLight} />
+        <Text style={styles.enterCodeBtnText}>Entrar em grupo com código de convite</Text>
+        <Ionicons name="chevron-forward" size={14} color={COLORS.purpleLight} />
+      </TouchableOpacity>
+
+      {/* Loading */}
+      {loading && (
+        <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+          <Text style={{ color: COLORS.gray, fontSize: 14 }}>Carregando grupos...</Text>
+        </View>
+      )}
+
+      {/* Empty state */}
+      {!loading && squads.length === 0 && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>🛡️</Text>
           <Text style={styles.emptyTitle}>Nenhum grupo ainda</Text>
-          <Text style={styles.emptySub}>Crie um grupo e convide amigos para treinar juntos.</Text>
+          <Text style={styles.emptySub}>
+            Crie um grupo, compartilhe o código e treinem juntos.{'\n'}
+            O escudo cresce quando <Text style={{ color: COLORS.white, fontWeight: '800' }}>todos</Text> treinam nos dias combinados.
+          </Text>
           <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.8}
             onPress={() => navigation.navigate('CreateClan', { isDuo: false })}>
-            <Text style={styles.emptyBtnText}>Criar Squad</Text>
+            <Text style={styles.emptyBtnText}>Criar Grupo</Text>
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Group cards */}
+      {squads.map(squad => (
+        <GroupCard
+          key={squad.id}
+          avatarPhoto={avatarPhoto}
+          onCopyCode={code => copyToClipboard(code, 'Código do grupo')}
+          group={{
+            id:           squad.id,
+            name:         squad.name,
+            emoji:        squad.emoji ?? '🛡️',
+            groupStreak:  squad.group_streak ?? 0,
+            daysPerWeek:  squad.min_weekly_checkins ?? 3,
+            maxMembers:   squad.max_members ?? 4,
+            inviteCode:   squad.invite_code,
+            color:        squad.color ?? '#8B5CF6',
+            gradient:     ['#7C3AED', '#5B21B6', '#1E1B4B'],
+            members: (squad.squad_members ?? []).map(m => ({
+              name:           m.users?.name ?? '?',
+              avatar:         (m.users?.name ?? '?')[0],
+              checkedInToday: m.checked_in_today ?? false,
+              isUser:         m.user_id === currentUser?.id,
+            })),
+          }}
+        />
+      ))}
+
+      {/* Como funciona */}
       <View style={styles.socialInfoBox}>
         <Text style={styles.socialInfoTitle}>Como funciona 🛡️</Text>
         <Text style={styles.socialInfoText}>
-          O Escudo do Clã é separado do seu streak pessoal 🔥. Ele cresce somente quando{' '}
-          <Text style={{ fontWeight: '700', color: COLORS.white }}>todos os membros</Text>{' '}
-          fazem check-in nos dias combinados. Um ausente e o escudo zera para todos.
+          {'O Escudo do Clã cresce 1 dia quando '}
+          <Text style={{ fontWeight: '800', color: COLORS.white }}>todos os membros</Text>
+          {' fazem check-in ou treino nos dias combinados. Um ausente e o escudo volta a zero para todos.'}
         </Text>
       </View>
+
+      {/* Join modal */}
+      <JoinModal
+        visible={joinModal}
+        title="Entrar em um Grupo"
+        subtitle="Digite o código de 6 letras compartilhado pelo criador do grupo"
+        onJoin={handleJoin}
+        onClose={() => setJoinModal(false)}
+      />
     </View>
   );
 }
 
-// ─── RIVAL MATCH CARD ────────────────────────────────────────────────────────
-function RivalMatchCard({ r, avatarPhoto }) {
-  const userWinning = r.userScore > r.rivalScore;
-  const tied        = r.userScore === r.rivalScore;
-  const diff        = Math.abs(r.userScore - r.rivalScore);
-  const barMax      = Math.max(r.userScore, r.rivalScore, 1);
-  const userPct     = Math.round((r.userScore / barMax) * 100);
-  const rivalPct    = Math.round((r.rivalScore / barMax) * 100);
-
-  const borderPulse = useRef(new Animated.Value(0.35)).current;
+// ─── DUEL CARD (duelo ativo 1v1) ────────────────────────────────────────────
+function DuelCard({ duel, avatarPhoto, currentUser }) {
+  const myScore    = duel.myScore ?? 0;
+  const theirScore = duel.theirScore ?? 0;
+  const winning    = myScore > theirScore;
+  const tied       = myScore === theirScore;
+  const diff       = Math.abs(myScore - theirScore);
+  const barMax     = Math.max(myScore, theirScore, 1);
+  const myPct      = (myScore / barMax) * 100;
+  const theirPct   = (theirScore / barMax) * 100;
+  const daysLeft   = duel.end_date
+    ? Math.max(0, Math.ceil((new Date(duel.end_date) - new Date()) / 86400000))
+    : '?';
+  const opponentName = duel.opponent?.name ?? 'Rival';
+  const pulse = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
     Animated.loop(
       Animated.sequence([
-        Animated.timing(borderPulse, { toValue: 1,    duration: 1100, useNativeDriver: true }),
-        Animated.timing(borderPulse, { toValue: 0.35, duration: 1100, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,   duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
   }, []);
 
-  const borderColor = tied ? r.color : (userWinning ? '#10B981' : '#EF4444');
-  const rivalFirstName = r.rival.name.split(' ')[0];
+  const borderCol = tied ? '#A78BFA' : winning ? '#10B981' : '#EF4444';
 
   return (
-    <View style={styles.rmcWrapper}>
-      {/* Pulsing border overlay */}
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.rmcPulsingBorder, { borderColor, opacity: borderPulse }]}
-      />
+    <View style={styles.duelWrapper}>
+      <Animated.View pointerEvents="none"
+        style={[styles.duelPulse, { borderColor: borderCol, opacity: pulse }]} />
+      <LinearGradient colors={['#4C1D95','#2E1065','#1A1A3E']} style={styles.duelCard}>
 
-      <LinearGradient colors={r.gradient} style={[styles.rmcCard, { shadowColor: r.color }]}>
-
-        {/* ── Header ── */}
-        <View style={styles.rivalMatchHeader}>
-          <View style={styles.rmcHeaderLeft}>
-            <Text style={[styles.rivalMatchTitle, { color: r.color }]}>⚔️  {r.name}</Text>
-            {!tied && (
-              <View style={[styles.rmcStatusBadge, {
-                backgroundColor: userWinning ? '#10B98122' : '#EF444422',
-                borderColor:     userWinning ? '#10B98158' : '#EF444458',
-              }]}>
-                <Text style={[styles.rmcStatusBadgeText, { color: userWinning ? '#10B981' : '#EF4444' }]}>
-                  {userWinning ? '⚡ DOMINANDO' : '🔴 PERIGO'}
-                </Text>
-              </View>
-            )}
-          </View>
-          <View style={[styles.rivalMatchDeadline, { backgroundColor: r.color + '20', borderColor: r.color + '45' }]}>
-            <Text style={[styles.rivalMatchDeadlineText, { color: r.color }]}>⏳ {r.daysLeft}d · Encerra {r.endDate}</Text>
+        {/* Header */}
+        <View style={styles.duelHeader}>
+          <Text style={styles.duelTitle}>⚔️ {duel.name ?? 'Duelo'}</Text>
+          <View style={[styles.duelTimeBadge, { backgroundColor: borderCol + '22', borderColor: borderCol + '55' }]}>
+            <Text style={[styles.duelTimeText, { color: borderCol }]}>⏳ {daysLeft}d</Text>
           </View>
         </View>
 
-        {/* ── Arena ── */}
-        <View style={styles.rmcArena}>
-          {/* Tension: user side glow */}
-          <LinearGradient
-            colors={userWinning ? ['rgba(16,185,129,0.14)', 'transparent'] : ['rgba(139,92,246,0.10)', 'transparent']}
-            start={{ x: 0, y: 0.5 }} end={{ x: 0.55, y: 0.5 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-          {/* Tension: rival side glow */}
-          <LinearGradient
-            colors={['transparent', !userWinning ? 'rgba(239,68,68,0.14)' : 'rgba(192,132,252,0.10)']}
-            start={{ x: 0.45, y: 0.5 }} end={{ x: 1, y: 0.5 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
+        {/* Status badge */}
+        {!tied && (
+          <View style={[styles.duelStatusBadge, { backgroundColor: winning ? '#10B98118' : '#EF444418', borderColor: winning ? '#10B98140' : '#EF444440' }]}>
+            <Text style={[styles.duelStatusText, { color: winning ? '#10B981' : '#EF4444' }]}>
+              {winning ? `⚡ Você lidera por ${diff} treino${diff > 1 ? 's' : ''}!` : `🔴 ${opponentName.split(' ')[0]} lidera por ${diff}. Corra!`}
+            </Text>
+          </View>
+        )}
+        {tied && (
+          <View style={[styles.duelStatusBadge, { backgroundColor: '#A78BFA18', borderColor: '#A78BFA40' }]}>
+            <Text style={[styles.duelStatusText, { color: '#A78BFA' }]}>🤝 Empate — próximo treino decide!</Text>
+          </View>
+        )}
 
-          {/* User fighter */}
-          <View style={styles.rmcFighter}>
+        {/* Arena */}
+        <View style={styles.duelArena}>
+          {/* Você */}
+          <View style={styles.duelFighter}>
             <AvatarCircle
               photo={avatarPhoto}
-              letter={r.userAvatar ?? 'V'}
-              size={50}
-              gradientColors={['#8B5CF6', '#6D28D9']}
-              style={userWinning && diff > 0 ? styles.rmcAvatarWin : undefined}
+              letter={currentUser?.name?.[0] ?? 'V'}
+              size={56}
+              gradientColors={['#8B5CF6','#6D28D9']}
+              style={winning && diff > 0 ? { borderWidth: 3, borderColor: '#10B981' } : undefined}
             />
-            <Text style={styles.rmcFighterName}>Você</Text>
-            <Text style={styles.rmcLastWorkout}>{r.userLastWorkout}</Text>
-            <Text style={[styles.rmcScore, userWinning && diff > 0 && { color: '#10B981' }]}>{r.userScore}</Text>
-            <Text style={styles.rmcUnit}>treinos</Text>
-            {userWinning && diff > 0 && (
-              <LinearGradient colors={['#10B981', '#047857']} style={styles.rmcLeaderBadge}>
-                <Text style={styles.rmcLeaderText}>👑 LÍDER</Text>
-              </LinearGradient>
-            )}
-            <View style={styles.rmcDotsRow}>
-              {r.userLast7Days.map((done, i) => (
-                <Text key={i} style={[styles.rmcDot, { color: done ? '#10B981' : 'rgba(255,255,255,0.18)' }]}>
-                  {done ? '●' : '○'}
-                </Text>
-              ))}
-            </View>
+            <Text style={styles.duelFighterLabel}>Você</Text>
+            <Text style={[styles.duelScore, { color: winning ? '#10B981' : tied ? COLORS.white : '#EF4444' }]}>
+              {myScore}
+            </Text>
+            <Text style={styles.duelScoreUnit}>treinos</Text>
           </View>
 
-          {/* VS center */}
-          <View style={styles.rmcVSBlock}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.14)', 'rgba(255,255,255,0.06)']}
-              style={[styles.rmcVSCircle, { borderColor: r.color + '55' }]}
-            >
-              <Text style={[styles.rmcVSText, { color: r.color }]}>VS</Text>
-            </LinearGradient>
-            <Text style={styles.rmcFreq}>{r.daysPerWeek}×/sem</Text>
-          </View>
+          {/* VS */}
+          <LinearGradient
+            colors={['rgba(255,255,255,0.12)','rgba(255,255,255,0.04)']}
+            style={styles.duelVSCircle}
+          >
+            <Text style={[styles.duelVSText, { color: borderCol }]}>VS</Text>
+          </LinearGradient>
 
-          {/* Rival fighter */}
-          <View style={styles.rmcFighter}>
+          {/* Rival */}
+          <View style={styles.duelFighter}>
             <LinearGradient
-              colors={[r.color + 'CC', r.color + '66']}
-              style={[styles.rmcAvatar, !userWinning && diff > 0 && { borderWidth: 3, borderColor: '#EF4444' }]}
+              colors={['#F97316CC','#C2410C88']}
+              style={[styles.duelRivalAvatar, !winning && diff > 0 ? { borderWidth: 3, borderColor: '#10B981' } : undefined]}
             >
-              <Text style={styles.rmcAvatarText}>{r.rival.avatar}</Text>
+              <Text style={styles.duelAvatarText}>{opponentName[0]}</Text>
             </LinearGradient>
-            <Text style={styles.rmcFighterName}>{rivalFirstName}</Text>
-            <Text style={styles.rmcLastWorkout}>{r.rival.lastWorkout}</Text>
-            <Text style={[styles.rmcScore, !userWinning && diff > 0 && { color: '#EF4444' }]}>{r.rivalScore}</Text>
-            <Text style={styles.rmcUnit}>treinos</Text>
-            {!userWinning && diff > 0 && (
-              <View style={[styles.rmcLeaderBadge, { backgroundColor: '#EF444428', borderColor: '#EF444452' }]}>
-                <Text style={[styles.rmcLeaderText, { color: '#EF4444' }]}>🔴 LÍDER</Text>
-              </View>
-            )}
-            <View style={styles.rmcDotsRow}>
-              {r.rival.last7Days.map((done, i) => (
-                <Text key={i} style={[styles.rmcDot, { color: done ? (userWinning ? 'rgba(239,68,68,0.6)' : '#10B981') : 'rgba(255,255,255,0.18)' }]}>
-                  {done ? '●' : '○'}
-                </Text>
-              ))}
-            </View>
+            <Text style={styles.duelFighterLabel}>{opponentName.split(' ')[0]}</Text>
+            <Text style={[styles.duelScore, { color: !winning && !tied ? '#10B981' : tied ? COLORS.white : '#EF4444' }]}>
+              {theirScore}
+            </Text>
+            <Text style={styles.duelScoreUnit}>treinos</Text>
           </View>
         </View>
 
-        {/* ── Footer: diff + status ── */}
-        <LinearGradient
-          colors={userWinning ? ['#10B98118', '#10B98108'] : tied ? ['#8B5CF620', '#8B5CF608'] : ['#EF444418', '#EF444408']}
-          style={[styles.rmcFooter, { borderColor: userWinning ? '#10B98140' : tied ? '#8B5CF640' : '#EF444440' }]}
-        >
-          {!tied && (
-            <Text style={[styles.rmcFooterDiff, { color: userWinning ? '#10B981' : '#EF4444' }]}>
-              {userWinning ? `+${diff}` : `-${diff}`}
-            </Text>
-          )}
-          <Text style={[styles.rmcFooterText, { color: userWinning ? '#10B981' : tied ? COLORS.gray : '#EF4444', flex: 1 }]}>
-            {tied
-              ? '🤝 Empate! Próximo treino decide!'
-              : userWinning
-              ? `💪 Você lidera por ${diff} treino${diff > 1 ? 's' : ''}! Não para!`
-              : `😤 ${rivalFirstName} lidera por ${diff}. Vai treinar agora!`
-            }
-          </Text>
-        </LinearGradient>
+        {/* Barras de progresso */}
+        <View style={styles.duelBarsRow}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={styles.duelBarLabel}>Você</Text>
+            <View style={styles.duelBarTrack}>
+              <View style={[styles.duelBarFill, { width: `${myPct}%`, backgroundColor: winning ? '#10B981' : '#8B5CF6' }]} />
+            </View>
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[styles.duelBarLabel, { textAlign: 'right' }]}>{opponentName.split(' ')[0]}</Text>
+            <View style={styles.duelBarTrack}>
+              <View style={[styles.duelBarFill, { width: `${theirPct}%`, backgroundColor: '#F97316', alignSelf: 'flex-end' }]} />
+            </View>
+          </View>
+        </View>
 
       </LinearGradient>
     </View>
   );
 }
 
+// ─── DUO CARD (dupla aguardando/ativa) ──────────────────────────────────────
+function DuoCard({ duo, currentUser, avatarPhoto, onCopyCode }) {
+  const members = duo.squad_members ?? [];
+  const partner = members.find(m => m.user_id !== currentUser?.id);
+  const waiting = !partner;
+  const isBattle = duo.mode === 'battle';
+
+  const myCheckins    = members.find(m => m.user_id === currentUser?.id)?.week_checkins ?? 0;
+  const theirCheckins = partner?.week_checkins ?? 0;
+  const myWinning     = myCheckins > theirCheckins;
+  const tied          = myCheckins === theirCheckins;
+
+  return (
+    <View style={styles.duoCard}>
+      {/* Header */}
+      <View style={styles.duoHeader}>
+        <Text style={styles.duoEmoji}>{duo.emoji ?? '🤝'}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.duoName}>{duo.name}</Text>
+          <Text style={styles.duoMeta}>
+            {isBattle ? '⚔️ Rival' : '🤝 Colaborativa'}
+            {' · '}{members.length}/2 membros
+            {duo.end_date ? `  · Até ${new Date(duo.end_date).toLocaleDateString('pt-BR',{day:'2-digit',month:'short'})}` : ''}
+          </Text>
+        </View>
+        <View style={[styles.duoStatusDot, { backgroundColor: waiting ? '#F59E0B' : '#10B981' }]} />
+      </View>
+
+      {/* VS ou + */}
+      <View style={styles.duoArena}>
+        {/* Você */}
+        <View style={styles.duoFighter}>
+          <AvatarCircle
+            photo={avatarPhoto}
+            letter={currentUser?.name?.[0] ?? 'V'}
+            size={48}
+            gradientColors={['#8B5CF6','#6D28D9']}
+          />
+          <Text style={styles.duoFighterName}>Você</Text>
+          {!waiting && isBattle && (
+            <Text style={[styles.duoFighterScore, { color: myWinning ? '#10B981' : tied ? COLORS.gray : '#EF4444' }]}>
+              {myCheckins} treinos
+            </Text>
+          )}
+        </View>
+
+        <Text style={styles.duoVSLabel}>{isBattle ? 'VS' : '+'}</Text>
+
+        {/* Parceiro ou aguardando */}
+        <View style={styles.duoFighter}>
+          {partner ? (
+            <>
+              <LinearGradient colors={['#F97316','#C2410C']} style={styles.duoPartnerAvatar}>
+                <Text style={styles.duoAvatarText}>{(partner.users?.name ?? '?')[0]}</Text>
+              </LinearGradient>
+              <Text style={styles.duoFighterName}>{(partner.users?.name ?? 'Parceiro').split(' ')[0]}</Text>
+              {isBattle && (
+                <Text style={[styles.duoFighterScore, { color: !myWinning && !tied ? '#10B981' : tied ? COLORS.gray : '#EF4444' }]}>
+                  {theirCheckins} treinos
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <View style={styles.duoEmptyAvatar}>
+                <Ionicons name="person-add-outline" size={20} color="rgba(255,255,255,0.3)" />
+              </View>
+              <Text style={[styles.duoFighterName, { color: 'rgba(255,255,255,0.35)' }]}>Aguardando</Text>
+            </>
+          )}
+        </View>
+      </View>
+
+      {/* Código de convite quando aguardando parceiro */}
+      {waiting && duo.invite_code && (
+        <TouchableOpacity style={styles.duoCodeRow} onPress={() => onCopyCode?.(duo.invite_code)} activeOpacity={0.7}>
+          <Ionicons name="share-social-outline" size={14} color={COLORS.purpleLight} />
+          <Text style={styles.duoCodeLabel}>Compartilhe o código:</Text>
+          <View style={styles.duoCodePill}>
+            <Text style={styles.duoCodeText}>{duo.invite_code}</Text>
+            <Ionicons name="copy-outline" size={12} color={COLORS.purpleLight} />
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* Placar quando ativo e modo rival */}
+      {!waiting && isBattle && (
+        <View style={[styles.duoScoreBar, {
+          backgroundColor: myWinning ? '#10B98115' : tied ? 'rgba(139,92,246,0.1)' : '#EF444415',
+          borderColor: myWinning ? '#10B98135' : tied ? 'rgba(139,92,246,0.3)' : '#EF444435',
+        }]}>
+          <Text style={[styles.duoScoreBarText, { color: myWinning ? '#10B981' : tied ? COLORS.gray : '#EF4444' }]}>
+            {myWinning
+              ? `💪 Você lidera! Continue assim!`
+              : tied
+              ? '🤝 Empatados — próximo treino decide!'
+              : `😤 ${(partner?.users?.name ?? 'Rival').split(' ')[0]} lidera. Vai treinar!`}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── RIVAIS VIEW ─────────────────────────────────────────────────────────────
 function RivaisView() {
   const navigation = useNavigation();
   const { user: currentUser, avatarPhoto } = useUser();
-  const [duels,  setDuels]  = useState([]);
-  const [duos,   setDuos]   = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [duels,     setDuels]     = useState([]);
+  const [duos,      setDuos]      = useState([]);
+  const [loading,   setLoading]   = useState(true);
+  const [joinModal, setJoinModal] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!currentUser?.id) return;
     const { getUserSquads, getUserDuels } = require('../services/socialService');
     Promise.all([
@@ -347,70 +555,117 @@ function RivaisView() {
     ]).then(([d, squads]) => {
       setDuels(d ?? []);
       setDuos((squads ?? []).filter(s => s.is_duo));
-    }).catch(() => {}).finally(() => setLoading(false));
+      setLoading(false);
+    }).catch(() => setLoading(false));
   }, [currentUser?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleJoin = async (code) => {
+    const { joinSquadByCode } = require('../services/socialService');
+    try {
+      await joinSquadByCode(currentUser.id, code);
+      setJoinModal(false);
+      load();
+      Alert.alert('Entrou! ⚔️', 'Você entrou na dupla. Que comecem os treinos!');
+    } catch (e) {
+      Alert.alert('Erro', e.message ?? 'Código inválido.');
+      throw e;
+    }
+  };
+
+  const isEmpty = !loading && duels.length === 0 && duos.length === 0;
 
   return (
     <View style={styles.socialContainer}>
+
+      {/* Header */}
       <View style={styles.socialHeaderRow}>
         <View style={{ flex: 1 }}>
           <Text style={styles.socialTitle}>⚔️ Rivais & Duplas</Text>
-          <Text style={styles.socialSub}>Duelos individuais. Quem treina mais, vence.</Text>
+          <Text style={styles.socialSub}>Desafie alguém. Quem treina mais, vence.</Text>
         </View>
         <TouchableOpacity style={styles.createBtn} activeOpacity={0.8}
           onPress={() => navigation.navigate('CreateClan', { isDuo: true })}>
-          <Text style={styles.createBtnText}>+ Criar Dupla</Text>
+          <Text style={styles.createBtnText}>+ Criar</Text>
         </TouchableOpacity>
       </View>
 
-      {duos.length > 0 && (
-        <>
-          <Text style={[styles.socialInfoTitle, { marginBottom: 8 }]}>🤝 Duplas</Text>
-          {duos.map(duo => (
-            <View key={duo.id} style={[styles.socialInfoBox, { marginBottom: 10 }]}>
-              <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 15 }}>{duo.emoji} {duo.name}</Text>
-              <Text style={{ color: COLORS.gray, fontSize: 12, marginTop: 4 }}>
-                {duo.squad_members?.length ?? 0}/2 membros  ·  Modo: {duo.mode === 'battle' ? 'Rival' : 'Colaborativa'}
-              </Text>
-              <Text style={{ color: COLORS.purpleLight, fontSize: 12, marginTop: 2, letterSpacing: 2 }}>
-                Código: {duo.invite_code}
-              </Text>
-            </View>
-          ))}
-        </>
+      {/* Entrar com código */}
+      <TouchableOpacity style={styles.enterCodeBtn} onPress={() => setJoinModal(true)} activeOpacity={0.8}>
+        <Ionicons name="enter-outline" size={15} color={COLORS.purpleLight} />
+        <Text style={styles.enterCodeBtnText}>Entrar em dupla com código de convite</Text>
+        <Ionicons name="chevron-forward" size={14} color={COLORS.purpleLight} />
+      </TouchableOpacity>
+
+      {/* Loading */}
+      {loading && (
+        <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+          <Text style={{ color: COLORS.gray, fontSize: 14 }}>Carregando duelos...</Text>
+        </View>
       )}
 
-      {duels.length > 0 ? duels.map(duel => (
-        <RivalMatchCard key={duel.id} avatarPhoto={avatarPhoto} r={{
-          id: duel.id, name: duel.name, gradient: ['#6D28D9','#4C1D95','#2E1065'],
-          color: '#A78BFA', endDate: duel.end_date,
-          userScore: duel.myScore ?? 0, rivalScore: duel.theirScore ?? 0,
-          userAvatar: currentUser?.name?.[0] ?? 'V',
-          rival: { name: duel.opponent?.name ?? 'Rival', avatar: duel.opponent?.name?.[0] ?? '?' },
-          userHasMomentum: (duel.myScore ?? 0) > (duel.theirScore ?? 0),
-          daysLeft: Math.max(0, Math.ceil((new Date(duel.end_date) - new Date()) / 86400000)),
-          totalDays: duel.duration_days ?? 7,
-        }} />
-      )) : !loading && duos.length === 0 && (
+      {/* Empty state */}
+      {isEmpty && (
         <View style={styles.emptyState}>
           <Text style={styles.emptyEmoji}>⚔️</Text>
           <Text style={styles.emptyTitle}>Nenhum duelo ativo</Text>
-          <Text style={styles.emptySub}>Crie uma dupla colaborativa ou rival e desafie alguém.</Text>
+          <Text style={styles.emptySub}>
+            Crie uma dupla e desafie um amigo.{'\n'}
+            <Text style={{ color: COLORS.white, fontWeight: '800' }}>Rival:</Text> quem fizer mais treinos no período ganha.{'\n'}
+            <Text style={{ color: COLORS.white, fontWeight: '800' }}>Colaborativa:</Text> treinem juntos pra bater a meta.
+          </Text>
           <TouchableOpacity style={styles.emptyBtn} activeOpacity={0.8}
             onPress={() => navigation.navigate('CreateClan', { isDuo: true })}>
-            <Text style={styles.emptyBtnText}>Criar Dupla</Text>
+            <Text style={styles.emptyBtnText}>Criar Duelo</Text>
           </TouchableOpacity>
         </View>
       )}
 
+      {/* Duelos ativos (rivalries table) */}
+      {duels.length > 0 && (
+        <>
+          <Text style={styles.sectionSubTitle}>⚡ Duelos Ativos</Text>
+          {duels.map(duel => (
+            <DuelCard key={duel.id} duel={duel} avatarPhoto={avatarPhoto} currentUser={currentUser} />
+          ))}
+        </>
+      )}
+
+      {/* Duplas (squads is_duo) */}
+      {duos.length > 0 && (
+        <>
+          <Text style={styles.sectionSubTitle}>🤝 Minhas Duplas</Text>
+          {duos.map(duo => (
+            <DuoCard
+              key={duo.id}
+              duo={duo}
+              currentUser={currentUser}
+              avatarPhoto={avatarPhoto}
+              onCopyCode={code => copyToClipboard(code, 'Código da dupla')}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Como funciona */}
       <View style={styles.socialInfoBox}>
         <Text style={styles.socialInfoTitle}>Como funciona ⚔️</Text>
         <Text style={styles.socialInfoText}>
-          Seu streak pessoal 🔥{' '}
-          <Text style={{ fontWeight: '700', color: COLORS.white }}>não é afetado</Text>{' '}
-          pelos duelos. A pontuação é o total de treinos no período.
+          {'Seu streak pessoal 🔥 '}
+          <Text style={{ fontWeight: '800', color: COLORS.white }}>não é afetado</Text>
+          {' pelos duelos. A pontuação é o total de treinos concluídos no período do desafio.'}
         </Text>
       </View>
+
+      {/* Join modal */}
+      <JoinModal
+        visible={joinModal}
+        title="Entrar em uma Dupla"
+        subtitle="Digite o código de 6 letras compartilhado pelo criador da dupla"
+        onJoin={handleJoin}
+        onClose={() => setJoinModal(false)}
+      />
     </View>
   );
 }
@@ -896,9 +1151,77 @@ const styles = StyleSheet.create({
   groupMemberAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
   groupMemberText: { color: '#fff', fontSize: 19, fontWeight: '900' },
   groupMemberName: { color: COLORS.gray, fontSize: 10, textAlign: 'center', fontWeight: '700' },
-  groupMemberDot: { width: 8, height: 8, borderRadius: 4, position: 'absolute', bottom: -2, right: 6, borderWidth: 1.5, borderColor: '#12122A' },
   groupStatusBar: { borderRadius: RADIUS.lg, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
   groupStatusText: { fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  groupCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.md, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  groupCodeLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '600', flex: 1 },
+  groupCodePill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
+  groupCodeText: { fontSize: 13, fontWeight: '900', letterSpacing: 2 },
+
+  // Enter code button (grupos & rivais)
+  enterCodeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(139,92,246,0.1)', borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)', marginBottom: SPACING.md },
+  enterCodeBtnText: { flex: 1, color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
+
+  // Section subtitle
+  sectionSubTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800', marginBottom: SPACING.sm, marginTop: 4 },
+
+  // Join modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
+  joinCard: { backgroundColor: COLORS.bgSecondary, borderRadius: RADIUS.xl, padding: SPACING.lg, width: '100%', gap: 14, borderWidth: 1, borderColor: COLORS.border },
+  joinTitle: { color: COLORS.white, fontSize: 18, fontWeight: '900', textAlign: 'center' },
+  joinSub: { color: COLORS.gray, fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  joinInput: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, paddingVertical: 14, color: COLORS.white, fontSize: 22, fontWeight: '900', textAlign: 'center', letterSpacing: 6 },
+  joinBtnRow: { flexDirection: 'row', gap: 10 },
+  joinBtnCancel: { flex: 1, borderRadius: RADIUS.md, paddingVertical: 13, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: COLORS.border },
+  joinBtnCancelText: { color: COLORS.gray, fontWeight: '700', fontSize: 14 },
+  joinBtnConfirm: { flex: 1, borderRadius: RADIUS.md, paddingVertical: 13, alignItems: 'center', backgroundColor: COLORS.purple },
+  joinBtnConfirmText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+
+  // Duel Card
+  duelWrapper: { position: 'relative', marginBottom: SPACING.md },
+  duelPulse: { ...StyleSheet.absoluteFillObject, borderRadius: RADIUS.xl + 1, borderWidth: 2, zIndex: 2 },
+  duelCard: { borderRadius: RADIUS.xl, padding: SPACING.md, gap: 12, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)' },
+  duelHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  duelTitle: { color: COLORS.white, fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+  duelTimeBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
+  duelTimeText: { fontSize: 11, fontWeight: '700' },
+  duelStatusBadge: { borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
+  duelStatusText: { fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  duelArena: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 8 },
+  duelFighter: { alignItems: 'center', gap: 4, flex: 1 },
+  duelRivalAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  duelAvatarText: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  duelFighterLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '700' },
+  duelScore: { color: COLORS.white, fontSize: 32, fontWeight: '900', lineHeight: 36 },
+  duelScoreUnit: { color: COLORS.grayDark, fontSize: 10, fontWeight: '600' },
+  duelVSCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.15)' },
+  duelVSText: { fontSize: 14, fontWeight: '900' },
+  duelBarsRow: { flexDirection: 'row', gap: 10 },
+  duelBarTrack: { height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3, overflow: 'hidden' },
+  duelBarFill: { height: '100%', borderRadius: 3 },
+  duelBarLabel: { color: COLORS.grayDark, fontSize: 10, fontWeight: '700' },
+
+  // Duo Card
+  duoCard: { backgroundColor: COLORS.card, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, marginBottom: SPACING.md, gap: 14 },
+  duoHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  duoEmoji: { fontSize: 26 },
+  duoName: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  duoMeta: { color: COLORS.gray, fontSize: 11, marginTop: 2 },
+  duoStatusDot: { width: 10, height: 10, borderRadius: 5 },
+  duoArena: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: RADIUS.lg, paddingVertical: 14, paddingHorizontal: 8 },
+  duoFighter: { alignItems: 'center', gap: 5, flex: 1 },
+  duoPartnerAvatar: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  duoEmptyAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
+  duoAvatarText: { color: '#fff', fontSize: 20, fontWeight: '900' },
+  duoFighterName: { color: COLORS.gray, fontSize: 11, fontWeight: '700' },
+  duoFighterScore: { fontSize: 13, fontWeight: '800' },
+  duoVSLabel: { color: COLORS.white, fontSize: 18, fontWeight: '900', marginHorizontal: 8 },
+  duoCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.08)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(139,92,246,0.2)', paddingHorizontal: 12, paddingVertical: 10 },
+  duoCodeLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '600' },
+  duoCodePill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  duoCodeText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '900', letterSpacing: 2 },
+  duoScoreBar: { borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  duoScoreBarText: { fontSize: 13, fontWeight: '800', textAlign: 'center' },
 
   // Feed
   feedSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg, paddingBottom: 4 },
@@ -922,40 +1245,4 @@ const styles = StyleSheet.create({
   feedReactEmoji: { fontSize: 14 },
   feedReactCount: { color: COLORS.grayDark, fontSize: 12, fontWeight: '600' },
 
-  // Rival Match Card
-  rmcWrapper: { position: 'relative', marginBottom: SPACING.md },
-  rmcPulsingBorder: { ...StyleSheet.absoluteFillObject, borderRadius: RADIUS.xl + 1, borderWidth: 2.5, zIndex: 2 },
-  rmcCard: { backgroundColor: '#12122A', borderRadius: RADIUS.xl, borderWidth: 1, padding: 16, gap: 10, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 16, overflow: 'hidden' },
-  rivalMatchHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
-  rmcHeaderLeft: { flex: 1, gap: 5 },
-  rivalMatchTitle: { fontSize: 15, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
-  rmcStatusBadge: { alignSelf: 'flex-start', borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
-  rmcStatusBadgeText: { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8 },
-  rivalMatchDeadline: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4, flexShrink: 0 },
-  rivalMatchDeadlineText: { fontSize: 11, fontWeight: '700' },
-  // Arena
-  rmcArena: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', paddingVertical: 4, overflow: 'hidden' },
-  rmcFighter: { alignItems: 'center', gap: 2, flex: 1 },
-  rmcAvatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  rmcAvatarRing: { borderRadius: 30, borderWidth: 2, padding: 2, borderColor: 'rgba(255,255,255,0.1)' },
-  rmcAvatarWin: { borderWidth: 3, borderColor: '#10B981', shadowColor: '#10B981', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 10, elevation: 10 },
-  rmcAvatarText: { color: '#fff', fontSize: 20, fontWeight: '900' },
-  rmcFighterName: { color: COLORS.gray, fontSize: 11, fontWeight: '700', marginTop: 2 },
-  rmcLastWorkout: { color: COLORS.grayDark, fontSize: 9, fontWeight: '600' },
-  rmcScorePrem: { color: COLORS.white, fontSize: 42, fontWeight: '900', lineHeight: 46 },
-  rmcUnit: { color: COLORS.grayDark, fontSize: 9, fontWeight: '600' },
-  rmcLeaderBadgePrem: { borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 2, marginTop: 2, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
-  rmcLeaderTextPrem: { fontSize: 8, fontWeight: '900', letterSpacing: 1 },
-  rmcLeaderText: { color: '#fff', fontSize: 9, fontWeight: '900' },
-  rmcDotsRow: { flexDirection: 'row', gap: 3, marginTop: 3 },
-  rmcDot: { fontSize: 9 },
-  rmcNeonDot: { width: 6, height: 6, borderRadius: 3 },
-  rmcVSBlock: { alignItems: 'center', gap: 4 },
-  rmcVSCircle: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  rmcVSText: { fontSize: 13, fontWeight: '900' },
-  rmcFreq: { color: COLORS.grayDark, fontSize: 8, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  // Footer (diff + status combinados)
-  rmcFooterPrem: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: RADIUS.lg, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
-  rmcFooterDiff: { fontSize: 26, fontWeight: '900', lineHeight: 30 },
-  rmcFooterText: { fontSize: 12, fontWeight: '800', lineHeight: 17 },
 });
