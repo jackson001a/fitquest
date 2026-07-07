@@ -5,20 +5,26 @@ import { updateUser } from './userService';
 function meetsCondition(achievement, user) {
   const v = achievement.condition_value ?? 1;
   switch (achievement.condition_type) {
-    case 'streak':   return (user.streak_count   ?? 0) >= v;
-    case 'workouts': return (user.total_workouts  ?? 0) >= v;
-    case 'xp':       return (user.xp              ?? 0) >= v;
-    default:         return false; // 'manual' → acionado por evento específico
+    case 'streak':       return (user.streak_count    ?? 0) >= v;
+    case 'workouts':     return (user.total_workouts   ?? 0) >= v;
+    case 'xp':           return (user.xp               ?? 0) >= v;
+    case 'boss_kills':   return (user.total_boss_kills ?? 0) >= v;
+    case 'week_workouts':return (user.weekWorkouts      ?? 0) >= v;
+    case 'commitment':   return (user.commitment        ?? 0) >= v;
+    default:             return false; // 'manual' → acionado por evento específico
   }
 }
 
 // Progresso atual para exibição
 function getCurrentProgress(achievement, user) {
   switch (achievement.condition_type) {
-    case 'streak':   return user.streak_count   ?? 0;
-    case 'workouts': return user.total_workouts  ?? 0;
-    case 'xp':       return user.xp              ?? 0;
-    default:         return 0;
+    case 'streak':        return user.streak_count    ?? 0;
+    case 'workouts':      return user.total_workouts   ?? 0;
+    case 'xp':            return user.xp               ?? 0;
+    case 'boss_kills':    return user.total_boss_kills ?? 0;
+    case 'week_workouts': return user.weekWorkouts      ?? 0;
+    case 'commitment':    return user.commitment        ?? 0;
+    default:              return 0;
   }
 }
 
@@ -133,6 +139,17 @@ export async function unlockManualAchievement(userId, achievementId, user) {
 
   return def;
 }
+
+// IDs fixos das conquistas manuais — para disparar pelo nome
+export const ACHIEVEMENT_IDS = {
+  CACADOR:         13, // Derrota o boss semanal (5 treinos/semana)
+  FOCADO:          14, // 7 desafios diários concluídos
+  LIGA_DIAMANTE:   15, // Atingiu Liga Diamante
+  TOP_3:           16, // Top 3 do ranking
+  MADRUGADOR:      19, // Treino antes das 8h
+  GUERREIRO_CLA:   20, // Venceu desafio de grupo
+  CAMPEAO_DUELO:   21, // Venceu duelo individual
+};
 
 // ─── Salva atividade recente e publica no feed se for evento público ─────────
 export async function saveActivity(userId, type, text, emoji, xpEarned = 0) {

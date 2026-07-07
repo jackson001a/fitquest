@@ -3,7 +3,7 @@ import { signInAnonymous } from '../services/authService';
 import { supabase } from '../services/supabase';
 import { getOrCreateUser, updateUser, fetchTodayChallenges, completeChallengeinDB, saveWorkoutCompletion } from '../services/userService';
 import { calculateMissedDays, checkWeeklyReset, processCheckin, processWorkout, processChallenge, computeFlameActive } from '../services/streakService';
-import { checkAndUnlockAchievements, saveActivity } from '../services/achievementService';
+import { checkAndUnlockAchievements, saveActivity, unlockManualAchievement, ACHIEVEMENT_IDS } from '../services/achievementService';
 import { scheduleFlameNotification } from '../services/notificationService';
 import { useAppState } from '../hooks/useAppState';
 import { dailyChallenges as mockChallenges } from '../data/mockData';
@@ -262,6 +262,11 @@ export function UserProvider({ children }) {
 
     try { await scheduleFlameNotification(updated.weekly_frequency, updated.week_checkins_count); } catch (_) {}
 
+    try {
+      const { registerChallengeCheckin } = require('../services/socialService');
+      await registerChallengeCheckin(current.id);
+    } catch (_) {}
+
     // Salva atividade + checa conquistas
     try {
       await saveActivity(current.id, 'checkin', 'Check-in na academia ✅', '✅', result.xpGain);
@@ -307,6 +312,10 @@ export function UserProvider({ children }) {
     try {
       const fields = await processWorkout(current.id, current, workout.xp);
       await saveWorkoutCompletion(current.id, workout, durationSeconds);
+      try {
+        const { registerChallengeCheckin } = require('../services/socialService');
+        await registerChallengeCheckin(current.id);
+      } catch (_) {}
       await updateUser(current.id, {
         boss_kills_this_week: newBossKills,
         total_boss_kills: newBossKills >= 5
@@ -332,6 +341,24 @@ export function UserProvider({ children }) {
         for (const ach of unlocked) {
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
+      }
+
+      // ── Conquistas manuais baseadas em contexto do treino ──────────────────
+      // Madrugador: treino antes das 8h
+      const hour = new Date().getHours();
+      if (hour < 8) {
+        const ach = await unlockManualAchievement(current.id, ACHIEVEMENT_IDS.MADRUGADOR, latestUser);
+        if (ach) {
+          setNewAchievements(prev => [...prev, ach]);
+          await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
+        }
+      }
+
+      // Caçador: boss derrotado (5 treinos na semana = 1 boss kill)
+      // Já é automático via checkAndUnlockAchievements com condition_type='boss_kills'
+      // mas disparamos também aqui para garantir imediatamente
+      if ((latestUser.total_boss_kills ?? 0) >= 1) {
+        await unlockManualAchievement(current.id, ACHIEVEMENT_IDS.CACADOR, latestUser).catch(() => {});
       }
     } catch (_) {}
 

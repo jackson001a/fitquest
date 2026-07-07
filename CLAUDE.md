@@ -7,8 +7,14 @@
 - `@expo/vector-icons ^15.0.3` (Ionicons) — ícones
 - `@react-navigation/bottom-tabs ^6.6.1` + stack
 - `react-native-safe-area-context`, `react-native-screens`
-- Sem backend — dados em `src/data/mockData.js`
+- Backend: **Supabase** (Postgres) — projeto `kqlgycnpsruxrjhkcgnt`. Migrations em `supabase/migrations/`.
 - Idioma da UI: **Português (BR)**
+
+## Acesso ao banco Supabase
+
+- A connection string do Postgres fica em `.env` (gitignored), chave `SUPABASE_DB_URL`. Nunca colar a credencial aqui no CLAUDE.md nem em nenhum arquivo versionado.
+- Se `.env` não existir ou a chave estiver ausente, pedir ao usuário a connection string (Dashboard → Project Settings → Database → Connection string URI) antes de tentar rodar migrations.
+- Para aplicar uma migration SQL diretamente: usar o pacote `pg` (`npm install --no-save pg` se não estiver instalado) com um script Node que lê `.env` e executa o arquivo `.sql` via `Client.query`. Sempre criar o script em arquivo temporário e apagá-lo depois de usar.
 
 ## Regras de Edição (SEGUIR SEMPRE)
 - Ler APENAS o arquivo mencionado no pedido

@@ -218,14 +218,21 @@ export async function joinSquadByCode(userId, inviteCode) {
   return squad;
 }
 
-// Squads do usuário (com membros)
+// Squads do usuário (com membros) — com fallback se migration 008 ainda não aplicada
 export async function getUserSquads(userId) {
-  const { data: memberships } = await supabase
+  const { data: full, error: fullErr } = await supabase
     .from('squad_members')
-    .select('squad_id, role, squads(*, squad_members(user_id, role, checked_in_today, users(name, xp, streak_count)))')
+    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count)))')
     .eq('user_id', userId);
 
-  return (memberships ?? []).map(m => m.squads).filter(Boolean);
+  if (!fullErr && full) return full.map(m => m.squads).filter(Boolean);
+
+  const { data: basic } = await supabase
+    .from('squad_members')
+    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count)))')
+    .eq('user_id', userId);
+
+  return (basic ?? []).map(m => m.squads).filter(Boolean);
 }
 
 // Registro de check-in no squad
@@ -328,4 +335,148 @@ export async function updateDuelScore(duelId, challengerId, rivalId, checkerUser
   await supabase.from('rivalries')
     .update({ [field]: supabase.sql`${field} + 1` })
     .eq('id', duelId);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DESAFIOS DE GRUPO / DUPLA — ESTADOS waiting / active / completed
+// ═══════════════════════════════════════════════════════════════════════════
+
+export async function startChallenge(squadId) {
+  const { error } = await supabase.from('squads')
+    .update({ status: 'active', result: null, group_streak: 0, started_at: new Date().toISOString() })
+    .eq('id', squadId);
+  if (error) throw error;
+  await supabase.from('squad_members')
+    .update({ challenge_streak: 0, challenge_week_checkins: 0, challenge_week_start: toDateString(getMondayOf()), last_challenge_checkin: null })
+    .eq('squad_id', squadId);
+}
+
+export async function deleteSquad(squadId) {
+  await supabase.from('squad_members').delete().eq('squad_id', squadId);
+  const { error } = await supabase.from('squads').delete().eq('id', squadId);
+  if (error) throw error;
+}
+
+export async function finalizeSquad(squadId, result, winnerUserId = null) {
+  await supabase.from('squads').update({ status: 'completed', result }).eq('id', squadId);
+
+  // Desbloqueia conquistas para os vencedores
+  if (!winnerUserId) return;
+  try {
+    const { unlockManualAchievement, ACHIEVEMENT_IDS, saveActivity } = require('./achievementService');
+    const { data: squad } = await supabase.from('squads').select('is_duo').eq('id', squadId).single();
+    const achievId = squad?.is_duo ? ACHIEVEMENT_IDS.CAMPEAO_DUELO : ACHIEVEMENT_IDS.GUERREIRO_CLA;
+    const { data: user } = await supabase.from('users').select('xp, coins').eq('id', winnerUserId).single();
+    const ach = await unlockManualAchievement(winnerUserId, achievId, user ?? {});
+    if (ach) await saveActivity(winnerUserId, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
+  } catch (_) {}
+}
+
+export async function getSquadsWithHistory(userId) {
+  // Tenta com colunas novas (migration 008). Se falhar, usa fallback sem elas.
+  const { data: full, error: fullErr } = await supabase
+    .from('squad_members')
+    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count)))')
+    .eq('user_id', userId);
+
+  if (!fullErr && full) {
+    return full.map(m => ({ ...m.squads, myStreak: m.challenge_streak ?? 0, myRole: m.role })).filter(Boolean);
+  }
+
+  const { data: basic } = await supabase
+    .from('squad_members')
+    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count)))')
+    .eq('user_id', userId);
+
+  return (basic ?? []).map(m => ({ ...m.squads, myStreak: 0, myRole: m.role })).filter(Boolean);
+}
+
+export async function registerChallengeCheckin(userId) {
+  const today = toDateString();
+  const monday = toDateString(getMondayOf());
+  const { data: memberships } = await supabase
+    .from('squad_members')
+    .select('id, squad_id, challenge_streak, last_challenge_checkin, challenge_week_checkins, challenge_week_start, squads(status, mode, min_weekly_checkins, group_streak, squad_members(user_id, last_challenge_checkin))')
+    .eq('user_id', userId);
+  for (const m of memberships ?? []) {
+    const squad = m.squads;
+    if (squad?.status !== 'active') continue;
+    if (m.last_challenge_checkin === today) continue;
+    const isNewWeek = m.challenge_week_start !== monday;
+    const weekCheckins = isNewWeek ? 1 : (m.challenge_week_checkins ?? 0) + 1;
+    const newStreak = (m.challenge_streak ?? 0) + 1;
+    await supabase.from('squad_members').update({
+      challenge_streak: newStreak, last_challenge_checkin: today,
+      challenge_week_checkins: weekCheckins, challenge_week_start: monday, checked_in_today: true,
+    }).eq('id', m.id);
+    if (squad.mode !== 'battle') {
+      const allIn = squad.squad_members?.every(sm => sm.user_id === userId || sm.last_challenge_checkin === today);
+      if (allIn) await supabase.from('squads').update({ group_streak: (squad.group_streak ?? 0) + 1 }).eq('id', m.squad_id);
+    }
+  }
+}
+
+export async function checkAndFinalizeSquads(userId) {
+  const now = new Date();
+  const monday = getMondayOf();
+  // Se migration 008 não aplicada, essa função simplesmente não faz nada
+  const { data: memberships, error } = await supabase
+    .from('squad_members')
+    .select('squad_id, challenge_week_checkins, challenge_week_start, squads(id, status, mode, is_duo, min_weekly_checkins, end_date, started_at, result, group_streak, squad_members(user_id, challenge_streak, challenge_week_checkins, challenge_week_start, users(name)))')
+    .eq('user_id', userId);
+  if (error) return; // colunas novas não existem ainda
+  for (const m of memberships ?? []) {
+    const s = m.squads;
+    if (!s || s.status !== 'active' || s.result) continue;
+    const endDate = s.end_date ? new Date(s.end_date) : null;
+    const startedAt = s.started_at ? new Date(s.started_at) : null;
+    if (!startedAt) continue;
+    const members = s.squad_members ?? [];
+    const weeksPassed = Math.max(1, Math.ceil((now - startedAt) / (7 * 86400000)));
+    const totalGoal = (s.min_weekly_checkins ?? 3) * weeksPassed;
+    const minWeekly  = s.min_weekly_checkins ?? 3;
+    const isNewWeek  = startedAt && new Date(m.challenge_week_start ?? 0) < monday && m.challenge_week_start;
+
+    // ── Verificação semanal — vale para AMBOS os modos ──────────────────────
+    // Se virou semana e alguém não bateu a meta da semana anterior → encerra
+    if (isNewWeek) {
+      const failedMembers = members.filter(sm => (sm.challenge_week_checkins ?? 0) < minWeekly);
+      const allFailed     = failedMembers.length >= members.length;
+
+      if (failedMembers.length > 0) {
+        if (s.mode === 'battle') {
+          // Rival: quem falhou na semana perde; quem bateu ganha
+          const winner = members.find(sm => (sm.challenge_week_checkins ?? 0) >= minWeekly);
+          if (allFailed) {
+            await finalizeSquad(s.id, 'all_lost');
+          } else {
+            await finalizeSquad(s.id, `champion:${winner.user_id}:${winner.users?.name ?? '?'}`, winner.user_id);
+          }
+        } else {
+          // Juntos: qualquer falha encerra o grupo
+          await finalizeSquad(s.id, 'lost');
+        }
+        continue;
+      }
+    }
+
+    // ── Fim do período ───────────────────────────────────────────────────────
+    if (endDate && now > endDate) {
+      if (s.mode === 'battle') {
+        const metGoal = members.filter(sm => (sm.challenge_streak ?? 0) >= totalGoal);
+        if (metGoal.length === 0) {
+          await finalizeSquad(s.id, 'all_lost');
+        } else if (metGoal.length >= members.length) {
+          // Todos venceram — desbloqueia para o usuário atual
+          await finalizeSquad(s.id, 'all_won', userId);
+        } else {
+          const winner = members.reduce((a, b) => (a.challenge_streak ?? 0) >= (b.challenge_streak ?? 0) ? a : b);
+          await finalizeSquad(s.id, `champion:${winner.user_id}:${winner.users?.name ?? '?'}`, winner.user_id);
+        }
+      } else {
+        // Juntos: chegou ao fim sem falhar → todos venceram, desbloqueia para todos
+        await finalizeSquad(s.id, 'won', userId);
+      }
+    }
+  }
 }

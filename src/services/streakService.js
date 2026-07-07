@@ -31,6 +31,19 @@ export function calculateMissedDays(user) {
   const lastChecked = parseLocal(user.last_checked_date);
   lastChecked.setHours(0, 0, 0, 0);
 
+  // ── Correção off-by-one ───────────────────────────────────────────────────
+  // O loop vai de (lastChecked+1) até ontem. Se lastChecked = ontem (atualizado
+  // na última abertura do app), o cursor começa em hoje e o loop nunca roda —
+  // ontem nunca seria verificado. A correção: quando lastChecked = exatamente
+  // ontem, recua 1 dia para que o cursor comece em ontem e o loop o inclua.
+  // Só recuamos quando lastChecked = ontem (não quando = hoje, para não
+  // double-contar se o app abrir duas vezes no mesmo dia).
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (lastChecked.getTime() === yesterday.getTime()) {
+    lastChecked.setDate(lastChecked.getDate() - 1);
+  }
+
   const alerts = [];
   let commitmentDelta = 0;
   const freezeActive  = (user.streak_freeze_days ?? 0) > 0;
@@ -39,7 +52,7 @@ export function calculateMissedDays(user) {
     qui:'quinta',  sex:'sexta', sab:'sábado', dom:'domingo',
   };
 
-  // Itera de (lastChecked + 1) até ontem
+  // Itera de (lastChecked + 1) até ontem (inclusive)
   const cursor = new Date(lastChecked);
   cursor.setDate(cursor.getDate() + 1);
 
