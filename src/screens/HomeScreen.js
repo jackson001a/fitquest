@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -16,41 +17,53 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowsDownUpIcon, BarbellIcon, CameraIcon, CheckCircleIcon, CheckIcon, ChecksIcon, CircleIcon, ClockIcon, DiamondIcon, DropIcon, FireIcon, FlagIcon, LightningIcon, MinusIcon, RocketIcon, ScanIcon, ShieldCheckeredIcon, ShieldIcon, SkullIcon, SnowflakeIcon, StarIcon, SwordIcon, TrendDownIcon, TrendUpIcon, TrophyIcon, UsersIcon, WarningIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import {
   bossData,
   recommendedWorkouts,
   quotes,
-  groupsData,
-  rivalsData,
+  getUserTitle,
+  getBossWeekNumber,
 } from '../data/mockData';
 import { useUser } from '../context/UserContext';
 import ShopModal from '../components/ShopModal';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, supabase } from '../services/supabase';
+import { fetchThisWeekWorkoutCategories } from '../services/userService';
+
+// Calcula o progresso real do Chefe da Semana de acordo com o tipo de exigência
+// (ver comentário sobre `type` em ALL_BOSSES, em data/mockData.js)
+function computeBossProgress(boss, user, weekCategories) {
+  const days = user.weekTrainingDays ?? [];
+  switch (boss.type) {
+    case 'category':
+      return weekCategories.filter(c => c === boss.category).length;
+    case 'distinctDays':
+      return days.filter(Boolean).length;
+    case 'streakDays': {
+      let max = 0, cur = 0;
+      for (const d of days) { cur = d ? cur + 1 : 0; max = Math.max(max, cur); }
+      return max;
+    }
+    case 'count':
+    default:
+      return user.boss_kills_this_week ?? 0;
+  }
+}
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
-function getUserTitle(data) {
-  if (data.streak >= 60)         return { title: 'Imortal',               color: '#06B6D4', emoji: '⚡' };
-  if (data.streak >= 30)         return { title: 'Lenda Viva',            color: '#F59E0B', emoji: '👑' };
-  if (data.streak >= 21)         return { title: 'Guerreiro Consistente', color: '#EF4444', emoji: '⚔️' };
-  if (data.totalWorkouts >= 100) return { title: 'Monstro do Ferro',      color: '#F97316', emoji: '🦁' };
-  if (data.level >= 10)          return { title: 'Veterano do Ferro',     color: '#8B5CF6', emoji: '🏆' };
-  if (data.weekWorkouts >= 5)    return { title: 'Rei do Cardio',         color: '#10B981', emoji: '🏃' };
-  if (data.streak <= 3)          return { title: 'Fantasma da Academia',  color: '#6B7280', emoji: '👻' };
-  return                          { title: 'Atleta Dedicado',             color: '#3B82F6', emoji: '💪' };
-}
-
 const BOOST_EVENTS = [
-  { emoji: '🔥', title: 'BOOST SECRETO!',   desc: '+50% XP por 1 hora',        color: '#F97316', gradient: ['#7C2D12', '#431407'] },
-  { emoji: '⚡', title: 'XP DOBRADO!',       desc: 'XP dobrado neste treino!',  color: '#F59E0B', gradient: ['#78350F', '#3B1500'] },
-  { emoji: '⚔️', title: 'MISSÃO ESPECIAL!', desc: 'Nova missão desbloqueada!', color: '#8B5CF6', gradient: ['#4C1D95', '#2E1065'] },
-  { emoji: '💎', title: 'RECOMPENSA RARA!', desc: '+50 moedas encontradas!',    color: '#06B6D4', gradient: ['#164E63', '#082F49'] },
+  { icon: FireIcon,      title: 'BOOST SECRETO!',   desc: '+50% XP por 1 hora',        color: '#F97316', gradient: ['#7C2D12', '#431407'] },
+  { icon: LightningIcon, title: 'XP DOBRADO!',       desc: 'XP dobrado neste treino!',  color: '#F59E0B', gradient: ['#78350F', '#3B1500'] },
+  { icon: ShieldIcon,    title: 'MISSÃO ESPECIAL!', desc: 'Nova missão desbloqueada!', color: '#8B5CF6', gradient: ['#4C1D95', '#2E1065'] },
 ];
 
+const FLAVOR_EVENT_CHANCE = 0.30;
+
 // ─── CHECK-IN CELEBRATION ────────────────────────────────────────────────────
-function CheckinCelebration({ visible, event, onDismiss }) {
+function CheckinCelebration({ visible, event, xpGain, onDismiss }) {
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const cardScale    = useRef(new Animated.Value(0.6)).current;
   const cardOpacity  = useRef(new Animated.Value(0)).current;
@@ -81,10 +94,13 @@ function CheckinCelebration({ visible, event, onDismiss }) {
     });
   }, [visible]);
 
+  if (!visible) return null;
+
   const isBoost = event != null;
+  const gain = xpGain ?? 30;
   const cfg = isBoost
     ? event
-    : { emoji: '✅', title: 'Check-in Feito!', desc: '+30 XP conquistados!', color: '#10B981', gradient: ['#065F46', '#022C22'] };
+    : { icon: CheckCircleIcon, title: 'Check-in Feito!', desc: `+${gain} XP conquistados!`, color: '#10B981', gradient: ['#065F46', '#022C22'] };
   const pEmojis = isBoost ? ['🔥','⚡','💥','✨','🌟','🎉'] : ['✅','⚡','💪','🌟','✨','🎊'];
   const pX      = [SCREEN_W*0.08, SCREEN_W*0.22, SCREEN_W*0.38, SCREEN_W*0.54, SCREEN_W*0.70, SCREEN_W*0.84];
 
@@ -110,12 +126,12 @@ function CheckinCelebration({ visible, event, onDismiss }) {
                   <Text style={s.celebBoostText}>✦ EVENTO ESPECIAL ✦</Text>
                 </View>
               )}
-              <Text style={s.celebBigEmoji}>{cfg.emoji}</Text>
+              <cfg.icon size={64} color={cfg.color} weight="fill" style={s.celebBigEmoji} />
               <Text style={[s.celebTitle, { color: cfg.color }]}>{cfg.title}</Text>
               <Text style={s.celebDesc}>{cfg.desc}</Text>
               <View style={[s.celebXPRow, { backgroundColor: cfg.color + '20', borderColor: cfg.color + '40' }]}>
                 <Text style={[s.celebXPText, { color: cfg.color }]}>
-                  {isBoost ? 'check-in: +30 XP conquistados!' : 'Sequência mantida! 🔥'}
+                  {isBoost ? `check-in: +${gain} XP conquistados!` : 'Sequência mantida! 🔥'}
                 </Text>
               </View>
               <Text style={s.celebTap}>Toque para continuar</Text>
@@ -164,7 +180,7 @@ function VerificationModal({ visible, status, message, onDismiss }) {
                 opacity: scanAnim.interpolate({ inputRange: [0, 0.8, 1], outputRange: [0.5, 0.6, 0] })
               }]} />
               <LinearGradient colors={['#3B82F6', '#1D4ED8']} style={s.verifyRadarCenter}>
-                <Ionicons name="scan" size={32} color="#fff" />
+                <ScanIcon size={32} color="#fff"  weight="regular" />
               </LinearGradient>
             </View>
             <Text style={s.verifyTitle}>Analisando Foto</Text>
@@ -174,7 +190,7 @@ function VerificationModal({ visible, status, message, onDismiss }) {
         {status === 'success' && (
           <View style={s.verifyContent}>
             <View style={[s.verifyRadarCenter, { backgroundColor: '#10B981', width: 80, height: 80, borderRadius: 40 }]}>
-              <Ionicons name="checkmark-sharp" size={44} color="#fff" />
+              <CheckIcon size={44} color="#fff"  weight="bold" />
             </View>
             <Text style={[s.verifyTitle, { color: '#10B981', marginTop: 24 }]}>Academia Confirmada!</Text>
             <Text style={s.verifySub}>Check-in validado com sucesso.</Text>
@@ -183,7 +199,7 @@ function VerificationModal({ visible, status, message, onDismiss }) {
         {status === 'error' && (
           <View style={s.verifyContent}>
             <View style={[s.verifyRadarCenter, { backgroundColor: '#EF4444', width: 80, height: 80, borderRadius: 40 }]}>
-              <Ionicons name="close-sharp" size={44} color="#fff" />
+              <XIcon size={44} color="#fff"  weight="bold" />
             </View>
             <Text style={[s.verifyTitle, { color: '#EF4444', marginTop: 24 }]}>Não Reconhecido</Text>
             <Text style={[s.verifySub, { textAlign: 'center', paddingHorizontal: 20 }]}>{message || 'A foto não parece ser de uma academia.'}</Text>
@@ -198,7 +214,8 @@ function VerificationModal({ visible, status, message, onDismiss }) {
 }
 
 // ─── STREAK HERO CARD ────────────────────────────────────────────────────────
-function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
+function StreakHeroCard({ user, flameOn, fireScale, fireTranslateY, onProtect }) {
+  const flameColor = flameOn ? '#F97316' : COLORS.grayDark;
   const days = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
   const day = new Date().getDay();
   const todayIdx = day === 0 ? 6 : day - 1;
@@ -225,10 +242,10 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
   // Usa o comprometimento real do Supabase (calculado pelo servidor com base em check-ins vs planejado)
   const commitScore = user.commitment ?? 70;
   let commitCfg;
-  if (commitScore >= 80)      commitCfg = { color: COLORS.green, emoji: '🚀', label: 'Excepcional' };
-  else if (commitScore >= 60) commitCfg = { color: COLORS.blue,  emoji: '💪', label: 'Muito Bom' };
-  else if (commitScore >= 40) commitCfg = { color: COLORS.gold,  emoji: '📈', label: 'Regular' };
-  else                        commitCfg = { color: COLORS.red,   emoji: '😤', label: 'Precisa Melhorar' };
+  if (commitScore >= 80)      commitCfg = { color: COLORS.green, icon: RocketIcon,   label: 'Excepcional' };
+  else if (commitScore >= 60) commitCfg = { color: COLORS.blue,  icon: BarbellIcon,  label: 'Muito Bom' };
+  else if (commitScore >= 40) commitCfg = { color: COLORS.gold,  icon: TrendUpIcon,  label: 'Regular' };
+  else                        commitCfg = { color: COLORS.red,   icon: WarningIcon,  label: 'Precisa Melhorar' };
 
   return (
     <LinearGradient colors={['#2D1B69', '#1A1A3E', '#0A0A18']} style={s.streakHero}>
@@ -236,8 +253,10 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
       <View style={s.streakTopRow}>
         <View style={s.streakLeft}>
           <Animated.View style={{ transform: [{ scale: fireScale }, { translateY: fireTranslateY }], alignItems: 'center', justifyContent: 'center' }}>
-            <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#F59E0B', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
-            <Ionicons name="flame" size={56} color="#F97316" />
+            {flameOn && (
+              <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#F59E0B', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
+            )}
+            <FireIcon size={56} color={flameColor}  weight="fill" />
           </Animated.View>
           <Text style={s.streakNumberBig}>{user.streak}</Text>
           <View style={s.streakDaysStack}>
@@ -247,18 +266,27 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
         </View>
         <View style={s.streakRight}>
           <View style={s.streakRecordBox}>
-            <Text style={s.streakRecordLabel}>🏆 Recorde</Text>
+            <View style={s.iconLabelRow}>
+              <TrophyIcon size={11} color={COLORS.gold}  weight="fill" />
+              <Text style={s.streakRecordLabel}>Recorde</Text>
+            </View>
             <Text style={s.streakRecordNum}>{user.longestStreak} dias</Text>
           </View>
           <View style={s.streakGoalBox}>
-            <Text style={s.streakGoalLabel}>🎯 Meta</Text>
+            <View style={s.iconLabelRow}>
+              <FlagIcon size={11} color={COLORS.purpleLight}  weight="fill" />
+              <Text style={s.streakGoalLabel}>Meta</Text>
+            </View>
             <Text style={s.streakGoalNum}>{user.streakGoal} dias</Text>
           </View>
           {/* Botão discreto de proteção */}
           <TouchableOpacity onPress={onProtect} activeOpacity={0.7} style={s.freezeIconBtn}>
             {(user.streakFreezeDays ?? 0) > 0
-              ? <Text style={s.freezeIconActive}>🧊 {user.streakFreezeDays}d</Text>
-              : <Ionicons name="shield-outline" size={14} color={COLORS.grayDark} />}
+              ? <View style={s.iconLabelRow}>
+                  <SnowflakeIcon size={13} color="#7DD3FC"  weight="fill" />
+                  <Text style={s.freezeIconActive}>{user.streakFreezeDays}d</Text>
+                </View>
+              : <ShieldIcon size={14} color={COLORS.grayDark}  weight="regular" />}
           </TouchableOpacity>
         </View>
       </View>
@@ -274,7 +302,7 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
                 style={[s.milestoneDot, done && s.milestoneDotDone]}
               >
                 {done
-                  ? <Ionicons name="flame" size={12} color="#fff" />
+                  ? <FireIcon size={12} color="#fff"  weight="fill" />
                   : <Text style={s.milestoneDotNum}>{m}</Text>
                 }
               </LinearGradient>
@@ -306,7 +334,7 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
                 ]}
               >
                 {done ? (
-                  <Ionicons name="checkmark" size={13} color="#fff" />
+                  <CheckIcon size={13} color="#fff"  weight="bold" />
                 ) : isToday ? (
                   <Text style={s.streakDayTodayEmoji}>•</Text>
                 ) : (
@@ -336,7 +364,10 @@ function StreakHeroCard({ user, fireScale, fireTranslateY, onProtect }) {
             <View style={s.commitStripRow}>
               <View style={{ flex: 1 }}>
                 <Text style={s.commitStripTitle}>ÍNDICE DE DISCIPLINA</Text>
-                <Text style={[s.commitStripStatus, { color: commitCfg.color }]}>{commitCfg.emoji} {commitCfg.label}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <commitCfg.icon size={13} color={commitCfg.color} weight="fill" />
+                  <Text style={[s.commitStripStatus, { color: commitCfg.color }]}>{commitCfg.label}</Text>
+                </View>
                 <Text style={s.commitStripSub}>Baseado na consistência do seu plano</Text>
               </View>
               {/* Anel circular */}
@@ -371,18 +402,23 @@ function getWaterMsg(n) {
   return { text: '🌵 Você está desidratado! Beba água!', color: COLORS.red };
 }
 
-const WATER_KEY = '@capifit_water_daily';
+// Chave isolada POR USUÁRIO — sem isso, a água de uma conta "vazava" pra outra
+// no mesmo aparelho (mesmo bug que já existiu com a foto de perfil).
+const waterKeyFor = (userId) => `@capifit_water_daily_${userId}`;
 
-function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
+function WaterTracker({ userId, goalLiters = 2.0, onGoalReached }) {
   const goalMl = Math.round(goalLiters * 1000);
   const [mlDrank,   setMlDrank]   = useState(0);
   const [goalGiven, setGoalGiven] = useState(false); // XP já dado hoje
   const fillAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!userId) return;
+    setMlDrank(0);
+    setGoalGiven(false);
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
     const today = new Date().toDateString();
-    AsyncStorage.getItem(WATER_KEY).then(raw => {
+    AsyncStorage.getItem(waterKeyFor(userId)).then(raw => {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (saved.date === today) {
@@ -390,11 +426,12 @@ function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
         setGoalGiven(saved.goalGiven ?? false);
       }
     }).catch(() => {});
-  }, []);
+  }, [userId]);
 
   const persist = (ml, gv) => {
+    if (!userId) return;
     const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-    AsyncStorage.setItem(WATER_KEY, JSON.stringify({ date: new Date().toDateString(), ml, goalGiven: gv })).catch(() => {});
+    AsyncStorage.setItem(waterKeyFor(userId), JSON.stringify({ date: new Date().toDateString(), ml, goalGiven: gv })).catch(() => {});
   };
 
   const goalReached = mlDrank >= goalMl;
@@ -438,7 +475,7 @@ function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
       {/* Header */}
       <View style={s.waterHeader}>
         <LinearGradient colors={['#0EA5E9', '#0369A1']} style={s.waterDropCircle}>
-          <Ionicons name="water" size={22} color="#fff" />
+          <DropIcon size={22} color="#fff"  weight="fill" />
         </LinearGradient>
         <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={s.waterTitle}>Hidratação Diária</Text>
@@ -478,7 +515,7 @@ function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
         ))}
         {!goalReached && (
           <TouchableOpacity onPress={sub} activeOpacity={0.75} style={s.waterSubBtn} disabled={mlDrank === 0}>
-            <Ionicons name="remove" size={16} color={COLORS.gray} />
+            <MinusIcon size={16} color={COLORS.gray}  weight="bold" />
           </TouchableOpacity>
         )}
       </View>
@@ -490,8 +527,9 @@ function WaterTracker({ goalLiters = 2.0, onGoalReached }) {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, avatarPhoto } = useUser();
+  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, isPremium } = useUser();
   const [celebVisible, setCelebVisible] = useState(false);
+  const [celebXpGain, setCelebXpGain] = useState(30);
   const [celebEvent, setCelebEvent]   = useState(null);
   const bonusGivenRef    = useRef(false);
   const bossXpGivenRef   = useRef(false);
@@ -501,7 +539,7 @@ export default function HomeScreen({ navigation }) {
   // Lê AsyncStorage para saber se XP já foi dado hoje/essa semana
   useEffect(() => {
     const AS = require('@react-native-async-storage/async-storage').default;
-    const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+    const weekNum = getBossWeekNumber();
     AS.multiGet([`@capifit_bonus_${todayISO}`, `@capifit_boss_xp_${weekNum}`])
       .then(([[, bonusDone], [, bossDone]]) => {
         if (bonusDone === 'true') bonusGivenRef.current = true;
@@ -527,8 +565,17 @@ export default function HomeScreen({ navigation }) {
 
   const [activeSquads, setActiveSquads] = useState([]);
   const [activeDuels,  setActiveDuels]  = useState([]);
+  const [weekCategories, setWeekCategories] = useState([]);
 
+  // Só busca categorias quando o chefe da semana exige uma categoria específica
   useEffect(() => {
+    if (!user?.id || bossData.type !== 'category') return;
+    fetchThisWeekWorkoutCategories(user.id)
+      .then(setWeekCategories)
+      .catch(e => console.warn('[bossProgress] falha ao buscar categorias da semana:', e.message));
+  }, [user?.id, user.boss_kills_this_week]);
+
+  const loadCompetitions = useCallback(() => {
     if (!user?.id) return;
     const { getUserSquads, getUserDuels } = require('../services/socialService');
     Promise.all([getUserSquads(user.id), getUserDuels(user.id)])
@@ -539,8 +586,9 @@ export default function HomeScreen({ navigation }) {
           id: s.id,
           name: s.name,
           isDuo: true,
-          myScore:    s.squad_members?.find(m => m.user_id === user.id)?.weekly_score ?? 0,
-          theirScore: s.squad_members?.find(m => m.user_id !== user.id)?.weekly_score ?? 0,
+          mode:       s.mode,
+          myScore:    s.squad_members?.find(m => m.user_id === user.id)?.challenge_week_checkins ?? 0,
+          theirScore: s.squad_members?.find(m => m.user_id !== user.id)?.challenge_week_checkins ?? 0,
           opponent:   { name: s.squad_members?.find(m => m.user_id !== user.id)?.users?.name ?? 'Parceiro' },
           gradient:   ['#4C1D95','#2E1065'],
           color:      '#C084FC',
@@ -549,19 +597,36 @@ export default function HomeScreen({ navigation }) {
       }).catch(() => {});
   }, [user?.id]);
 
-  const userTitle  = getUserTitle(user);
+  // Recarrega toda vez que a Home ganha foco — sem isso, criar/excluir um grupo ou
+  // dupla no Ranking só refletia aqui depois de fechar e reabrir o app.
+  useFocusEffect(loadCompetitions);
+
+  // Tempo real: qualquer mudança nos squads (criar/excluir/entrar) do usuário atualiza na hora,
+  // mesmo com a Home já aberta em segundo plano.
+  useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel('home_squads_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'squads' }, loadCompetitions)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'squad_members' }, loadCompetitions)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'rivalries' }, loadCompetitions)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, loadCompetitions]);
+
+  const userTitle  = getUserTitle(user.totalWorkouts ?? 0);
   const todayQuote = quotes[new Date().getDay() % quotes.length];
   const completedChallenges = challenges.filter((c) => c.completed).length;
   const xpPercent = (user.xp / user.nextLevelXp) * 100;
 
-  // ── Bônus +200 XP quando todas as missões do dia são concluídas ──
+  // ── Bônus +70 XP quando todas as missões do dia são concluídas ──
   useEffect(() => {
     if (!grantsReady || challenges.length === 0) return;
     if (completedChallenges === challenges.length && !bonusGivenRef.current) {
       bonusGivenRef.current = true;
       const AS = require('@react-native-async-storage/async-storage').default;
       AS.setItem(`@capifit_bonus_${todayISO}`, 'true').catch(() => {});
-      addXP?.(200);
+      addXP?.(70);
     }
   }, [completedChallenges, challenges.length, grantsReady]);
 
@@ -569,17 +634,18 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     if (!grantsReady) return;
     const bossTotal   = bossData.total;
-    const bossCurrent = user.boss_kills_this_week ?? 0;
+    const bossCurrent = computeBossProgress(bossData, user, weekCategories);
     if (bossCurrent >= bossTotal && !bossXpGivenRef.current) {
       bossXpGivenRef.current = true;
-      const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+      const weekNum = getBossWeekNumber();
       const AS = require('@react-native-async-storage/async-storage').default;
       AS.setItem(`@capifit_boss_xp_${weekNum}`, 'true').catch(() => {});
       addXP?.(bossData.reward ?? 500);
-      setCelebEvent({ emoji: '👹', title: 'CHEFE DERROTADO!', desc: `+${bossData.reward ?? 500} XP conquistados!`, color: '#F59E0B', gradient: ['#78350F', '#3B1500'] });
+      addGems?.(2);
+      setCelebEvent({ icon: SkullIcon, title: 'CHEFE DERROTADO!', desc: `+${bossData.reward ?? 500} XP e +2 gemas conquistadas!`, color: '#F59E0B', gradient: ['#78350F', '#3B1500'] });
       setCelebVisible(true);
     }
-  }, [user.boss_kills_this_week, grantsReady]);
+  }, [user.boss_kills_this_week, user.weekTrainingDays, weekCategories, grantsReady]);
 
   // ── GOAL CONFIG ──
   const totalDiff = Math.abs(user.startWeight - user.targetWeight);
@@ -590,11 +656,11 @@ export default function HomeScreen({ navigation }) {
 
   let goalCfg;
   if (user.goalType === 'emagrecer') {
-    goalCfg = { label: 'Emagrecer', emoji: '🔻', color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'perdidos', msg: `Incrível! Você já perdeu ${weightChanged}kg — faltam só ${weightRemaining}kg para a meta! 🎯` };
+    goalCfg = { label: 'Emagrecer', icon: TrendDownIcon, color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'perdidos', msg: `Incrível! Você já perdeu ${weightChanged}kg — faltam só ${weightRemaining}kg para a meta! 🎯` };
   } else if (user.goalType === 'engordar') {
-    goalCfg = { label: 'Ganhar Massa', emoji: '📈', color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
+    goalCfg = { label: 'Ganhar Massa', icon: TrendUpIcon, color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
   } else {
-    goalCfg = { label: 'Manter Peso', emoji: '⚖️', color: '#3B82F6', gradient: ['#172554', '#0A0A18'], barColors: ['#3B82F6', '#60A5FA'], changedLabel: 'variação', msg: `Peso sob controle! Continue com a consistência! ✅` };
+    goalCfg = { label: 'Manter Peso', icon: ArrowsDownUpIcon, color: '#3B82F6', gradient: ['#172554', '#0A0A18'], barColors: ['#3B82F6', '#60A5FA'], changedLabel: 'variação', msg: `Peso sob controle! Continue com a consistência! ✅` };
   }
 
   // Animações de entrada (só na montagem)
@@ -603,7 +669,15 @@ export default function HomeScreen({ navigation }) {
       Animated.timing(headerAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
       Animated.timing(contentAnim, { toValue: 0, duration: 600, delay: 150, useNativeDriver: true }),
     ]).start();
+  }, []);
 
+  // Foguinho só pulsa quando está aceso (streak > 0 e check-in de hoje feito, ou meta da semana já batida)
+  const flameOn = (user.streak ?? 0) > 0 && !!user.isFlameActive;
+  useEffect(() => {
+    if (!flameOn) {
+      fireScale.setValue(1);
+      return;
+    }
     const pulse = Animated.loop(
       Animated.sequence([
         Animated.timing(fireScale, { toValue: 1.25, duration: 700, useNativeDriver: true }),
@@ -612,7 +686,7 @@ export default function HomeScreen({ navigation }) {
     );
     pulse.start();
     return () => pulse.stop();
-  }, []);
+  }, [flameOn]);
 
   // Barra de XP — re-anima sempre que o XP mudar
   useEffect(() => {
@@ -623,6 +697,22 @@ export default function HomeScreen({ navigation }) {
     }).start();
   }, [xpPercent]);
 
+  // As missões diárias (água, proteína, sono etc.) não têm como o app medir de
+  // verdade — são autodeclaradas. Sem uma confirmação, um toque sem querer na
+  // linha já credita XP e marca como feita, dando a impressão de que "bateu
+  // sozinha". A confirmação também deixa claro que é o próprio usuário
+  // afirmando ter cumprido a missão.
+  const confirmCompleteChallenge = useCallback((challenge) => {
+    Alert.alert(
+      challenge.title,
+      'Confirma que você já cumpriu essa missão hoje?',
+      [
+        { text: 'Ainda não', style: 'cancel' },
+        { text: 'Sim, cumpri!', onPress: () => completeChallenge(challenge.id) },
+      ],
+    );
+  }, []);
+
   const completeChallenge = useCallback((id) => {
     ctxCompleteChallenge(id);
   }, [ctxCompleteChallenge]);
@@ -630,38 +720,57 @@ export default function HomeScreen({ navigation }) {
   const handleCheckin = useCallback(async () => {
     if (checkinDone || verifyModalVisible) return;
 
-    // 1. Solicita permissão de câmera
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Câmera necessária', 'Precisamos da câmera para verificar que você está na academia.');
+    if (!isPremium) {
+      Alert.alert(
+        'Recurso Premium 🔒',
+        'Seja Premium e faça check-in ilimitado na academia, desafios diários e muito mais!',
+        [
+          { text: 'Agora não', style: 'cancel' },
+          { text: 'Assinar Premium', onPress: () => navigation.navigate('Paywall') },
+        ]
+      );
       return;
     }
 
-    // 2. Abre câmera
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,        // comprime para reduzir tamanho
-      base64: true,        // necessário para enviar ao Claude
-      allowsEditing: false,
-    });
-
-    if (result.canceled || !result.assets?.[0]?.base64) return;
-
-    // 3. Mostra estado de verificação
-    setVerifyStatus('verifying');
-    setVerifyModalVisible(true);
+    // Evita que a checagem de foreground (disparada quando a câmera nativa
+    // fecha e o app volta ao primeiro plano) rode em paralelo com o check-in
+    // e dispute a mesma atualização de usuário no Supabase. Só é liberada de
+    // volta no fim do fluxo (handoff explícito para o setTimeout abaixo).
+    setForegroundChecksPaused?.(true);
+    let handedOff = false;
 
     try {
+      // 1. Solicita permissão de câmera
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Câmera necessária', 'Precisamos da câmera para verificar que você está na academia.');
+        return;
+      }
+
+      // 2. Abre câmera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.5,        // comprime para reduzir tamanho
+        base64: true,        // necessário para enviar ao Claude
+        allowsEditing: false,
+      });
+
+      if (result.canceled || !result.assets?.[0]?.base64) return;
+
+      // 3. Mostra estado de verificação
+      setVerifyStatus('verifying');
+      setVerifyModalVisible(true);
+
       const base64 = result.assets[0].base64;
       const mimeType = result.assets[0].mimeType ?? 'image/jpeg';
 
       const resp = await fetch(
-        'https://kqlgycnpsruxrjhkcgnt.supabase.co/functions/v1/verify-gym-photo',
+        `${SUPABASE_URL}/functions/v1/verify-gym-photo`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbGd5Y25wc3J1eHJqaGtjZ250Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgyNDQ1MDMsImV4cCI6MjA5MzgyMDUwM30.H_C4UElyYpZlXODYG7gunrwPOJZYThkVjsLPWvdepk8',
+            'apikey': SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({ imageBase64: base64, mimeType }),
         }
@@ -671,6 +780,7 @@ export default function HomeScreen({ navigation }) {
 
       if (data.isGym) {
         setVerifyStatus('success');
+        handedOff = true;
         setTimeout(async () => {
           setVerifyModalVisible(false);
           // Anima o botão
@@ -679,13 +789,20 @@ export default function HomeScreen({ navigation }) {
             Animated.spring(checkinScale, { toValue: 1, friction: 4, useNativeDriver: true }),
           ]).start();
 
-          const success = await doCheckin();
-          if (success) {
-            const ev = Math.random() < 0.38
-              ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
-              : null;
-            setCelebEvent(ev);
-            setCelebVisible(true);
+          try {
+            const success = await doCheckin();
+            if (success) {
+              const ev = Math.random() < FLAVOR_EVENT_CHANCE
+                ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
+                : null;
+              setCelebXpGain(success.xpGain ?? 30);
+              setCelebEvent(ev);
+              setCelebVisible(true);
+            }
+          } catch (e) {
+            console.warn('[handleCheckin] doCheckin falhou:', e.message);
+          } finally {
+            setForegroundChecksPaused?.(false);
           }
         }, 1500);
       } else {
@@ -695,8 +812,10 @@ export default function HomeScreen({ navigation }) {
     } catch (e) {
       setVerifyStatus('error');
       setVerifyMessage('Erro ao comunicar com o servidor. Tente novamente.');
+    } finally {
+      if (!handedOff) setForegroundChecksPaused?.(false);
     }
-  }, [checkinDone, verifyModalVisible, doCheckin, checkinScale]);
+  }, [checkinDone, verifyModalVisible, isPremium, navigation, doCheckin, checkinScale, setForegroundChecksPaused]);
 
   return (
     <View style={s.container}>
@@ -709,32 +828,36 @@ export default function HomeScreen({ navigation }) {
               <View style={s.userRow}>
                 <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
                   <LinearGradient colors={['#8B5CF6', '#EC4899']} style={s.avatar}>
-                    {avatarPhoto
-                      ? <Image source={{ uri: avatarPhoto }} style={s.avatarImg} />
+                    {(avatarPhoto || user.avatarUrl)
+                      ? <Image source={{ uri: avatarPhoto || user.avatarUrl }} style={s.avatarImg} />
                       : <Text style={s.avatarText}>{user.name[0]}</Text>}
                   </LinearGradient>
                 </TouchableOpacity>
                 <View>
                   <Text style={s.greeting}>Olá, {user.name}! 💪</Text>
                   <View style={s.levelRow}>
-                    <Ionicons name="star" size={11} color={COLORS.gold} />
+                    <StarIcon size={11} color={COLORS.gold}  weight="fill" />
                     <Text style={s.levelText}> Nível {user.level}  •  Liga {user.league} {user.leagueEmoji}</Text>
                   </View>
                   <View style={[s.titleRow, { borderColor: userTitle.color + '40' }]}>
-                    <Text style={s.titleEmoji}>{userTitle.emoji}</Text>
+                    <userTitle.icon size={11} color={userTitle.color} weight="fill" />
                     <Text style={[s.titleText, { color: userTitle.color }]}>{userTitle.title}</Text>
                   </View>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setShopVisible(true)} activeOpacity={0.8} style={s.gemBadge}>
-                <Text style={s.gemBadgeText}>💎 {user.gems ?? 0}</Text>
+              <TouchableOpacity onPress={() => setShopVisible(true)} activeOpacity={0.8} style={[s.gemBadge, s.iconLabelRow]}>
+                <DiamondIcon size={13} color="#60A5FA"  weight="fill" />
+                <Text style={s.gemBadgeText}>{user.gems ?? 0}</Text>
               </TouchableOpacity>
             </View>
 
             {/* XP BAR */}
             <View style={s.xpSection}>
               <View style={s.xpLabels}>
-                <Text style={s.xpCurrent}>⚡ {user.xp.toLocaleString()} XP</Text>
+                <View style={s.iconLabelRow}>
+                  <LightningIcon size={13} color={COLORS.purpleLight}  weight="fill" />
+                  <Text style={s.xpCurrent}>{user.xp.toLocaleString()} XP</Text>
+                </View>
                 <Text style={s.xpNext}>→ Nível {user.level + 1}  ({user.nextLevelXp.toLocaleString()} XP)</Text>
               </View>
               <View style={s.xpBarBg}>
@@ -754,6 +877,7 @@ export default function HomeScreen({ navigation }) {
           <View style={s.section}>
             <StreakHeroCard
               user={user}
+              flameOn={flameOn}
               fireScale={fireScale}
               fireTranslateY={fireTranslateY}
               onProtect={() => setShopVisible(true)}
@@ -780,8 +904,8 @@ export default function HomeScreen({ navigation }) {
                   backgroundColor: checkinDone ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.18)'
                 }]}>
                   {checkinDone
-                    ? <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-                    : <Ionicons name="camera" size={24} color="#fff" />
+                    ? <CheckCircleIcon size={24} color="#10B981"  weight="fill" />
+                    : <CameraIcon size={24} color="#fff"  weight="fill" />
                   }
                 </View>
 
@@ -809,6 +933,7 @@ export default function HomeScreen({ navigation }) {
           {/* ── ÁGUA ── */}
           <View style={s.section}>
             <WaterTracker
+              userId={user.id}
               goalLiters={parseFloat(((user.currentWeight ?? 70) * 0.035).toFixed(1))}
               onGoalReached={() => ctxCompleteChallenge(2)}
             />
@@ -817,15 +942,15 @@ export default function HomeScreen({ navigation }) {
           {/* ── STATS RÁPIDAS ── */}
           <View style={s.miniStatsRow}>
             <LinearGradient colors={['#D97706', '#92400E']} style={s.miniStat}>
-              <Ionicons name="flash" size={20} color="#FCD34D" style={{shadowColor: '#FCD34D', shadowOpacity: 0.6, shadowRadius: 6}} />
+              <LightningIcon size={20} color="#FCD34D" style={{shadowColor: '#FCD34D', shadowOpacity: 0.6, shadowRadius: 6}}  weight="fill" />
               <Text style={s.miniStatNum}>{user.todayXP}</Text>
               <Text style={s.miniStatLabel}>XP hoje</Text>
               <Text style={s.miniStatSub}>{user.todayXP} / {user.dailyGoal} meta</Text>
             </LinearGradient>
             <LinearGradient colors={['#047857', '#064E3B']} style={s.miniStat}>
-              <Ionicons name="barbell" size={20} color="#34D399" style={{shadowColor: '#34D399', shadowOpacity: 0.6, shadowRadius: 6}} />
-              <Text style={s.miniStatNum}>{user.weekWorkouts}</Text>
-              <Text style={s.miniStatLabel}>treinos/semana</Text>
+              <ChecksIcon size={20} color="#34D399" style={{shadowColor: '#34D399', shadowOpacity: 0.6, shadowRadius: 6}}  weight="bold" />
+              <Text style={s.miniStatNum}>{user.weekCheckinsCount}</Text>
+              <Text style={s.miniStatLabel}>check-ins/semana</Text>
               <Text style={s.miniStatSub}>meta: {user.weeklyFrequency ?? 3} por semana</Text>
             </LinearGradient>
           </View>
@@ -833,7 +958,10 @@ export default function HomeScreen({ navigation }) {
           {/* ── MISSÕES DO DIA ── */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>⚔️ Missões do Dia</Text>
+              <View style={s.iconLabelRow}>
+                <ShieldIcon size={16} color={COLORS.purpleLight}  weight="fill" />
+                <Text style={s.sectionTitle}>Missões do Dia</Text>
+              </View>
               <View style={s.progressChip}>
                 <Text style={s.progressChipText}>{completedChallenges}/{challenges.length}</Text>
               </View>
@@ -843,11 +971,11 @@ export default function HomeScreen({ navigation }) {
                 <TouchableOpacity
                   key={c.id}
                   style={[s.challengeItem, c.completed && s.challengeItemDone]}
-                  onPress={() => completeChallenge(c.id)}
+                  onPress={() => !c.completed && confirmCompleteChallenge(c)}
                   activeOpacity={0.75}
                 >
                   <View style={[s.checkbox, c.completed && s.checkboxDone]}>
-                    {c.completed && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    {c.completed && <CheckIcon size={13} color="#fff"  weight="bold" />}
                   </View>
                   <Text style={s.challengeEmoji}>{c.emoji}</Text>
                   <View style={s.challengeBody}>
@@ -861,7 +989,7 @@ export default function HomeScreen({ navigation }) {
               ))}
               {completedChallenges === challenges.length && (
                 <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={s.allDoneBanner}>
-                  <Text style={s.allDoneText}>🎉  Missões completas! +200 XP bônus!</Text>
+                  <Text style={s.allDoneText}>🎉  Missões completas! +70 XP bônus!</Text>
                 </LinearGradient>
               )}
             </View>
@@ -870,7 +998,10 @@ export default function HomeScreen({ navigation }) {
           {/* ── CHEFE DA SEMANA ── */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>👹 Chefe da Semana</Text>
+              <View style={s.iconLabelRow}>
+                <SkullIcon size={16} color="#F59E0B"  weight="fill" />
+                <Text style={s.sectionTitle}>Chefe da Semana</Text>
+              </View>
             </View>
             <LinearGradient colors={['#1E1B4B', '#2D1B69']} style={s.bossCard}>
               <View style={s.bossTop}>
@@ -878,7 +1009,10 @@ export default function HomeScreen({ navigation }) {
                 <View style={s.bossInfo}>
                   <Text style={s.bossName}>{bossData.name}</Text>
                   <Text style={s.bossDesc}>{bossData.description}</Text>
-                  <Text style={s.bossTimer}>⏰ {bossData.timeLeft} restantes</Text>
+                  <View style={s.iconLabelRow}>
+                    <ClockIcon size={11} color={COLORS.orange}  weight="regular" />
+                    <Text style={s.bossTimer}>{bossData.timeLeft} restantes</Text>
+                  </View>
                 </View>
                 <LinearGradient colors={['#F59E0B', '#D97706']} style={s.bossReward}>
                   <Text style={s.bossRewardText}>+{bossData.reward}</Text>
@@ -887,12 +1021,13 @@ export default function HomeScreen({ navigation }) {
               </View>
               {(() => {
                 const bossTotal   = bossData.total;
-                const bossCurrent = Math.min(user.boss_kills_this_week ?? 0, bossTotal);
+                const bossCurrent = Math.min(computeBossProgress(bossData, user, weekCategories), bossTotal);
                 const bossPct     = Math.round((bossCurrent / bossTotal) * 100);
+                const bossUnit    = (bossData.type === 'distinctDays' || bossData.type === 'streakDays') ? 'dias' : 'treinos';
                 return (
                   <View style={s.bossProgress}>
                     <View style={s.bossProgressLabels}>
-                      <Text style={s.bossProgressText}>{bossCurrent}/{bossTotal} treinos</Text>
+                      <Text style={s.bossProgressText}>{bossCurrent}/{bossTotal} {bossUnit}</Text>
                       <Text style={s.bossProgressPct}>{bossPct}%</Text>
                     </View>
                     <View style={s.bossBarBg}>
@@ -906,7 +1041,7 @@ export default function HomeScreen({ navigation }) {
                       {Array.from({ length: bossTotal }).map((_, i) => (
                         <View key={i} style={[s.bossStep, i < bossCurrent && s.bossStepDone]}>
                           {i < bossCurrent ? (
-                            <Ionicons name="checkmark" size={10} color="#fff" />
+                            <CheckIcon size={10} color="#fff"  weight="bold" />
                           ) : (
                             <Text style={s.bossStepNum}>{i + 1}</Text>
                           )}
@@ -922,7 +1057,10 @@ export default function HomeScreen({ navigation }) {
           {/* ── TREINOS RECOMENDADOS ── */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>🏆 Recomendados</Text>
+              <View style={s.iconLabelRow}>
+                <TrophyIcon size={16} color={COLORS.gold}  weight="fill" />
+                <Text style={s.sectionTitle}>Recomendados</Text>
+              </View>
               <TouchableOpacity onPress={() => navigation.navigate('Workouts')}>
                 <Text style={s.seeAll}>Ver todos →</Text>
               </TouchableOpacity>
@@ -939,14 +1077,21 @@ export default function HomeScreen({ navigation }) {
                     <Text style={s.workoutEmoji}>{workout.emoji}</Text>
                     <Text style={s.workoutName}>{workout.name}</Text>
                     <View style={s.workoutMeta}>
-                      <Text style={s.workoutMetaText}>⏱ {workout.duration}min</Text>
-                      <Text style={s.workoutMetaText}>🔥 {workout.calories}kcal</Text>
+                      <View style={s.iconLabelRow}>
+                        <ClockIcon size={12} color={COLORS.white}  weight="regular" />
+                        <Text style={s.workoutMetaText}>{workout.duration}min</Text>
+                      </View>
+                      <View style={s.iconLabelRow}>
+                        <FireIcon size={12} color={COLORS.white}  weight="fill" />
+                        <Text style={s.workoutMetaText}>{workout.calories}kcal</Text>
+                      </View>
                     </View>
                     <View style={[s.diffBadge, { backgroundColor: workout.difficultyColor + '30' }]}>
                       <Text style={[s.diffText, { color: workout.difficultyColor }]}>{workout.difficulty}</Text>
                     </View>
-                    <View style={s.workoutXP}>
-                      <Text style={s.workoutXPText}>⚡ +{workout.xp} XP</Text>
+                    <View style={[s.workoutXP, s.iconLabelRow]}>
+                      <LightningIcon size={12} color={COLORS.white}  weight="fill" />
+                      <Text style={s.workoutXPText}>+{workout.xp} XP</Text>
                     </View>
                   </LinearGradient>
                 </TouchableOpacity>
@@ -957,7 +1102,10 @@ export default function HomeScreen({ navigation }) {
           {/* ── METAS ── */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>{goalCfg.emoji} Minha Meta</Text>
+              <View style={s.iconLabelRow}>
+                <goalCfg.icon size={16} color={goalCfg.color} weight="bold" />
+                <Text style={s.sectionTitle}>Minha Meta</Text>
+              </View>
               <View style={[s.goalTypeBadge, { backgroundColor: goalCfg.color + '22', borderColor: goalCfg.color + '44' }]}>
                 <Text style={[s.goalTypeBadgeText, { color: goalCfg.color }]}>{goalCfg.label}</Text>
               </View>
@@ -1027,60 +1175,97 @@ export default function HomeScreen({ navigation }) {
           {(activeSquads.length > 0 || activeDuels.length > 0) ? (
             <View style={s.compSection}>
               <View style={s.compHeader}>
-                <Text style={s.compTitle}>⚡ Competições</Text>
+                <View style={s.iconLabelRow}>
+                  <LightningIcon size={15} color={COLORS.white}  weight="fill" />
+                  <Text style={s.compTitle}>Competições</Text>
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate('Leaderboard')}>
                   <Text style={s.compLink}>Ver tudo →</Text>
                 </TouchableOpacity>
               </View>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.compScroll}>
                 {activeSquads.map(g => {
-                  const members = g.squad_members ?? [];
-                  const present = members.filter(m => m.checked_in_today).length;
+                  const members    = g.squad_members ?? [];
+                  const weeklyGoal = g.min_weekly_checkins ?? 3;
+                  // Meta é semanal, não diária — cada um bate no próprio ritmo.
+                  const present = members.filter(m => (m.challenge_week_checkins ?? 0) >= weeklyGoal).length;
                   const allIn   = members.length > 0 && present === members.length;
                   const sc      = allIn ? '#10B981' : '#F59E0B';
+                  const isBattle = g.mode === 'battle';
                   return (
-                    <LinearGradient key={g.id} colors={['#7C3AED','#4C1D95']}
-                      style={[s.compChip, { borderColor: '#8B5CF680' }]}>
-                      <View style={s.compChipRow}>
-                        <Ionicons name="shield-half" size={20} color="#A78BFA" />
-                        <View style={[s.compChipDot, { backgroundColor: sc, shadowColor: sc }]} />
-                      </View>
-                      <Text style={[s.compChipBig, { color: '#A78BFA' }]}>
-                        {g.group_streak ?? 0}<Text style={s.compChipUnit}>d</Text>
-                      </Text>
-                      <Text style={s.compChipName} numberOfLines={1}>{g.name}</Text>
-                      <LinearGradient colors={[sc+'35', sc+'12']}
-                        style={[s.compChipBadge, { borderColor: sc+'55' }]}>
-                        <Text style={[s.compChipBadgeText, { color: sc }]}>
-                          {allIn ? '✅ Todos' : `⚡ ${present}/${members.length}`}
+                    <TouchableOpacity key={g.id} activeOpacity={0.85}
+                      onPress={() => navigation.navigate('Leaderboard', { initialTab: 'Grupos' })}>
+                      <LinearGradient colors={['#7C3AED','#4C1D95']}
+                        style={[s.compChip, { borderColor: '#8B5CF680' }]}>
+                        <View style={s.compChipRow}>
+                          <ShieldCheckeredIcon size={20} color="#A78BFA"  weight="fill" />
+                          <View style={[s.compChipDot, { backgroundColor: sc, shadowColor: sc }]} />
+                        </View>
+                        <Text style={[s.compChipBig, { color: '#A78BFA' }]}>
+                          {g.group_streak ?? 0}<Text style={s.compChipUnit}>d</Text>
                         </Text>
+                        <Text style={s.compChipName} numberOfLines={1}>{g.name}</Text>
+                        <View style={s.compChipTypeRow}>
+                          {isBattle
+                            ? <SwordIcon size={9} color="#F87171" weight="fill" />
+                            : <ShieldIcon size={9} color="#60A5FA" weight="fill" />}
+                          <Text style={[s.compChipType, { color: isBattle ? '#F87171' : '#60A5FA' }]}>
+                            Grupo · {isBattle ? 'Batalha' : 'Amigos'}
+                          </Text>
+                        </View>
+                        <LinearGradient colors={[sc+'35', sc+'12']}
+                          style={[s.compChipBadge, s.iconLabelRow, { borderColor: sc+'55' }]}>
+                          {allIn
+                            ? <CheckCircleIcon size={11} color={sc} weight="fill" />
+                            : <LightningIcon size={11} color={sc} weight="fill" />}
+                          <Text style={[s.compChipBadgeText, { color: sc }]}>
+                            {allIn ? 'Todos' : `${present}/${members.length}`}
+                          </Text>
+                        </LinearGradient>
                       </LinearGradient>
-                    </LinearGradient>
+                    </TouchableOpacity>
                   );
                 })}
                 {activeDuels.map(d => {
                   const winning = (d.myScore ?? 0) >= (d.theirScore ?? 0);
                   const pc = winning ? '#10B981' : '#EF4444';
+                  const isCollab = d.mode === 'friends';
                   return (
-                    <LinearGradient key={d.id} colors={['#6D28D9','#4C1D95']}
-                      style={[s.compChip, { borderColor: '#A78BFA80' }]}>
-                      <View style={s.compChipRow}>
-                        <Ionicons name="flash-outline" size={20} color="#F87171" />
-                        <Text style={{ fontSize: 13 }}>{winning ? '👑' : '🔴'}</Text>
-                      </View>
-                      <View style={s.compVsRow}>
-                        <Text style={[s.compChipBig, { color: winning ? '#10B981' : COLORS.white }]}>{d.myScore ?? 0}</Text>
-                        <Text style={s.compVsDivider}>–</Text>
-                        <Text style={[s.compChipBig, { color: !winning ? '#EF4444' : COLORS.white }]}>{d.theirScore ?? 0}</Text>
-                      </View>
-                      <Text style={s.compChipName} numberOfLines={1}>vs {d.opponent?.name?.split(' ')[0] ?? 'Rival'}</Text>
-                      <LinearGradient colors={[pc+'35', pc+'12']}
-                        style={[s.compChipBadge, { borderColor: pc+'55' }]}>
-                        <Text style={[s.compChipBadgeText, { color: pc }]}>
-                          {winning ? '💪 Na frente' : '😤 Atrás'}
-                        </Text>
+                    <TouchableOpacity key={d.id} activeOpacity={0.85}
+                      onPress={() => navigation.navigate('Leaderboard', { initialTab: 'Duplas' })}>
+                      <LinearGradient colors={['#6D28D9','#4C1D95']}
+                        style={[s.compChip, { borderColor: '#A78BFA80' }]}>
+                        <View style={s.compChipRow}>
+                          <LightningIcon size={20} color="#F87171"  weight="regular" />
+                          {winning
+                            ? <TrophyIcon size={13} color={COLORS.gold} weight="fill" />
+                            : <CircleIcon size={13} color="#EF4444" weight="fill" />}
+                        </View>
+                        <View style={s.compVsRow}>
+                          <Text style={[s.compChipBig, { color: winning ? '#10B981' : COLORS.white }]}>{d.myScore ?? 0}</Text>
+                          <Text style={s.compVsDivider}>–</Text>
+                          <Text style={[s.compChipBig, { color: !winning ? '#EF4444' : COLORS.white }]}>{d.theirScore ?? 0}</Text>
+                        </View>
+                        <Text style={s.compChipName} numberOfLines={1}>vs {d.opponent?.name?.split(' ')[0] ?? 'Rival'}</Text>
+                        <View style={s.compChipTypeRow}>
+                          {isCollab
+                            ? <ShieldIcon size={9} color="#60A5FA" weight="fill" />
+                            : <SwordIcon size={9} color="#F87171" weight="fill" />}
+                          <Text style={[s.compChipType, { color: isCollab ? '#60A5FA' : '#F87171' }]}>
+                            Dupla · {isCollab ? 'Colaborativa' : 'Rival'}
+                          </Text>
+                        </View>
+                        <LinearGradient colors={[pc+'35', pc+'12']}
+                          style={[s.compChipBadge, s.iconLabelRow, { borderColor: pc+'55' }]}>
+                          {winning
+                            ? <TrendUpIcon size={11} color={pc} weight="bold" />
+                            : <TrendDownIcon size={11} color={pc} weight="bold" />}
+                          <Text style={[s.compChipBadgeText, { color: pc }]}>
+                            {winning ? 'Na frente' : 'Atrás'}
+                          </Text>
+                        </LinearGradient>
                       </LinearGradient>
-                    </LinearGradient>
+                    </TouchableOpacity>
                   );
                 })}
               </ScrollView>
@@ -1088,17 +1273,20 @@ export default function HomeScreen({ navigation }) {
           ) : (
             <View style={s.compSection}>
               <View style={s.compHeader}>
-                <Text style={s.compTitle}>⚡ Competições</Text>
+                <View style={s.iconLabelRow}>
+                  <LightningIcon size={15} color={COLORS.white}  weight="fill" />
+                  <Text style={s.compTitle}>Competições</Text>
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate('Leaderboard')}>
                   <Text style={s.compLink}>Ver tudo →</Text>
                 </TouchableOpacity>
               </View>
               <LinearGradient colors={['#1A1A2E', '#12122A']} style={s.compEmptyCard}>
-                <Text style={s.compEmptyEmoji}>🤝</Text>
+                <UsersIcon size={40} color={COLORS.purpleLight} style={s.compEmptyEmoji}  weight="fill" />
                 <Text style={s.compEmptyTitle}>Nenhuma competição ainda</Text>
-                <Text style={s.compEmptySub}>Crie um Squad ou desafie alguém para um duelo.</Text>
+                <Text style={s.compEmptySub}>Crie um grupo ou monte uma dupla com alguém.</Text>
                 <TouchableOpacity style={s.compEmptyBtn} onPress={() => navigation.navigate('CreateClan', {})} activeOpacity={0.8}>
-                  <Text style={s.compEmptyBtnText}>Criar Squad / Duelo →</Text>
+                  <Text style={s.compEmptyBtnText}>Criar Grupo / Dupla →</Text>
                 </TouchableOpacity>
               </LinearGradient>
             </View>
@@ -1118,6 +1306,7 @@ export default function HomeScreen({ navigation }) {
       <CheckinCelebration
         visible={celebVisible}
         event={celebEvent}
+        xpGain={celebXpGain}
         onDismiss={() => setCelebVisible(false)}
       />
 
@@ -1135,7 +1324,10 @@ export default function HomeScreen({ navigation }) {
         <TouchableOpacity style={{ flex:1, backgroundColor:'rgba(0,0,0,0.7)', justifyContent:'center', alignItems:'center' }}
           activeOpacity={1} onPress={() => setWeightModal(false)}>
           <TouchableOpacity activeOpacity={1} style={{ width:'80%', backgroundColor:'#1A1A2E', borderRadius:20, padding:24, borderWidth:1, borderColor:COLORS.border }}>
-            <Text style={{ color:COLORS.white, fontSize:18, fontWeight:'800', marginBottom:6 }}>⚖️ Meu peso atual</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <ArrowsDownUpIcon size={18} color={COLORS.white}  weight="bold" />
+              <Text style={{ color:COLORS.white, fontSize:18, fontWeight:'800' }}>Meu peso atual</Text>
+            </View>
             <Text style={{ color:COLORS.gray, fontSize:13, marginBottom:16 }}>
               Atualize conforme for se pesando. A meta mostrará o quanto ainda falta.
             </Text>
@@ -1192,6 +1384,7 @@ const s = StyleSheet.create({
   gemBadgeText: { color: '#60A5FA', fontSize: 13, fontWeight: '700' },
   freezeIconBtn: { marginTop: 6, alignSelf: 'center', padding: 4 },
   freezeIconActive: { fontSize: 11, color: '#60A5FA', fontWeight: '700' },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   xpSection: { gap: 6 },
   xpLabels: { flexDirection: 'row', justifyContent: 'space-between' },
   xpCurrent: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
@@ -1268,7 +1461,7 @@ const s = StyleSheet.create({
   commitRingValue: { position: 'absolute', alignItems: 'center', justifyContent: 'center', flexDirection: 'row' },
   commitRingNum: { color: COLORS.white, fontSize: 14, fontWeight: '900' },
   commitRingPct: { color: COLORS.gray, fontSize: 10, fontWeight: '700', marginLeft: 1, marginTop: 2 },
-  
+
   // ── VERIFICATION MODAL ──
   verifyModalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
   verifyContent: { alignItems: 'center', paddingHorizontal: 20, width: '100%' },
@@ -1440,6 +1633,8 @@ const s = StyleSheet.create({
   compChipBig: { color: COLORS.white, fontSize: 28, fontWeight: '900', lineHeight: 32 },
   compChipUnit: { fontSize: 14, fontWeight: '700' },
   compChipName: { color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: '600' },
+  compChipTypeRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  compChipType: { fontSize: 9, fontWeight: '700' },
   compVsRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   compVsDivider: { color: COLORS.grayDark, fontSize: 13, fontWeight: '700' },
   compChipBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
@@ -1453,7 +1648,6 @@ const s = StyleSheet.create({
 
   // ── TITLE BADGE ──
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1 },
-  titleEmoji: { fontSize: 11 },
   titleText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
 
   // ── CHECK-IN CELEBRATION ──

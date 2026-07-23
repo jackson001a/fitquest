@@ -4,11 +4,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   BellIcon, CameraIcon, CheckCircleIcon, DropIcon, FireIcon, GiftIcon, LockOpenIcon,
-  UsersThreeIcon,
+  UsersThreeIcon, XIcon,
 } from 'phosphor-react-native';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
-import { isPurchasesAvailable, initPurchases, getOfferings, purchasePackage, restorePurchases } from '../services/purchaseService';
+import {
+  isPurchasesAvailable, initPurchases, getOfferings, getOfferingByIdentifier,
+  purchasePackage, restorePurchases,
+} from '../services/purchaseService';
+
+const EXIT_OFFERING_ID = 'exit_offer';
+const EXIT_PACKAGE_ID  = 'rc_annual';
+const EXIT_PRICE_FALLBACK = 'R$ 99,00';
 
 // Usados só como placeholder enquanto as ofertas reais do RevenueCat carregam,
 // ou como fallback no Expo Go (onde o SDK nativo não existe).
@@ -62,7 +69,7 @@ const MONTHLY_BENEFITS = [
   { Icon: UsersThreeIcon, text: 'Ranking, grupos e duelos com os amigos' },
 ];
 
-export default function PaywallScreen() {
+export default function PaywallScreen({ navigation }) {
   const { user, activatePremium } = useUser();
   const [selectedPlan, setSelectedPlan] = useState('annual');
   const [purchasing, setPurchasing] = useState(false);
@@ -70,6 +77,11 @@ export default function PaywallScreen() {
   const [loadingOfferings, setLoadingOfferings] = useState(true);
   const [variantHeight, setVariantHeight] = useState(0);
   const isAnnual = selectedPlan === 'annual';
+
+  // ── Oferta de saída — mostrada quando o usuário tenta fechar o paywall sem assinar ──
+  const [exitStage, setExitStage] = useState(null); // null | 'loading' | 'offer'
+  const [exitOffering, setExitOffering] = useState(null);
+  const [exitPurchasing, setExitPurchasing] = useState(false);
 
   // Busca a offering atual do RevenueCat (App Store Connect / Google Play já cadastrados lá)
   useEffect(() => {
@@ -162,6 +174,63 @@ export default function PaywallScreen() {
     }
   }, [purchasing, selectedPlan, activatePremium]);
 
+  // Sai do paywall de vez — só chega aqui se o usuário recusar a oferta de saída também
+  const leavePaywall = useCallback(() => {
+    navigation.navigate('Main');
+  }, [navigation]);
+
+  // X escondido no canto — em vez de fechar direto, tenta reter com a exit_offer
+  const handleRequestClose = useCallback(async () => {
+    if (exitStage === 'loading') return;
+    setExitStage('loading');
+    try {
+      if (isPurchasesAvailable()) {
+        const offer = await getOfferingByIdentifier(EXIT_OFFERING_ID);
+        if (offer) {
+          setExitOffering(offer);
+          setExitStage('offer');
+          return;
+        }
+      }
+      // Sem SDK nativo (Expo Go) ou sem a offering configurada — não tem oferta pra mostrar
+      setExitStage(null);
+      leavePaywall();
+    } catch (e) {
+      console.warn('[Paywall] falha ao buscar exit_offer:', e.message);
+      setExitStage(null);
+      leavePaywall();
+    }
+  }, [exitStage, leavePaywall]);
+
+  const exitPkg = exitOffering?.availablePackages?.find(p => p.identifier === EXIT_PACKAGE_ID)
+    ?? exitOffering?.availablePackages?.[0]
+    ?? null;
+  const exitPriceString = exitPkg?.product?.priceString ?? EXIT_PRICE_FALLBACK;
+
+  const handleAcceptExitOffer = useCallback(async () => {
+    if (exitPurchasing) return;
+    setExitPurchasing(true);
+    try {
+      if (isPurchasesAvailable() && exitPkg) {
+        const entitled = await purchasePackage(exitPkg);
+        if (!entitled) {
+          Alert.alert('Compra não confirmada', 'Sua compra foi processada, mas não conseguimos confirmar o acesso Premium. Tente restaurar a compra ou fale com o suporte.');
+          return;
+        }
+        await activatePremium('annual_offer');
+      } else {
+        // Ambiente sem o módulo nativo (Expo Go) — ativa localmente só pra testar o fluxo
+        await activatePremium('annual_offer');
+      }
+    } catch (e) {
+      if (!e?.userCancelled) {
+        Alert.alert('Não foi possível concluir a assinatura', e?.message || 'Tente novamente em instantes.');
+      }
+    } finally {
+      setExitPurchasing(false);
+    }
+  }, [exitPurchasing, exitPkg, activatePremium]);
+
   const AnnualContent = (
     <>
       <Text style={s.title}>Continue sua evolução{'\n'}com {trialDays} dias grátis</Text>
@@ -223,8 +292,62 @@ export default function PaywallScreen() {
     </>
   );
 
+  // ── Oferta de saída — usuário tentou fechar o paywall sem assinar ──
+  if (exitStage === 'offer') {
+    return (
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        <TouchableOpacity onPress={leavePaywall} style={s.hiddenClose} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+          <XIcon size={14} color="rgba(255,255,255,0.25)" weight="bold" />
+        </TouchableOpacity>
+
+        <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
+          <View style={s.crownWrap}>
+            <LinearGradient colors={['#F97316', '#EA9A4D']} style={s.crownCircle}>
+              <GiftIcon size={30} color={COLORS.white} weight="fill" />
+            </LinearGradient>
+          </View>
+
+          <Text style={s.title}>Espera! Oferta{'\n'}especial pra você</Text>
+          <Text style={s.subtitle}>Só dessa vez: acesso Premium anual completo por um preço exclusivo</Text>
+
+          <View style={s.exitOfferCard}>
+            <View style={s.planBadge}><Text style={s.planBadgeText}>oferta exclusiva</Text></View>
+            <Text style={s.exitOfferLabel}>Anual Promocional</Text>
+            <Text style={s.exitOfferPrice}>{exitPriceString}</Text>
+            <Text style={s.exitOfferSub}>por ano — acesso completo ao CapiFit</Text>
+          </View>
+
+          <View style={s.ctaWrap}>
+            <TouchableOpacity activeOpacity={0.85} onPress={handleAcceptExitOffer} disabled={exitPurchasing} style={{ width: '100%' }}>
+              <LinearGradient colors={['#F97316', '#EA9A4D']} style={s.ctaBtn}>
+                {exitPurchasing
+                  ? <ActivityIndicator color={COLORS.white} />
+                  : <Text style={s.ctaText}>Quero essa oferta</Text>}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={leavePaywall} disabled={exitPurchasing} style={{ marginTop: 16 }}>
+              <Text style={s.declineText}>Não, obrigado</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+      <TouchableOpacity
+        onPress={handleRequestClose}
+        style={s.hiddenClose}
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        disabled={exitStage === 'loading'}
+      >
+        {exitStage === 'loading'
+          ? <ActivityIndicator size="small" color="rgba(255,255,255,0.25)" />
+          : <XIcon size={14} color="rgba(255,255,255,0.25)" weight="bold" />}
+      </TouchableOpacity>
+
       <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
 
         <View style={s.crownWrap}>
@@ -321,6 +444,21 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: COLORS.bg },
   body: { flex: 1 },
   bodyPad: { paddingHorizontal: SPACING.lg, paddingBottom: 16 },
+
+  hiddenClose: {
+    position: 'absolute', top: 14, right: 14, zIndex: 10,
+    width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
+  },
+
+  exitOfferCard: {
+    backgroundColor: COLORS.card, borderRadius: RADIUS.lg, borderWidth: 2, borderColor: COLORS.orange,
+    alignItems: 'center', padding: 24, paddingTop: 28, marginTop: 8, position: 'relative',
+  },
+  exitOfferLabel: { fontSize: 14, fontWeight: '700', color: COLORS.gray },
+  exitOfferPrice: { fontSize: 36, fontWeight: '900', color: COLORS.white, marginTop: 6, letterSpacing: -1 },
+  exitOfferSub:   { fontSize: 12.5, color: COLORS.gray, marginTop: 6, fontWeight: '600' },
+
+  declineText: { fontSize: 13.5, color: COLORS.gray, fontWeight: '700', textAlign: 'center' },
 
   crownWrap:   { alignItems: 'center', marginTop: 4, marginBottom: 18 },
   crownCircle: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
