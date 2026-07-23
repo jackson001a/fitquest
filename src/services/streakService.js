@@ -15,6 +15,22 @@ function clamp(v) {
   return Math.max(C.MIN, Math.min(C.MAX, v));
 }
 
+// Sempre recalcula nível do zero a partir do XP total — nunca incrementa a partir
+// do level/next_level_xp salvos, que podem ficar dessincronizados (ex: level alto
+// pareado com next_level_xp baixo) e travar o usuário num nível errado para sempre.
+// O XP exigido por nível (incremento) cresce 1.5x a cada nível; o limiar retornado
+// é a soma cumulativa desses incrementos — não o incremento multiplicado direto,
+// que fazia o salto do nível 2→3 ficar mais fácil que o do 1→2.
+function levelFromXP(xp) {
+  let level = 1, increment = 300, threshold = increment;
+  while (xp >= threshold) {
+    level++;
+    increment = Math.round(increment * 1.5);
+    threshold += increment;
+  }
+  return { level, nextXP: threshold };
+}
+
 // ─── Verifica dias perdidos desde a última abertura do app ────────────────────
 // Retorna { fields, alerts } para salvar no Supabase e mostrar ao usuário
 export function calculateMissedDays(user) {
@@ -84,6 +100,17 @@ export function calculateMissedDays(user) {
   };
 
   return { fields, alerts, commitmentDelta: cappedDelta };
+}
+
+// ─── Reset diário do XP de hoje ───────────────────────────────────────────────
+// today_xp só era zerado dentro do reset semanal (segunda-feira) — em qualquer
+// outro dia da semana o valor ficava acumulado do dia anterior mesmo sem atividade nova.
+export function checkDailyReset(user) {
+  const today = toDateString();
+  if (!user.last_active_date || user.last_active_date === today) {
+    return { fields: {} };
+  }
+  return { fields: { today_xp: 0, last_active_date: today } };
 }
 
 // ─── Reset semanal (toda segunda-feira) ──────────────────────────────────────
@@ -176,9 +203,7 @@ export async function processCheckin(userId, user) {
   const xpGain   = 30;
   const newXP    = (user.xp ?? 0) + xpGain;
   const newToday = (user.today_xp ?? 0) + xpGain;
-  let level      = user.level ?? 1;
-  let nextXP     = user.next_level_xp ?? 1000;
-  if (newXP >= nextXP) { level++; nextXP = Math.round(nextXP * 1.5); }
+  const { level, nextXP } = levelFromXP(newXP);
 
   const fields = {
     last_gym_checkin_date: today,
@@ -209,9 +234,7 @@ export async function processWorkout(userId, user, xpGain) {
   const today    = toDateString();
   const newXP    = (user.xp ?? 0) + xpGain;
   const newToday = (user.today_xp ?? 0) + xpGain;
-  let level  = user.level ?? 1;
-  let nextXP = user.next_level_xp ?? 1000;
-  if (newXP >= nextXP) { level++; nextXP = Math.round(nextXP * 1.5); }
+  const { level, nextXP } = levelFromXP(newXP);
 
   const fields = {
     xp:               newXP,
@@ -234,11 +257,15 @@ export async function processChallenge(userId, user, challenge) {
   const amount  = Number(challenge.xp_reward ?? challenge.xp ?? 0);
   const newXP   = (user.xp ?? 0) + amount;
   const newToday = (user.today_xp ?? 0) + amount;
+  const { level, nextXP } = levelFromXP(newXP);
 
   const fields = {
-    xp:              newXP,
-    today_xp:        newToday,
-    last_active_date: today,
+    xp:                          newXP,
+    today_xp:                    newToday,
+    level,
+    next_level_xp:               nextXP,
+    last_active_date:            today,
+    total_challenges_completed: (user.total_challenges_completed ?? 0) + 1,
   };
 
   await updateUser(userId, fields);

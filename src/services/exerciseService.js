@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 
 const FREE_DB_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
-const RAPID_API_KEY = '81ef6801b4msh0dedeee85c45aafp1aa4f6jsn0ee1172047d7';
+const RAPID_API_KEY = process.env.EXPO_PUBLIC_RAPIDAPI_KEY;
 
 // ─── Mapeamento: nome em português → ID no Free Exercise DB ──────────────────
 export const PT_TO_EXERCISE_ID = {
@@ -153,6 +153,7 @@ export function getExerciseMeta(exerciseNamePT) {
 // ─── (Futuro) GIF animado real via ExerciseDB — ative após subscrever ────────
 // Para ativar: vá em rapidapi.com, busque "ExerciseDB", assine o plano FREE
 export async function fetchExerciseGifUrl(exerciseNamePT) {
+  if (!RAPID_API_KEY) return null;
   const id = PT_TO_EXERCISE_ID[exerciseNamePT];
   if (!id) return null;
 

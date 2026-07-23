@@ -14,7 +14,19 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\INTEL CORE I5\\\\Desktop\\\\APLICATIVO FITNESS\" -Force)",
       "Bash(git --version)",
       "PowerShell(gh --version)",
-      "PowerShell(winget --version)"
+      "PowerShell(winget --version)",
+      "Bash(psql --version)",
+      "Bash(node -e \"require.resolve\\('pg'\\)\")",
+      "Bash(node \"C:\\\\Users\\\\INTELC~1\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-INTEL-CORE-I5-Desktop-APLICATIVO-FITNESS\\\\4bf70a48-a1d4-4e69-bd0a-2cc94be68427\\\\scratchpad\\\\apply_migration.js\" \"supabase/migrations/008_squad_challenge.sql\" \".\")",
+      "Bash(node ./_apply_migration_tmp.js \"supabase/migrations/008_squad_challenge.sql\" \".\")",
+      "Bash(node ./_verify_tmp.js)",
+      "Bash(node ./_check_cols.js)",
+      "Bash(node ./_apply_009.js)",
+      "Bash(node ./_list_users.js)",
+      "Bash(node ./_test_squad_challenge.js)",
+      "Bash(gh auth *)",
+      "Bash(git commit -m ' *)",
+      "Bash(node -e ' *)"
     ]
   }
 }

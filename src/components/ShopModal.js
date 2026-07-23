@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { CheckCircleIcon, DiamondIcon, FireIcon, InfoIcon, SkullIcon, SnowflakeIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -13,16 +13,27 @@ import { useUser } from '../context/UserContext';
 const { height: SH } = Dimensions.get('window');
 
 const FREEZE_OPTIONS = [
-  { days: 1, gems: 7,  emoji: '🧊',     label: '1 dia',   desc: 'Protege 1 dia planejado perdido' },
-  { days: 2, gems: 13, emoji: '🧊🧊',   label: '2 dias',  desc: 'Protege 2 dias planejados perdidos' },
-  { days: 3, gems: 20, emoji: '🧊🧊🧊', label: '3 dias',  desc: 'Protege 3 dias planejados perdidos' },
+  { days: 1, gems: 7,  count: 1, label: '1 dia',   desc: 'Protege 1 dia planejado perdido' },
+  { days: 2, gems: 13, count: 2, label: '2 dias',  desc: 'Protege 2 dias planejados perdidos' },
+  { days: 3, gems: 20, count: 3, label: '3 dias',  desc: 'Protege 3 dias planejados perdidos' },
 ];
 
 const GEM_PACKAGES = [
-  { id: 'p1', gems: 7,  price: 'R$ 4,99',  label: '7 gemas',  emoji: '💎' },
-  { id: 'p2', gems: 20, price: 'R$ 12,99', label: '20 gemas', emoji: '💎💎', popular: true },
-  { id: 'p3', gems: 50, price: 'R$ 29,90', label: '50 gemas', emoji: '💎💎💎' },
+  { id: 'p1', gems: 7,  price: 'R$ 4,99',  label: '7 gemas',  count: 1 },
+  { id: 'p2', gems: 20, price: 'R$ 12,99', label: '20 gemas', count: 2, popular: true },
+  { id: 'p3', gems: 50, price: 'R$ 29,90', label: '50 gemas', count: 3 },
 ];
+
+// Renderiza N ícones em fileira (ex: 3 flocos de neve para "3 dias de proteção")
+function IconStack({ Icon, count, size = 20, color }) {
+  return (
+    <View style={{ flexDirection: 'row' }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <Icon key={i} size={size} color={color} weight="fill" style={i > 0 && { marginLeft: -size * 0.35 }} />
+      ))}
+    </View>
+  );
+}
 
 export default function ShopModal({ visible, onClose }) {
   const insets = useSafeAreaInsets();
@@ -81,11 +92,12 @@ export default function ShopModal({ visible, onClose }) {
           {/* HEADER */}
           <View style={st.header}>
             <TouchableOpacity onPress={onClose} style={st.closeBtn}>
-              <Ionicons name="close" size={22} color={COLORS.white} />
+              <XIcon size={22} color={COLORS.white}  weight="bold" />
             </TouchableOpacity>
             <Text style={st.headerTitle}>{titleMap[view]}</Text>
-            <View style={st.gemBadge}>
-              <Text style={st.gemBadgeText}>💎 {gems}</Text>
+            <View style={[st.gemBadge, st.rowGap]}>
+              <DiamondIcon size={13} color="#60A5FA" weight="fill" />
+              <Text style={st.gemBadgeText}>{gems}</Text>
             </View>
           </View>
 
@@ -96,7 +108,7 @@ export default function ShopModal({ visible, onClose }) {
               {/* Freeze ativo */}
               {freezeDays > 0 && (
                 <View style={st.freezeActiveBanner}>
-                  <Text style={{ fontSize: 22 }}>🧊</Text>
+                  <SnowflakeIcon size={22} color="#60A5FA" weight="fill" />
                   <View style={{ flex: 1 }}>
                     <Text style={st.freezeActiveTitle}>Sequência Protegida</Text>
                     <Text style={st.freezeActiveSub}>{freezeDays} dia{freezeDays > 1 ? 's' : ''} de congelamento restante{freezeDays > 1 ? 's' : ''}</Text>
@@ -104,41 +116,53 @@ export default function ShopModal({ visible, onClose }) {
                 </View>
               )}
 
-              <Text style={st.sectionTitle}>🧊 Bloqueio de Sequência</Text>
+              <View style={st.rowGap}>
+                <SnowflakeIcon size={15} color={COLORS.white} weight="fill" />
+                <Text style={st.sectionTitle}>Bloqueio de Sequência</Text>
+              </View>
               <Text style={st.sectionSub}>Proteja seu streak quando não puder treinar</Text>
 
               {FREEZE_OPTIONS.map(opt => {
                 const hasEnough = gems >= opt.gems;
                 return (
                   <TouchableOpacity key={opt.days} onPress={() => selectFreeze(opt)} activeOpacity={0.8} style={st.freezeCard}>
-                    <Text style={st.freezeEmoji}>{opt.emoji}</Text>
+                    <View style={st.freezeEmoji}>
+                      <IconStack Icon={SnowflakeIcon} count={opt.count} size={18} color="#60A5FA" />
+                    </View>
                     <View style={{ flex: 1 }}>
                       <Text style={st.freezeLabel}>{opt.label}</Text>
                       <Text style={st.freezeDesc}>{opt.desc}</Text>
                     </View>
-                    <View style={[st.gemPill, !hasEnough && st.gemPillInsuf]}>
-                      <Text style={[st.gemPillText, !hasEnough && st.gemPillTextInsuf]}>💎 {opt.gems}</Text>
+                    <View style={[st.gemPill, st.rowGap, !hasEnough && st.gemPillInsuf]}>
+                      <DiamondIcon size={12} color={!hasEnough ? COLORS.grayDark : '#60A5FA'} weight="fill" />
+                      <Text style={[st.gemPillText, !hasEnough && st.gemPillTextInsuf]}>{opt.gems}</Text>
                     </View>
                   </TouchableOpacity>
                 );
               })}
 
-              <Text style={[st.sectionTitle, { marginTop: 24 }]}>💎 Como ganhar gemas</Text>
+              <View style={[st.rowGap, { marginTop: 24 }]}>
+                <DiamondIcon size={15} color={COLORS.white} weight="fill" />
+                <Text style={st.sectionTitle}>Como ganhar gemas</Text>
+              </View>
               {[
-                { emoji: '👹', text: 'Derrote o chefe da semana', reward: '+2 💎' },
-                { emoji: '🔥', text: 'Complete 7 dias seguidos',  reward: '+1 💎' },
-                { emoji: '🏆', text: 'Suba de nível',             reward: '+1 💎' },
+                { Icon: SkullIcon,   text: 'Derrote o chefe da semana',        reward: 2 },
+                { Icon: FireIcon,    text: 'Bata um marco de sequência (10/21/35/60/100 dias)', reward: 1 },
+                { Icon: TrophyIcon,  text: 'Suba de liga',                     reward: 4 },
               ].map((item, i) => (
                 <View key={i} style={st.earnRow}>
-                  <Text style={{ fontSize: 18 }}>{item.emoji}</Text>
+                  <item.Icon size={18} color={COLORS.gray} weight="fill" />
                   <Text style={st.earnText}>{item.text}</Text>
-                  <Text style={st.earnReward}>{item.reward}</Text>
+                  <View style={st.rowGap}>
+                    <Text style={st.earnReward}>+{item.reward}</Text>
+                    <DiamondIcon size={12} color="#60A5FA" weight="fill" />
+                  </View>
                 </View>
               ))}
 
               <TouchableOpacity onPress={() => setView('buy_gems')} activeOpacity={0.85} style={{ marginTop: 20 }}>
                 <LinearGradient colors={['#1E40AF', '#1D4ED8']} style={st.buyGemsBtn}>
-                  <Text style={{ fontSize: 20 }}>💎</Text>
+                  <DiamondIcon size={18} color="#fff" weight="fill" />
                   <Text style={st.buyGemsBtnText}>Comprar Gemas</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -148,7 +172,9 @@ export default function ShopModal({ visible, onClose }) {
           {/* ── CONFIRM ── */}
           {view === 'confirm' && selected && (
             <View style={st.confirmWrap}>
-              <Text style={st.confirmEmoji}>{selected.emoji}</Text>
+              <View style={st.confirmEmoji}>
+                <IconStack Icon={SnowflakeIcon} count={selected.count} size={44} color="#60A5FA" />
+              </View>
               <Text style={st.confirmTitle}>
                 Proteja sua sequência com {selected.days} bloqueio{selected.days > 1 ? 's' : ''}!
               </Text>
@@ -156,10 +182,16 @@ export default function ShopModal({ visible, onClose }) {
                 Você tem {gems} gemas. Serão gastas {selected.gems} gemas.
               </Text>
               <TouchableOpacity onPress={confirmFreeze} activeOpacity={0.85} disabled={loading}>
-                <LinearGradient colors={['#2563EB', '#1D4ED8']} style={st.confirmBtn}>
-                  <Text style={st.confirmBtnText}>
-                    {loading ? 'Ativando...' : `ATIVAR POR 💎 ${selected.gems}`}
-                  </Text>
+                <LinearGradient colors={['#2563EB', '#1D4ED8']} style={[st.confirmBtn, st.rowGap, { justifyContent: 'center' }]}>
+                  {loading ? (
+                    <Text style={st.confirmBtnText}>Ativando...</Text>
+                  ) : (
+                    <>
+                      <Text style={st.confirmBtnText}>ATIVAR POR</Text>
+                      <DiamondIcon size={16} color="#fff" weight="fill" />
+                      <Text style={st.confirmBtnText}>{selected.gems}</Text>
+                    </>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setView('main')} style={{ marginTop: 16 }}>
@@ -174,9 +206,9 @@ export default function ShopModal({ visible, onClose }) {
               <Text style={st.buyTitle}>Reabasteça suas gemas!</Text>
               {selected && (
                 <View style={st.insuffBanner}>
-                  <Ionicons name="information-circle-outline" size={16} color={COLORS.gold} />
+                  <InfoIcon size={16} color={COLORS.gold}  weight="regular" />
                   <Text style={st.insuffText}>
-                    Você precisa de {selected.gems} 💎, mas tem apenas {gems}.
+                    Você precisa de {selected.gems} gemas, mas tem apenas {gems}.
                   </Text>
                 </View>
               )}
@@ -188,10 +220,10 @@ export default function ShopModal({ visible, onClose }) {
                         <Text style={st.popularText}>POPULAR</Text>
                       </View>
                     )}
-                    <Text style={{ fontSize: 22 }}>{pkg.emoji}</Text>
+                    <IconStack Icon={DiamondIcon} count={pkg.count} size={18} color="#60A5FA" />
                     <Text style={st.pkgLabel}>{pkg.label}</Text>
                     <Text style={[st.pkgPrice, selPkg === pkg.id && { color: '#60A5FA' }]}>{pkg.price}</Text>
-                    {selPkg === pkg.id && <Ionicons name="checkmark-circle" size={22} color="#60A5FA" style={{ marginLeft: 4 }} />}
+                    {selPkg === pkg.id && <CheckCircleIcon size={22} color="#60A5FA" style={{ marginLeft: 4 }}  weight="fill" />}
                   </View>
                 </TouchableOpacity>
               ))}
@@ -224,6 +256,7 @@ const st = StyleSheet.create({
   closeBtn:     { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 18 },
   headerTitle:  { color: COLORS.white, fontSize: 17, fontWeight: '800' },
   gemBadge:     { backgroundColor: 'rgba(96,165,250,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(96,165,250,0.3)' },
+  rowGap:       { flexDirection: 'row', alignItems: 'center', gap: 5 },
   gemBadgeText: { color: '#60A5FA', fontSize: 13, fontWeight: '800' },
   scrollContent:{ paddingBottom: 24 },
 

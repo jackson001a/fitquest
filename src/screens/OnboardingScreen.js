@@ -5,9 +5,9 @@ import {
   Platform, FlatList, Image
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { ArrowLeftIcon, ArrowsClockwiseIcon, BarbellIcon, BellIcon, BrainIcon, CalendarIcon, CheckCircleIcon, CheckIcon, CircleIcon, ClockIcon, CloudSunIcon, DropIcon, FireIcon, ForkKnifeIcon, LeafIcon, LightningIcon, LockOpenIcon, MedalIcon, MoonIcon, PersonIcon, RocketIcon, ScalesIcon, ShieldCheckIcon, StarIcon, SunIcon, SwordIcon, TrendUpIcon, TrophyIcon, WavesIcon } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import Svg, { Circle } from 'react-native-svg';
@@ -27,9 +27,9 @@ const GENDER_OPTIONS = [
 ];
 
 const GOAL_OPTIONS = [
-  { id: 'lose',     icon: '🔥', label: 'Emagrecer' },
-  { id: 'gain',     icon: '💪', label: 'Ganhar peso' },
-  { id: 'maintain', icon: '⚖️', label: 'Manter o peso' },
+  { id: 'lose',     Icon: FireIcon,    label: 'Emagrecer' },
+  { id: 'gain',     Icon: BarbellIcon, label: 'Ganhar peso' },
+  { id: 'maintain', Icon: ScalesIcon,  label: 'Manter o peso' },
 ];
 
 const OBSTACLE_OPTIONS = [
@@ -64,10 +64,10 @@ const DAY_PILLS = [
 ];
 
 const TIME_OPTIONS = [
-  { id: 'morning',   icon: '☀️', label: 'Manhã' },
-  { id: 'afternoon', icon: '🌤️', label: 'Tarde' },
-  { id: 'night',     icon: '🌙', label: 'Noite' },
-  { id: 'varies',    icon: '🔄', label: 'Varia muito' },
+  { id: 'morning',   Icon: SunIcon,            label: 'Manhã' },
+  { id: 'afternoon', Icon: CloudSunIcon,        label: 'Tarde' },
+  { id: 'night',     Icon: MoonIcon,            label: 'Noite' },
+  { id: 'varies',    Icon: ArrowsClockwiseIcon, label: 'Varia muito' },
 ];
 
 const ACHIEVEMENT_OPTIONS = [
@@ -78,9 +78,9 @@ const ACHIEVEMENT_OPTIONS = [
 ];
 
 const FEATURES = [
-  { icon: '🔥', label: 'Rotina à prova de falhas',  desc: 'Atividades que cabem no seu dia — curtas quando falta tempo, intensas quando você quer mais' },
-  { icon: '🧠', label: 'Psicologia do hábito',   desc: 'XP, streaks e duelos que ativam o mesmo circuito de recompensa dos melhores jogos' },
-  { icon: '📈', label: 'Progresso que você vê',  desc: 'Métricas reais de consistência — semana a semana, sem ilusão' },
+  { Icon: FireIcon,    label: 'Rotina à prova de falhas',  desc: 'Atividades que cabem no seu dia — curtas quando falta tempo, intensas quando você quer mais' },
+  { Icon: BrainIcon,   label: 'Psicologia do hábito',   desc: 'XP, streaks e duelos que ativam o mesmo circuito de recompensa dos melhores jogos' },
+  { Icon: TrendUpIcon, label: 'Progresso que você vê',  desc: 'Métricas reais de consistência — semana a semana, sem ilusão' },
 ];
 
 const LOADING_STEPS = [
@@ -431,8 +431,8 @@ export default function OnboardingScreen({ navigation }) {
     
     let nextStep = step + 1;
     // Skip "How many kilos" (Step 6) if goal is "maintain"
-    if (step === 5 && answers.goal === 'maintain') {
-      nextStep = 7;
+    if (step === 6 && answers.goal === 'maintain') {
+      nextStep = 8;
     }
 
     transition(1, () => setStep(nextStep));
@@ -443,8 +443,8 @@ export default function OnboardingScreen({ navigation }) {
 
     let prevStep = step - 1;
     // Skip back over "How many kilos" if goal is "maintain"
-    if (step === 7 && answers.goal === 'maintain') {
-      prevStep = 5;
+    if (step === 8 && answers.goal === 'maintain') {
+      prevStep = 6;
     }
 
     transition(-1, () => setStep(prevStep));
@@ -475,8 +475,8 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 17 (Index 17) - Reward XP
-    if (step !== 17) return;
+    // Tela 17 (Index 18) - Reward XP
+    if (step !== 18) return;
     setXpCount(0);
     rewardScale.setValue(0);
     Animated.spring(rewardScale, { toValue: 1, tension: 70, friction: 7, useNativeDriver: true }).start();
@@ -486,8 +486,8 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 7 (Index 6) - Inicializa targetWeight com padrão baseado no objetivo
-    if (step !== 6) return;
+    // Tela 7 (Index 7) - Inicializa targetWeight com padrão baseado no objetivo
+    if (step !== 7) return;
     setAnswers(prev => {
       if (prev.targetWeight !== undefined) return prev;
       const w = Number(prev.weight) || 70;
@@ -497,8 +497,8 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 23 (Index 25) - Loading Plan
-    if (step !== 25) return;
+    // Tela 23 (Index 26) - Loading Plan
+    if (step !== 26) return;
     loadingProg.setValue(0);
     setLoadingMsgIdx(0);
     setLoadingPct(0);
@@ -514,7 +514,7 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    if (step !== 10) return;
+    if (step !== 11) return;
     barAnim.setValue(0);
     Animated.timing(barAnim, { toValue: 1, duration: 1100, delay: 200, useNativeDriver: false }).start();
   }, [step]);
@@ -525,7 +525,7 @@ export default function OnboardingScreen({ navigation }) {
     return (
       <View style={s.header}>
         <TouchableOpacity style={[s.backBtn, step === 0 && { opacity: 0 }]} onPress={goBack} disabled={step === 0} hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.white} />
+          <ArrowLeftIcon size={24} color={COLORS.white}  weight="regular" />
         </TouchableOpacity>
         <View style={s.progressTrack}>
           <View style={[s.progressFill, { width: `${pct}%` }]} />
@@ -572,7 +572,7 @@ export default function OnboardingScreen({ navigation }) {
              <View style={s.radio} />
           )}
         </View>
-        {showIcon && item.icon && <Text style={s.iconEmoji}>{item.icon}</Text>}
+        {showIcon && item.Icon && <item.Icon size={22} color={sel ? COLORS.purpleLight : COLORS.gray} weight={sel ? 'fill' : 'regular'} style={s.iconEmoji} />}
         <View style={s.cardTextWrap}>
           <Text style={[s.cardLabel, sel && s.cardLabelSel]}>{item.label}</Text>
           {item.desc && <Text style={[s.cardDesc, sel && s.cardDescSel]}>{item.desc}</Text>}
@@ -643,7 +643,7 @@ export default function OnboardingScreen({ navigation }) {
             <Animated.View key={i} style={[{ opacity: featureAnims[i], transform: [{ translateX: featureAnims[i].interpolate({ inputRange: [0, 1], outputRange: [30, 0] }) }] }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A2A', borderRadius: 20, paddingVertical: 16, paddingHorizontal: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.03)' }}>
                 <LinearGradient colors={['#2A2A4A', '#161625']} style={{ width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginRight: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}>
-                  <Text style={{ fontSize: 22 }}>{f.icon}</Text>
+                  <f.Icon size={22} color={COLORS.purpleLight} weight="fill" />
                 </LinearGradient>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.white, marginBottom: 4 }}>{f.label}</Text>
@@ -738,6 +738,29 @@ export default function OnboardingScreen({ navigation }) {
     </>
   );
 
+  // Tela 5.5: Aviso — meta trava por 30 dias
+  const StepGoalLockInfo = () => (
+    <View style={s.body}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 10 }}>
+        <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 30 }}>
+          <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: COLORS.purpleLight, opacity: 0.1 }} />
+          <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.purpleLight, opacity: 0.15 }} />
+          <LinearGradient colors={['#2A2A4A', '#161625']} style={{ width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+            <ShieldCheckIcon size={42} color={COLORS.purpleLight} weight="fill" />
+          </LinearGradient>
+        </View>
+        <Text style={[s.heroTitle, { textAlign: 'center', fontSize: 30, lineHeight: 37 }]}>Seu plano está começando.</Text>
+        <Text style={[s.heroSub, { textAlign: 'center', marginTop: 12, fontSize: 17, lineHeight: 25, color: '#A0A0C0' }]}>
+          Para funcionar de verdade, seu objetivo, peso desejado, dias e frequência de treino só poderão ser alterados depois de 30 dias.
+        </Text>
+        <Text style={[s.heroSub, { textAlign: 'center', marginTop: 4, fontSize: 15, lineHeight: 22, color: COLORS.gray }]}>
+          Escolha com calma — é isso que vai te manter consistente.
+        </Text>
+      </View>
+      <Btn label="Entendi, vamos lá" />
+    </View>
+  );
+
   // Tela 6: Objetivo principal
   const Step4 = () => (
     <>
@@ -779,7 +802,7 @@ export default function OnboardingScreen({ navigation }) {
               onSelect={(v) => setAnswers(p => ({ ...p, targetWeight: v }))}
             />
             <View style={s.currentWeightBadge}>
-              <Ionicons name="person-outline" size={16} color={COLORS.gray} />
+              <PersonIcon size={16} color={COLORS.gray}  weight="regular" />
               <Text style={s.currentWeightLabel}>Seu peso atual:</Text>
               <Text style={s.currentWeightVal}>{currentWeight} kg</Text>
             </View>
@@ -893,7 +916,7 @@ export default function OnboardingScreen({ navigation }) {
               ))}
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-              <Ionicons name="trending-up" size={13} color={COLORS.green} />
+              <TrendUpIcon size={13} color={COLORS.green}  weight="bold" />
               <Text style={{ color: COLORS.green, fontSize: 12, fontWeight: '700', marginLeft: 4 }}>+258% de consistência na semana 6</Text>
             </View>
           </LinearGradient>
@@ -1006,7 +1029,7 @@ export default function OnboardingScreen({ navigation }) {
             <View style={{ position: 'absolute', width: 150, height: 150, borderRadius: 75, backgroundColor: COLORS.purpleLight, opacity: 0.1 }} />
             <View style={{ position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: COLORS.purpleLight, opacity: 0.15 }} />
             <LinearGradient colors={['#2A2A4A', '#161625']} style={{ width: 90, height: 90, borderRadius: 45, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-              <Ionicons name="calendar" size={42} color={COLORS.purpleLight} />
+              <CalendarIcon size={42} color={COLORS.purpleLight}  weight="regular" />
             </LinearGradient>
           </View>
           <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 36, lineHeight: 42}]}>Ótima escolha.</Text>
@@ -1083,7 +1106,7 @@ export default function OnboardingScreen({ navigation }) {
                   colors={['#8B5CF6', '#6D28D9']}
                   style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Text style={{ fontSize: 24 }}>🚀</Text>
+                  <RocketIcon size={24} color="#fff" weight="fill" />
                 </LinearGradient>
               </View>
               <View style={{ flex: 1 }}>
@@ -1137,7 +1160,7 @@ export default function OnboardingScreen({ navigation }) {
             <View style={{ position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: COLORS.purple, opacity: 0.1 }} />
             <View style={{ position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: COLORS.purple, opacity: 0.15 }} />
             <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.purple, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 }}>
-               <Ionicons name="notifications" size={46} color={COLORS.white} />
+               <BellIcon size={46} color={COLORS.white}  weight="fill" />
             </View>
           </View>
           <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 36, lineHeight: 42}]}>Não perca seu streak.</Text>
@@ -1159,7 +1182,7 @@ export default function OnboardingScreen({ navigation }) {
   const Step21 = () => (
     <View style={s.body}>
        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
-          <Ionicons name="flash" size={60} color={COLORS.purpleLight} />
+          <LightningIcon size={60} color={COLORS.purpleLight}  weight="fill" />
           <Text style={[s.heroTitle, {textAlign: 'center', marginTop: 32}]}>Tudo pronto.</Text>
           <Text style={[s.heroSub, {textAlign: 'center'}]}>Temos todas as informações necessárias. É hora de gerar o seu plano de ação.</Text>
        </View>
@@ -1207,7 +1230,9 @@ export default function OnboardingScreen({ navigation }) {
             const isActive = loadingPct >= (threshold - 15);
             return (
               <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                 <Ionicons name={isActive ? "checkmark-circle" : "ellipse-outline"} size={24} color={isActive ? COLORS.greenLight : COLORS.gray} />
+                 {isActive
+                   ? <CheckCircleIcon size={24} color={COLORS.greenLight} weight="fill" />
+                   : <CircleIcon size={24} color={COLORS.gray} weight="regular" />}
                  <Text style={{ marginLeft: 12, fontSize: 16, color: isActive ? COLORS.white : COLORS.gray, fontWeight: isActive ? '600' : '500' }}>
                    {stepText}
                  </Text>
@@ -1275,7 +1300,8 @@ export default function OnboardingScreen({ navigation }) {
     commitPct = Math.min(95, commitPct);
 
     const commitColor = commitPct >= 85 ? COLORS.gold : commitPct >= 70 ? COLORS.purpleLight : COLORS.greenLight;
-    const commitTier = commitPct >= 85 ? '🏆 Elite' : commitPct >= 70 ? '💪 Dedicado' : '🌱 Consistente';
+    const CommitTierIcon = commitPct >= 85 ? TrophyIcon : commitPct >= 70 ? BarbellIcon : LeafIcon;
+    const commitTier = commitPct >= 85 ? 'Elite' : commitPct >= 70 ? 'Dedicado' : 'Consistente';
 
     // Streak / treinos
     const workoutsPerWeek = freqNum;
@@ -1301,7 +1327,7 @@ export default function OnboardingScreen({ navigation }) {
           {/* Header */}
           <View style={{ alignItems: 'center', marginTop: 16, marginBottom: 20 }}>
             <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.greenLight, alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>
-              <Ionicons name="checkmark" size={34} color={COLORS.bg} />
+              <CheckIcon size={34} color={COLORS.bg}  weight="bold" />
             </View>
             <Text style={[s.heroTitle, { textAlign: 'center', fontSize: 26, lineHeight: 33, marginBottom: 12 }]}>
               {answers.name ? `${answers.name}, ` : ''}seu plano está pronto!
@@ -1313,7 +1339,7 @@ export default function OnboardingScreen({ navigation }) {
               {goal !== 'maintain' && (
                 <>
                   <Text style={{ color: '#2A2A4A', fontSize: 18 }}>|</Text>
-                  <Ionicons name="time-outline" size={14} color={COLORS.gray} />
+                  <ClockIcon size={14} color={COLORS.gray}  weight="regular" />
                   <Text style={{ fontSize: 14, color: COLORS.gray, fontWeight: '600' }}>{timelineLabel}</Text>
                 </>
               )}
@@ -1322,7 +1348,10 @@ export default function OnboardingScreen({ navigation }) {
 
           {/* COMPROMETIMENTO */}
           <LinearGradient colors={['#1E0A4A', '#12122A']} style={pl.card}>
-            <Text style={pl.cardTitle}>💪 Nível de Comprometimento</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <BarbellIcon size={15} color={COLORS.white} weight="fill" />
+              <Text style={pl.cardTitle}>Nível de Comprometimento</Text>
+            </View>
             <Text style={pl.cardSub}>Calculado pela sua meta, histórico e frequência</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 18 }}>
               <View style={{ alignItems: 'center', justifyContent: 'center', width: 124, height: 124, position: 'relative' }}>
@@ -1348,7 +1377,10 @@ export default function OnboardingScreen({ navigation }) {
               <View style={{ flex: 1, gap: 10 }}>
                 <View style={{ backgroundColor: '#0D0D20', borderRadius: 12, padding: 12 }}>
                   <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Seu perfil</Text>
-                  <Text style={{ color: commitColor, fontSize: 18, fontWeight: '800', marginTop: 2 }}>{commitTier}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 }}>
+                    <CommitTierIcon size={16} color={commitColor} weight="fill" />
+                    <Text style={{ color: commitColor, fontSize: 18, fontWeight: '800' }}>{commitTier}</Text>
+                  </View>
                 </View>
                 <Text style={{ color: COLORS.gray, fontSize: 12, lineHeight: 18 }}>
                   Para alcançar <Text style={{ color: COLORS.white, fontWeight: '700' }}>{goal !== 'maintain' ? `${targetWeight} kg` : 'seu objetivo'}</Text> em <Text style={{ color: COLORS.purpleLight, fontWeight: '700' }}>{timelineLabel}</Text>, esse é o comprometimento mínimo.
@@ -1360,7 +1392,7 @@ export default function OnboardingScreen({ navigation }) {
           {/* STREAK 🔥 - principal */}
           <LinearGradient colors={['#1A0A00', '#16131A']} style={pl.card}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <Text style={{ fontSize: 28 }}>🔥</Text>
+              <FireIcon size={28} color="#F97316" weight="fill" />
               <View>
                 <Text style={pl.cardTitle}>Streak — o coração do FitQuest</Text>
                 <Text style={pl.cardSub}>Consistência bate intensidade, sempre</Text>
@@ -1389,7 +1421,7 @@ export default function OnboardingScreen({ navigation }) {
                 return (
                   <View key={d} style={[pl.dayDot, active && pl.dayDotActive]}>
                     <Text style={{ fontSize: 11, fontWeight: '700', color: active ? COLORS.white : COLORS.gray }}>{dayLabels[d]}</Text>
-                    {active && <Text style={{ fontSize: 9 }}>🔥</Text>}
+                    {active && <FireIcon size={9} color="#F97316" weight="fill" />}
                   </View>
                 );
               })}
@@ -1404,7 +1436,10 @@ export default function OnboardingScreen({ navigation }) {
 
           {/* NUTRIÇÃO DIÁRIA */}
           <View style={pl.card}>
-            <Text style={pl.cardTitle}>🍽️ Nutrição Diária</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <ForkKnifeIcon size={15} color={COLORS.white} weight="fill" />
+              <Text style={pl.cardTitle}>Nutrição Diária</Text>
+            </View>
             <Text style={pl.cardSub}>Calculado pelo seu perfil, idade e nível de atividade</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14, justifyContent: 'space-between' }}>
               {[
@@ -1433,7 +1468,7 @@ export default function OnboardingScreen({ navigation }) {
               })}
             </View>
             <View style={[pl.infoBox, { marginTop: 10 }]}>
-              <Ionicons name="water" size={16} color={COLORS.blue} />
+              <DropIcon size={16} color={COLORS.blue}  weight="fill" />
               <Text style={pl.infoText}>
                 Água: <Text style={{ color: COLORS.white, fontWeight: '700' }}>{waterL}L/dia</Text> — hidratação essencial para acelerar resultados
               </Text>
@@ -1442,32 +1477,35 @@ export default function OnboardingScreen({ navigation }) {
 
           {/* ROTINA SEMANAL */}
           <View style={pl.card}>
-            <Text style={pl.cardTitle}>📅 O Que Fazer Cada Semana</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <CalendarIcon size={15} color={COLORS.white} weight="fill" />
+              <Text style={pl.cardTitle}>O Que Fazer Cada Semana</Text>
+            </View>
             <View style={{ gap: 10, marginTop: 14 }}>
               {[
                 {
-                  icon: '🏋️',
+                  Icon: BarbellIcon,
                   label: `${workoutsPerWeek} treino${workoutsPerWeek > 1 ? 's' : ''} no app`,
                   desc: 'Use os treinos do FitQuest — completos e prontos para você',
                   badge: `+${workoutsPerWeek * 300} XP/sem`,
                   badgeColor: COLORS.gold,
                 },
                 {
-                  icon: '🌊',
+                  Icon: WavesIcon,
                   label: 'Complete desafios diários',
                   desc: 'Treino, hidratação ou caminhada — pelo menos 1 por dia',
                   badge: '+50 XP/dia',
                   badgeColor: COLORS.purpleLight,
                 },
                 {
-                  icon: '⚔️',
+                  Icon: SwordIcon,
                   label: 'Enfrente o Boss Semanal',
                   desc: 'Desafio épico toda semana. Não perca.',
                   badge: 'XP extra',
                   badgeColor: COLORS.orange,
                 },
                 {
-                  icon: '🏆',
+                  Icon: TrophyIcon,
                   label: 'Cheque o Ranking',
                   desc: 'Veja seu streak e XP versus amigos e rivais',
                   badge: 'Motivação',
@@ -1475,7 +1513,9 @@ export default function OnboardingScreen({ navigation }) {
                 },
               ].map((item, i) => (
                 <View key={i} style={pl.featureRow}>
-                  <Text style={{ fontSize: 20, width: 28, textAlign: 'center' }}>{item.icon}</Text>
+                  <View style={{ width: 28, alignItems: 'center' }}>
+                    <item.Icon size={20} color={COLORS.white} weight="fill" />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                       <Text style={{ color: COLORS.white, fontSize: 13, fontWeight: '700', flex: 1 }}>{item.label}</Text>
@@ -1492,7 +1532,10 @@ export default function OnboardingScreen({ navigation }) {
 
           {/* PROJEÇÃO XP */}
           <View style={{ marginBottom: 24 }}>
-            <Text style={[pl.cardTitle, { marginBottom: 12 }]}>📈 Projeção de 30 Dias</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <TrendUpIcon size={15} color={COLORS.white} weight="fill" />
+              <Text style={pl.cardTitle}>Projeção de 30 Dias</Text>
+            </View>
             <LinearGradient colors={['#2D1B69', '#12122A']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 20, padding: 20 }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 14 }}>
                 <View style={{ alignItems: 'center' }}>
@@ -1506,7 +1549,10 @@ export default function OnboardingScreen({ navigation }) {
                 </View>
                 <View style={{ width: 1, backgroundColor: '#2A2A4A' }} />
                 <View style={{ alignItems: 'center' }}>
-                  <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>🔥 Streak</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 4 }}>
+                    <FireIcon size={10} color={COLORS.gray} weight="fill" />
+                    <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 }}>Streak</Text>
+                  </View>
                   <Text style={{ color: COLORS.orange, fontSize: 26, fontWeight: '800' }}>{workoutsPerMonth}d</Text>
                 </View>
               </View>
@@ -1519,7 +1565,7 @@ export default function OnboardingScreen({ navigation }) {
         </ScrollView>
         <View style={{ paddingHorizontal: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 }}>
-            <Ionicons name="checkmark" size={16} color={COLORS.gray} />
+            <CheckIcon size={16} color={COLORS.gray}  weight="bold" />
             <Text style={{ color: COLORS.gray, fontSize: 14, fontWeight: '600' }}>Você não paga nada agora</Text>
           </View>
           <Btn label="Experimente grátis" />
@@ -1554,7 +1600,7 @@ export default function OnboardingScreen({ navigation }) {
           <View style={s.communityStatCol}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                <Text style={s.communityStatMain}>4.8</Text>
-               <Ionicons name="star" size={26} color={COLORS.goldLight} />
+               <StarIcon size={26} color={COLORS.goldLight}  weight="fill" />
             </View>
             <Text style={s.communityStatSub}>avaliação média</Text>
             <Text style={s.communityStatSubMin}>250K+ avaliações do app</Text>
@@ -1573,7 +1619,7 @@ export default function OnboardingScreen({ navigation }) {
         <View style={s.reviewList}>
            <View style={s.reviewCard}>
               <View style={s.reviewHeader}>
-                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <View style={s.reviewAvatar}><PersonIcon size={20} color={COLORS.gray}  weight="fill" /></View>
                  <Text style={s.reviewName}>Jake Sullivan</Text>
                  <View style={{flex: 1}} />
                  <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
@@ -1583,7 +1629,7 @@ export default function OnboardingScreen({ navigation }) {
 
            <View style={s.reviewCard}>
               <View style={s.reviewHeader}>
-                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <View style={s.reviewAvatar}><PersonIcon size={20} color={COLORS.gray}  weight="fill" /></View>
                  <Text style={s.reviewName}>Benny Marcs</Text>
                  <View style={{flex: 1}} />
                  <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
@@ -1593,7 +1639,7 @@ export default function OnboardingScreen({ navigation }) {
 
            <View style={s.reviewCard}>
               <View style={s.reviewHeader}>
-                 <View style={s.reviewAvatar}><Ionicons name="person" size={20} color={COLORS.gray} /></View>
+                 <View style={s.reviewAvatar}><PersonIcon size={20} color={COLORS.gray}  weight="fill" /></View>
                  <Text style={s.reviewName}>Karel Carter</Text>
                  <View style={{flex: 1}} />
                  <Text style={{color: COLORS.goldLight, fontSize: 12, letterSpacing: 2}}>★★★★★</Text>
@@ -1607,84 +1653,16 @@ export default function OnboardingScreen({ navigation }) {
     </>
   );
 
-  // Tela 26 (antiga 28): Paywall
-  const Step27 = () => (
-    <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
-      <View style={{paddingHorizontal: 24, marginTop: 10, marginBottom: 30}}>
-        <Text style={[s.heroTitle, {textAlign: 'center', fontSize: 32}]}>Inicie sua experiência GRÁTIS de 3 dias.</Text>
-        <Text style={[s.heroSub, {textAlign: 'center', color: COLORS.white, fontWeight: '700', marginTop: 8}]}>Não será cobrado do seu cartão agora</Text>
-      </View>
-
-      <View style={s.timelineWrap}>
-         <View style={s.timelineLine} />
-         
-         <View style={s.timelineItem}>
-            <View style={[s.timelineIcon, {backgroundColor: COLORS.orange}]}><Ionicons name="lock-open" size={18} color={COLORS.white}/></View>
-            <View style={s.timelineContent}>
-               <Text style={s.timelineTitle}>Hoje</Text>
-               <Text style={s.timelineDesc}>Receba acesso total ao CapiFit para registrar seus treinos com IA</Text>
-            </View>
-         </View>
-
-         <View style={s.timelineItem}>
-            <View style={[s.timelineIcon, {backgroundColor: COLORS.orange}]}><Ionicons name="notifications" size={18} color={COLORS.white}/></View>
-            <View style={s.timelineContent}>
-               <Text style={s.timelineTitle}>Em 2 Dias - Lembrete</Text>
-               <Text style={s.timelineDesc}>Vamos enviar um lembrete que o seu teste grátis está acabando</Text>
-            </View>
-         </View>
-
-         <View style={s.timelineItem}>
-            <View style={[s.timelineIcon, {backgroundColor: '#1E1E30', borderWidth: 2, borderColor: '#475569'}]}><Ionicons name="star" size={18} color={COLORS.white}/></View>
-            <View style={s.timelineContent}>
-               <Text style={s.timelineTitle}>Em 3 Dias</Text>
-               <Text style={s.timelineDesc}>Sua inscrição vai começar se você não tiver cancelado</Text>
-            </View>
-         </View>
-      </View>
-
-      <View style={s.paywallPlansRow}>
-         <TouchableOpacity onPress={() => {}} style={[s.paywallPlanCard, s.paywallPlanCardActive]} activeOpacity={0.9}>
-            <View style={s.paywallPopularBadge}><Text style={s.paywallPopularText}>MAIS POPULAR</Text></View>
-            <Text style={[s.paywallPlanType, {color: COLORS.white}]}>ANUAL</Text>
-            <View style={s.paywallCheckWrap}><Ionicons name="checkmark-circle" size={24} color={COLORS.white}/></View>
-         </TouchableOpacity>
-
-         <TouchableOpacity onPress={() => {}} style={s.paywallPlanCard} activeOpacity={0.9}>
-            <Text style={s.paywallPlanType}>MENSAL</Text>
-            <View style={s.paywallCheckWrapEmpty} />
-         </TouchableOpacity>
-      </View>
-
-      <Text style={{textAlign: 'center', color: COLORS.white, fontWeight: '700', fontSize: 16, marginTop: 24, marginBottom: 12}}>Não perca a oportunidade de mudar seu corpo!</Text>
-      <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 24}}>
-         <Ionicons name="shield-checkmark" size={16} color={COLORS.gray}/>
-         <Text style={{color: COLORS.gray, fontWeight: '600'}}>Cancele quando quiser!</Text>
-      </View>
-
-      <View style={{paddingHorizontal: 24}}>
-        <Btn label="Continuar" />
-      </View>
-      
-      <View style={s.paywallFooterLinks}>
-         <Text style={s.paywallLink}>Privacidade</Text>
-         <Text style={s.paywallLink}>Restaurar Compras</Text>
-         <Text style={s.paywallLink}>Termos</Text>
-      </View>
-      <View style={{ height: 48 }} />
-    </ScrollView>
-  );
-
   const STEPS = [
-    Step0, Step1, Step2, Step3, StepAge, Step4, Step5, Step6, Step7,
+    Step0, Step1, Step2, Step3, StepAge, StepGoalLockInfo, Step4, Step5, Step6, Step7,
     Step8, Step9, Step10, Step11, Step12, Step13, Step14, Step15,
     Step16, Step24, Step17, null, null, null, Step23, Step21,
-    Step22, StepPlan, Step27
+    Step22, StepPlan
   ];
   const StepComponent = STEPS[step];
 
   const renderStep = () => {
-    if (step === 20) {
+    if (step === 21) {
       return (
         <NameInputScreen
           value={answers.name || ''}
@@ -1694,7 +1672,7 @@ export default function OnboardingScreen({ navigation }) {
         />
       );
     }
-    if (step === 21) {
+    if (step === 22) {
       return (
         <EmailInputScreen
           value={answers.email || ''}
@@ -1704,7 +1682,7 @@ export default function OnboardingScreen({ navigation }) {
         />
       );
     }
-    if (step === 22) {
+    if (step === 23) {
       return (
         <PhoneInputScreen
           value={answers.phone || ''}
@@ -1849,23 +1827,6 @@ const s = StyleSheet.create({
   productImageSm: { width: '100%', height: '100%' },
 
   // Paywall (Tela 28) Timeline & Plans
-  timelineWrap: { paddingHorizontal: 24, position: 'relative', marginVertical: 16 },
-  timelineLine: { position: 'absolute', left: 40, top: 20, bottom: 40, width: 2, backgroundColor: COLORS.orange, opacity: 0.5 },
-  timelineItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 24, gap: 16 },
-  timelineIcon: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', zIndex: 2 },
-  timelineContent: { flex: 1, paddingTop: 4 },
-  timelineTitle: { fontSize: 16, fontWeight: '700', color: COLORS.white, marginBottom: 4 },
-  timelineDesc: { fontSize: 14, color: COLORS.gray, lineHeight: 20 },
-  paywallPlansRow: { flexDirection: 'row', paddingHorizontal: 24, gap: 12, marginTop: 10 },
-  paywallPlanCard: { flex: 1, backgroundColor: '#161625', borderRadius: 16, padding: 20, alignItems: 'center', borderWidth: 2, borderColor: '#2A2A4A', position: 'relative' },
-  paywallPlanCardActive: { borderColor: COLORS.orange, backgroundColor: '#1A1525' },
-  paywallPopularBadge: { position: 'absolute', top: -12, backgroundColor: COLORS.orange, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
-  paywallPopularText: { fontSize: 10, fontWeight: '800', color: COLORS.white },
-  paywallPlanType: { fontSize: 16, fontWeight: '700', color: COLORS.gray, marginBottom: 12, marginTop: 4 },
-  paywallCheckWrap: { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.orange, alignItems: 'center', justifyContent: 'center' },
-  paywallCheckWrapEmpty: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: '#475569' },
-  paywallFooterLinks: { flexDirection: 'row', justifyContent: 'center', gap: 24, marginTop: 24 },
-  paywallLink: { color: COLORS.gray, fontSize: 13, fontWeight: '600', textDecorationLine: 'underline' },
 
   // Plan Card
   planCard: { width: '48%', backgroundColor: '#1E1E3A', borderRadius: 16, padding: 16, alignItems: 'center', position: 'relative' },

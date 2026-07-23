@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
   View, Text, ScrollView, StyleSheet, TextInput,
-  Animated, Dimensions, Modal, KeyboardAvoidingView, Platform,
+  Animated, Dimensions, Modal, KeyboardAvoidingView, Platform, Alert,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { BarbellIcon, CaretRightIcon, CaretUpIcon, CheckCircleIcon, CheckIcon, ClipboardTextIcon, ClockIcon, DotsThreeVerticalIcon, FireIcon, FloppyDiskIcon, LightningIcon, ListBulletsIcon, MagnifyingGlassIcon, PencilSimpleIcon, PlayIcon, PlusCircleIcon, PlusIcon, SparkleIcon, TrashIcon, TrophyIcon, XCircleIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { allWorkouts, categories, getWeeklyWorkoutChallenge } from '../data/mockData';
@@ -59,7 +59,7 @@ const GRADIENTS_BY_DIFF = {
 
 const REST_OPTS = ['30s', '45s', '60s', '90s', '120s', '2min'];
 
-function WorkoutCard({ workout, onPress }) {
+function WorkoutCard({ workout, onPress, onMenu }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const onIn  = () => Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true }).start();
   const onOut = () => Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start();
@@ -68,6 +68,15 @@ function WorkoutCard({ workout, onPress }) {
     <Animated.View style={[s.cardWrap, { transform: [{ scale: scaleAnim }] }]}>
       <TouchableOpacity onPress={onPress} onPressIn={onIn} onPressOut={onOut} activeOpacity={1}>
         <LinearGradient colors={workout.gradient} style={s.card}>
+          {onMenu && (
+            <TouchableOpacity
+              style={s.menuBtn}
+              onPress={onMenu}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <DotsThreeVerticalIcon size={16} color="#fff" weight="bold" />
+            </TouchableOpacity>
+          )}
           <View style={s.cardTopRow}>
             <Text style={s.cardEmoji}>{workout.emoji}</Text>
             <View style={{ gap: 4, alignItems: 'flex-end' }}>
@@ -83,16 +92,17 @@ function WorkoutCard({ workout, onPress }) {
           <Text style={s.cardCat}>{workout.muscles?.slice(0, 2).join(' · ') || workout.category}</Text>
           <View style={s.cardStats}>
             <View style={s.cardStat}>
-              <Ionicons name="time-outline" size={12} color="rgba(255,255,255,0.6)" />
+              <ClockIcon size={12} color="rgba(255,255,255,0.6)"  weight="regular" />
               <Text style={s.cardStatText}>{workout.duration}min</Text>
             </View>
             <View style={s.cardStat}>
-              <Ionicons name="barbell-outline" size={12} color="rgba(255,255,255,0.6)" />
+              <BarbellIcon size={12} color="rgba(255,255,255,0.6)"  weight="regular" />
               <Text style={s.cardStatText}>{workout.exercises?.length || 0} exerc.</Text>
             </View>
           </View>
-          <View style={s.cardXP}>
-            <Text style={s.cardXPText}>⚡ +{workout.xp} XP</Text>
+          <View style={[s.cardXP, s.iconLabelRow]}>
+            <LightningIcon size={11} color="#FCD34D" weight="fill" />
+            <Text style={s.cardXPText}>+{workout.xp} XP</Text>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -111,6 +121,8 @@ export default function WorkoutsScreen({ navigation }) {
   const [nw, setNw]           = useState({ name: '', emoji: '💪', difficulty: 'MÉDIO', muscles: [], exercises: [] });
   const [exForm, setExForm]   = useState({ name: '', sets: '3', reps: '10', rest: '60s' });
   const [showBank, setShowBank] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [menuFor, setMenuFor]     = useState(null);
 
   const [weeklyChallenge]                = useState(() => getWeeklyWorkoutChallenge());
   const [weeklyChallengeDone, setWCD]  = useState(false);
@@ -179,7 +191,7 @@ export default function WorkoutsScreen({ navigation }) {
     const totalSets = nw.exercises.reduce((a, e) => a + (parseInt(e.sets) || 3), 0);
     const avgRest = nw.exercises.reduce((a, e) => a + (parseInt(e.rest) || 60), 0) / nw.exercises.length;
     const w = {
-      id: `user_${Date.now()}`,
+      id: editingId || `user_${Date.now()}`,
       name: nw.name.trim(),
       emoji: nw.emoji,
       difficulty: nw.difficulty,
@@ -193,15 +205,54 @@ export default function WorkoutsScreen({ navigation }) {
       exercises: nw.exercises,
       isUserCreated: true,
     };
-    setUserWorkouts(p => [w, ...p]);
-    // Persiste no Supabase
-    if (user?.id) {
-      supabase.from('user_workouts').insert({ user_id: user.id, workout_data: w }).then(() => {}).catch(() => {});
+    if (editingId) {
+      setUserWorkouts(p => p.map(x => x.id === editingId ? w : x));
+      if (user?.id) {
+        supabase.from('user_workouts').update({ workout_data: w }).eq('id', editingId).eq('user_id', user.id).then(() => {}).catch(() => {});
+      }
+    } else {
+      setUserWorkouts(p => [w, ...p]);
+      if (user?.id) {
+        supabase.from('user_workouts').insert({ user_id: user.id, workout_data: w }).then(() => {}).catch(() => {});
+      }
     }
     setNw({ name: '', emoji: '💪', difficulty: 'MÉDIO', muscles: [], exercises: [] });
     setExForm({ name: '', sets: '3', reps: '10', rest: '60s' });
     setShowBank(false);
+    setEditingId(null);
     setShowCreate(false);
+  };
+
+  const openEditWorkout = w => {
+    setMenuFor(null);
+    setEditingId(w.id);
+    setNw({
+      name: w.name, emoji: w.emoji, difficulty: w.difficulty,
+      muscles: (w.muscles ?? []).filter(m => m !== 'Custom'),
+      exercises: w.exercises ?? [],
+    });
+    setShowCreate(true);
+  };
+
+  const deleteUserWorkout = w => {
+    setMenuFor(null);
+    Alert.alert(
+      'Excluir treino',
+      `Deseja excluir "${w.name}"? Essa ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            setUserWorkouts(p => p.filter(x => x.id !== w.id));
+            if (user?.id) {
+              supabase.from('user_workouts').delete().eq('id', w.id).eq('user_id', user.id).then(() => {}).catch(() => {});
+            }
+          },
+        },
+      ],
+    );
   };
 
   const bankList = [...new Set(
@@ -218,25 +269,28 @@ export default function WorkoutsScreen({ navigation }) {
         <LinearGradient colors={['#1A1A3E', '#0A0A18']} style={[s.header, { paddingTop: insets.top + 12 }]}>
           <View style={s.headerRow}>
             <View style={{ flex: 1 }}>
-              <Text style={s.headerTitle}>🏋️ Biblioteca de Treinos</Text>
+              <View style={s.iconLabelRow}>
+                <BarbellIcon size={20} color={COLORS.white} weight="fill" />
+                <Text style={s.headerTitle}>Biblioteca de Treinos</Text>
+              </View>
               <Text style={s.headerSub}>{allWorkouts.length + userWorkouts.length} treinos disponíveis</Text>
             </View>
             {/* Botão histórico */}
             <TouchableOpacity onPress={() => setShowAllHistory(true)} activeOpacity={0.8} style={s.histBtn}>
-              <Ionicons name="time-outline" size={18} color={COLORS.purpleLight} />
+              <ClockIcon size={18} color={COLORS.purpleLight}  weight="regular" />
               {history.length > 0 && (
                 <View style={s.histBtnBadge}><Text style={s.histBtnBadgeText}>{history.length}</Text></View>
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowCreate(true)} activeOpacity={0.85}>
               <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={s.createBtn}>
-                <Ionicons name="add" size={16} color="#fff" />
+                <PlusIcon size={16} color="#fff"  weight="fill" />
                 <Text style={s.createBtnText}>Criar Treino</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>
           <View style={s.searchBar}>
-            <Ionicons name="search-outline" size={18} color={COLORS.gray} />
+            <MagnifyingGlassIcon size={18} color={COLORS.gray}  weight="regular" />
             <TextInput
               style={s.searchInput}
               placeholder="Buscar treino..."
@@ -246,7 +300,7 @@ export default function WorkoutsScreen({ navigation }) {
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={18} color={COLORS.gray} />
+                <XCircleIcon size={18} color={COLORS.gray}  weight="fill" />
               </TouchableOpacity>
             )}
           </View>
@@ -269,7 +323,10 @@ export default function WorkoutsScreen({ navigation }) {
         {userWorkouts.length > 0 && (
           <View style={s.section}>
             <View style={s.sectionHeaderRow}>
-              <Text style={s.sectionTitle}>✨ Meus Treinos</Text>
+              <View style={s.iconLabelRow}>
+                <SparkleIcon size={16} color={COLORS.white} weight="fill" />
+                <Text style={s.sectionTitle}>Meus Treinos</Text>
+              </View>
               <View style={s.countPill}><Text style={s.countPillText}>{userWorkouts.length}</Text></View>
             </View>
             <View style={s.grid}>
@@ -278,6 +335,7 @@ export default function WorkoutsScreen({ navigation }) {
                   key={w.id}
                   workout={w}
                   onPress={() => navigation.navigate('WorkoutDetail', { workout: w, isUserCreated: true })}
+                  onMenu={() => setMenuFor(w)}
                 />
               ))}
             </View>
@@ -294,7 +352,10 @@ export default function WorkoutsScreen({ navigation }) {
           return (
             <View style={s.section}>
               <View style={s.sectionHeaderRow}>
-                <Text style={s.sectionTitle}>🔥 Desafio da Semana</Text>
+                <View style={s.iconLabelRow}>
+                  <FireIcon size={16} color="#F97316" weight="fill" />
+                  <Text style={s.sectionTitle}>Desafio da Semana</Text>
+                </View>
                 {weeklyChallengeDone
                   ? <View style={[s.hotBadge, { backgroundColor: '#10B981' }]}><Text style={s.hotBadgeText}>✓ CONCLUÍDO</Text></View>
                   : <View style={s.hotBadge}><Text style={s.hotBadgeText}>{weeklyChallenge.daysLeft}d restantes</Text></View>}
@@ -305,16 +366,26 @@ export default function WorkoutsScreen({ navigation }) {
               >
                 <LinearGradient colors={weeklyChallengeDone ? ['#064E3B','#022C22'] : weeklyChallenge.gradient} style={s.featCard}>
                   <View style={s.featContent}>
-                    <Text style={s.featEmoji}>{weeklyChallengeDone ? '🏆' : weeklyChallenge.emoji}</Text>
+                    {weeklyChallengeDone
+                      ? <TrophyIcon size={44} color="#FCD34D" weight="fill" style={s.featEmoji} />
+                      : <Text style={s.featEmoji}>{weeklyChallenge.emoji}</Text>}
                     <View style={s.featInfo}>
                       <View style={[s.diffBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
                         <Text style={[s.diffText, { color: '#fff' }]}>{weeklyChallenge.difficulty}</Text>
                       </View>
-                      <Text style={s.featName}>{weeklyChallengeDone ? 'Desafio Concluído! 🏆' : weeklyChallenge.name}</Text>
+                      <Text style={s.featName}>{weeklyChallengeDone ? 'Desafio Concluído!' : weeklyChallenge.name}</Text>
                       <Text style={s.featSub}>{weeklyChallengeDone ? 'Você completou o desafio desta semana 🎉' : weeklyChallenge.description}</Text>
                       <View style={s.featStats}>
-                        <Text style={s.featStatText}>⚡ +{weeklyChallenge.xp} XP bônus</Text>
-                        {!weeklyChallengeDone && <Text style={s.featStatText}>▶ {challengeWorkout.name}</Text>}
+                        <View style={s.iconLabelRow}>
+                          <LightningIcon size={12} color="#fff" weight="fill" />
+                          <Text style={s.featStatText}>+{weeklyChallenge.xp} XP bônus</Text>
+                        </View>
+                        {!weeklyChallengeDone && (
+                          <View style={s.iconLabelRow}>
+                            <PlayIcon size={11} color="#fff" weight="fill" />
+                            <Text style={s.featStatText}>{challengeWorkout.name}</Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                   </View>
@@ -326,13 +397,16 @@ export default function WorkoutsScreen({ navigation }) {
 
         {/* ALL WORKOUTS */}
         <View style={s.section}>
-          <Text style={s.sectionTitle}>
-            {selectedCat === 'Todos' ? '💪 Todos os Treinos' : `💪 ${selectedCat}`}
-            <Text style={s.countText}>  ({filtered.length})</Text>
-          </Text>
+          <View style={s.iconLabelRow}>
+            <BarbellIcon size={16} color={COLORS.white} weight="fill" />
+            <Text style={s.sectionTitle}>
+              {selectedCat === 'Todos' ? 'Todos os Treinos' : selectedCat}
+              <Text style={s.countText}>  ({filtered.length})</Text>
+            </Text>
+          </View>
           {filtered.length === 0 ? (
             <View style={s.empty}>
-              <Text style={s.emptyEmoji}>🔍</Text>
+              <MagnifyingGlassIcon size={36} color={COLORS.gray} weight="regular" style={s.emptyEmoji} />
               <Text style={s.emptyText}>Nenhum treino encontrado</Text>
               <Text style={s.emptySub}>Tente outro filtro ou busca</Text>
             </View>
@@ -351,15 +425,18 @@ export default function WorkoutsScreen({ navigation }) {
         <View style={[s.modalBg, { paddingTop: insets.top }]}>
           <LinearGradient colors={['#1A1A3E', '#12122A']} style={s.mHeader}>
             <TouchableOpacity onPress={() => setShowAllHistory(false)} style={s.mCloseBtn}>
-              <Ionicons name="close" size={22} color="#fff" />
+              <XIcon size={22} color="#fff"  weight="bold" />
             </TouchableOpacity>
-            <Text style={s.mHeaderTitle}>📋 Histórico de Treinos</Text>
+            <View style={s.iconLabelRow}>
+              <ClipboardTextIcon size={18} color="#fff" weight="fill" />
+              <Text style={s.mHeaderTitle}>Histórico de Treinos</Text>
+            </View>
             <View style={{ width: 40 }} />
           </LinearGradient>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: SPACING.md, paddingBottom: 40 }}>
             {history.length === 0 ? (
               <View style={{ alignItems: 'center', paddingTop: 60 }}>
-                <Text style={{ fontSize: 48 }}>📋</Text>
+                <ClipboardTextIcon size={44} color={COLORS.gray} weight="regular" />
                 <Text style={{ color: COLORS.gray, marginTop: 12 }}>Nenhum treino concluído ainda</Text>
               </View>
             ) : history.map((h, i) => {
@@ -397,12 +474,29 @@ export default function WorkoutsScreen({ navigation }) {
                     <Text style={s.histMeta}>+{h.xp_earned ?? 0} XP{wdata.exercises?.length ? `  ·  ${wdata.exercises.length} exercícios` : ''}</Text>
                   </View>
                   <View style={s.histXPBadge}><Text style={s.histXPText}>✓</Text></View>
-                  <Ionicons name="chevron-forward" size={14} color={COLORS.grayDark} />
+                  <CaretRightIcon size={14} color={COLORS.grayDark}  weight="bold" />
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
         </View>
+      </Modal>
+
+      {/* ── MENU DE AÇÕES DO TREINO (editar/excluir) ── */}
+      <Modal visible={!!menuFor} transparent animationType="fade" onRequestClose={() => setMenuFor(null)}>
+        <TouchableOpacity style={s.menuBackdrop} activeOpacity={1} onPress={() => setMenuFor(null)}>
+          <TouchableOpacity activeOpacity={1} style={s.menuCard}>
+            <TouchableOpacity style={s.menuOpt} onPress={() => openEditWorkout(menuFor)} activeOpacity={0.8}>
+              <PencilSimpleIcon size={18} color={COLORS.white} weight="regular" />
+              <Text style={s.menuOptText}>Editar</Text>
+            </TouchableOpacity>
+            <View style={s.menuDivider} />
+            <TouchableOpacity style={s.menuOpt} onPress={() => deleteUserWorkout(menuFor)} activeOpacity={0.8}>
+              <TrashIcon size={18} color={COLORS.red} weight="regular" />
+              <Text style={[s.menuOptText, { color: COLORS.red }]}>Excluir</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* ── CREATE WORKOUT MODAL ── */}
@@ -412,10 +506,13 @@ export default function WorkoutsScreen({ navigation }) {
 
             {/* Modal header */}
             <LinearGradient colors={['#1A1A3E', '#12122A']} style={s.mHeader}>
-              <TouchableOpacity onPress={() => setShowCreate(false)} style={s.mCloseBtn}>
-                <Ionicons name="close" size={22} color="#fff" />
+              <TouchableOpacity onPress={() => { setShowCreate(false); setEditingId(null); }} style={s.mCloseBtn}>
+                <XIcon size={22} color="#fff"  weight="bold" />
               </TouchableOpacity>
-              <Text style={s.mHeaderTitle}>✨ Criar Treino</Text>
+              <View style={s.iconLabelRow}>
+                <SparkleIcon size={18} color="#fff" weight="fill" />
+                <Text style={s.mHeaderTitle}>{editingId ? 'Editar Treino' : 'Criar Treino'}</Text>
+              </View>
               <TouchableOpacity onPress={saveWorkout} disabled={!canSave}>
                 <Text style={[s.mSaveText, { opacity: canSave ? 1 : 0.3 }]}>Salvar</Text>
               </TouchableOpacity>
@@ -481,7 +578,7 @@ export default function WorkoutsScreen({ navigation }) {
                         style={[s.muscleChip, active && { backgroundColor: col + '20', borderColor: col }]}
                         onPress={() => toggleMuscle(m)}
                       >
-                        {active && <Ionicons name="checkmark" size={11} color={col} />}
+                        {active && <CheckIcon size={11} color={col}  weight="bold" />}
                         <Text style={[s.muscleChipText, active && { color: col, fontWeight: '700' }]}>{m}</Text>
                       </TouchableOpacity>
                     );
@@ -496,7 +593,9 @@ export default function WorkoutsScreen({ navigation }) {
                     Exercícios{nw.exercises.length > 0 ? ` (${nw.exercises.length})` : ' *'}
                   </Text>
                   <TouchableOpacity style={s.bankToggleBtn} onPress={() => setShowBank(p => !p)}>
-                    <Ionicons name={showBank ? 'chevron-up-outline' : 'list-outline'} size={14} color={COLORS.purpleLight} />
+                    {showBank
+                      ? <CaretUpIcon size={14} color={COLORS.purpleLight} weight="regular" />
+                      : <ListBulletsIcon size={14} color={COLORS.purpleLight} weight="regular" />}
                     <Text style={s.bankToggleText}>{showBank ? 'Fechar banco' : 'Banco de exercícios'}</Text>
                   </TouchableOpacity>
                 </View>
@@ -516,11 +615,9 @@ export default function WorkoutsScreen({ navigation }) {
                             style={[s.bankChip, added && s.bankChipAdded]}
                             onPress={() => addFromBank(ex)}
                           >
-                            <Ionicons
-                              name={added ? 'checkmark-circle' : 'add-circle-outline'}
-                              size={12}
-                              color={added ? COLORS.green : COLORS.gray}
-                            />
+                            {added
+                              ? <CheckCircleIcon size={12} color={COLORS.green} weight="fill" />
+                              : <PlusCircleIcon size={12} color={COLORS.gray} weight="regular" />}
                             <Text style={[s.bankChipText, added && { color: COLORS.green }]}>{ex}</Text>
                           </TouchableOpacity>
                         );
@@ -536,7 +633,7 @@ export default function WorkoutsScreen({ navigation }) {
                       <View style={s.exNumCircle}><Text style={s.exNumText}>{idx + 1}</Text></View>
                       <Text style={s.exItemName} numberOfLines={1}>{ex.name}</Text>
                       <TouchableOpacity onPress={() => removeNewEx(idx)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                        <Ionicons name="trash-outline" size={16} color={COLORS.red} />
+                        <TrashIcon size={16} color={COLORS.red}  weight="regular" />
                       </TouchableOpacity>
                     </View>
                     <View style={s.exItemConfig}>
@@ -623,7 +720,7 @@ export default function WorkoutsScreen({ navigation }) {
                     ))}
                   </View>
                   <TouchableOpacity style={s.addExBtn} onPress={addCustomEx} activeOpacity={0.85}>
-                    <Ionicons name="add-circle" size={16} color={COLORS.purpleLight} />
+                    <PlusCircleIcon size={16} color={COLORS.purpleLight}  weight="fill" />
                     <Text style={s.addExBtnText}>Adicionar ao treino</Text>
                   </TouchableOpacity>
                 </View>
@@ -635,8 +732,8 @@ export default function WorkoutsScreen({ navigation }) {
                   colors={canSave ? ['#8B5CF6', '#6D28D9'] : ['#2A2A4A', '#1E1E38']}
                   style={s.saveBigBtn}
                 >
-                  <Ionicons name="save-outline" size={20} color="#fff" />
-                  <Text style={s.saveBigText}>Salvar Treino</Text>
+                  <FloppyDiskIcon size={20} color="#fff"  weight="regular" />
+                  <Text style={s.saveBigText}>{editingId ? 'Salvar Alterações' : 'Salvar Treino'}</Text>
                   {nw.exercises.length > 0 && (
                     <View style={s.saveBadge}><Text style={s.saveBadgeText}>{nw.exercises.length} exerc.</Text></View>
                   )}
@@ -675,6 +772,7 @@ const s = StyleSheet.create({
 
   // Section
   section: { paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: { color: COLORS.white, fontSize: 17, fontWeight: '800', marginBottom: SPACING.sm },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: SPACING.sm },
   countText: { color: COLORS.gray, fontSize: 13, fontWeight: '400' },
@@ -688,6 +786,12 @@ const s = StyleSheet.create({
   cardWrap: { width: CARD_WIDTH, borderRadius: RADIUS.lg, overflow: 'hidden', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
   card: { padding: SPACING.md, borderRadius: RADIUS.lg, minHeight: 190, gap: 6 },
   cardTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  menuBtn: { position: 'absolute', top: 8, right: 8, zIndex: 10, width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center' },
+  menuBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  menuCard: { width: 220, backgroundColor: '#1A1A2E', borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden' },
+  menuOpt: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
+  menuOptText: { color: COLORS.white, fontSize: 14, fontWeight: '700' },
+  menuDivider: { height: 1, backgroundColor: COLORS.border },
   cardEmoji: { fontSize: 30 },
   diffBadge: { alignSelf: 'flex-start', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
   diffText: { fontSize: 10, fontWeight: '800' },

@@ -9,6 +9,30 @@ function parseLocalDate(str) {
   return new Date(y, m - 1, d, 12, 0, 0); // meio-dia local — evita mudança de dia por UTC offset
 }
 
+// ─── Liga por XP total (mesmos nomes/emojis do LEAGUE_CONFIG em LeaderboardScreen) ──
+// Ordem crescente (Bronze → Diamante) — usada também para exibir a progressão na UI.
+export const LEAGUE_TIERS = [
+  { league: 'Bronze',   emoji: '🥉', min: 0 },
+  { league: 'Prata',    emoji: '🥈', min: 3500 },
+  { league: 'Ouro',     emoji: '🥇', min: 10000 },
+  { league: 'Platina',  emoji: '🔷', min: 22000 },
+  { league: 'Diamante', emoji: '💎', min: 45000 },
+];
+
+export function computeLeague(xp) {
+  const tier = [...LEAGUE_TIERS].reverse().find(t => xp >= t.min);
+  return { league: tier.league, emoji: tier.emoji };
+}
+
+// Índice da liga atual + a próxima (para telas que mostram progresso rumo à próxima liga)
+export function getLeagueProgress(xp) {
+  const idx  = [...LEAGUE_TIERS].reverse().findIndex(t => xp >= t.min);
+  const cur  = LEAGUE_TIERS[LEAGUE_TIERS.length - 1 - idx];
+  const curIdx = LEAGUE_TIERS.findIndex(t => t.league === cur.league);
+  const next = LEAGUE_TIERS[curIdx + 1] ?? null;
+  return { current: cur, currentIndex: curIdx, next };
+}
+
 export function getMondayOf(date = new Date()) {
   const d = new Date(date);
   const day = d.getDay(); // 0=Dom
@@ -53,7 +77,6 @@ export async function createUser(authId, overrides = {}) {
     xp:                  0,
     level:               1,
     next_level_xp:       300,   // nível 1→2 fácil; escala 1.5x a cada nível
-    coins:               0,
     gems:                0,
     league:              'Bronze',
     league_emoji:        '🥉',
@@ -217,6 +240,34 @@ export async function fetchWorkoutHistory(userId, limit = 20) {
 
   if (error) throw error;
   return data;
+}
+
+// ─── Último registro de kg/reps de um treino específico (para pré-preencher séries) ──
+export async function fetchLastWorkoutLog(userId, workoutName) {
+  const { data, error } = await supabase
+    .from('workout_completions')
+    .select('workout_data, completed_at')
+    .eq('user_id', userId)
+    .eq('workout_name', workoutName)
+    .order('completed_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data?.workout_data ?? null;
+}
+
+// ─── Categorias dos treinos concluídos nesta semana (para o Chefe da Semana) ──
+export async function fetchThisWeekWorkoutCategories(userId) {
+  const monday = getMondayOf().toISOString();
+  const { data, error } = await supabase
+    .from('workout_completions')
+    .select('workout_data')
+    .eq('user_id', userId)
+    .gte('completed_at', monday);
+
+  if (error) throw error;
+  return (data ?? []).map(row => row.workout_data?.category).filter(Boolean);
 }
 
 // ─── Ranking de amigos ────────────────────────────────────────────────────────

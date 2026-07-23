@@ -1,3 +1,5 @@
+import { SkullIcon, BarbellIcon, PersonSimpleWalkIcon, ShieldIcon, TrophyIcon, PawPrintIcon, StarIcon, LightningIcon } from 'phosphor-react-native';
+
 export const userData = {
   name: 'Lucas',
   level: 14,
@@ -13,7 +15,6 @@ export const userData = {
   league: 'Ouro',
   leagueEmoji: '🥇',
   rank: 4,
-  coins: 850,
   gems: 12,
   // Seg, Ter, Qua, Qui, Sex, Sab, Dom — dias que treinou essa semana
   weekTrainingDays: [true, true, false, true, false, false, false],
@@ -58,20 +59,45 @@ export function getDailyChallenges() {
 export const dailyChallenges = getDailyChallenges();
 
 // ─── Pool de chefes semanais ──────────────────────────────────────────────────
+// type indica como o progresso é contado de fato (ver computeBossProgress em HomeScreen.js):
+// 'count'       → qualquer treino concluído na semana
+// 'category'    → só treinos cuja categoria bate com `category`
+// 'distinctDays' → nº de dias diferentes com treino na semana
+// 'streakDays'   → maior sequência de dias seguidos com treino na semana
 const ALL_BOSSES = [
-  { emoji: '🦁', name: 'O Leão de Ferro',      description: 'Complete 5 treinos esta semana!',       total: 5, reward: 500 },
-  { emoji: '🐻', name: 'O Urso das Montanhas',  description: 'Faça 4 treinos de força!',              total: 4, reward: 400 },
-  { emoji: '🦅', name: 'A Águia da Força',      description: 'Complete 5 treinos em dias diferentes!', total: 5, reward: 450 },
-  { emoji: '🐯', name: 'O Tigre Sombrio',       description: 'Complete 6 treinos esta semana!',       total: 6, reward: 600 },
-  { emoji: '🦈', name: 'O Tubarão Atlético',    description: 'Faça 5 treinos de cardio!',             total: 5, reward: 500 },
-  { emoji: '🦏', name: 'O Rinoceronte',         description: 'Complete 7 treinos esta semana!',       total: 7, reward: 700 },
-  { emoji: '🦊', name: 'A Raposa Veloz',        description: 'Faça 3 treinos em 3 dias seguidos!',   total: 3, reward: 350 },
-  { emoji: '🐍', name: 'A Serpente Ágil',       description: 'Complete 4 treinos de mobilidade!',    total: 4, reward: 380 },
+  { emoji: '🦁', name: 'O Leão de Ferro',      description: 'Complete 5 treinos esta semana!',        total: 5, reward: 500, type: 'count' },
+  { emoji: '🐻', name: 'O Urso das Montanhas',  description: 'Faça 4 treinos de Parte Superior!',      total: 4, reward: 400, type: 'category', category: 'Parte Superior' },
+  { emoji: '🦅', name: 'A Águia da Força',      description: 'Complete 5 treinos em dias diferentes!', total: 5, reward: 450, type: 'distinctDays' },
+  { emoji: '🐯', name: 'O Tigre Sombrio',       description: 'Complete 6 treinos esta semana!',        total: 6, reward: 600, type: 'count' },
+  { emoji: '🦈', name: 'O Tubarão Atlético',    description: 'Faça 5 treinos de Cardio!',              total: 5, reward: 500, type: 'category', category: 'Cardio' },
+  { emoji: '🦏', name: 'O Rinoceronte',         description: 'Complete 7 treinos esta semana!',        total: 7, reward: 700, type: 'count' },
+  { emoji: '🦊', name: 'A Raposa Veloz',        description: 'Faça 3 treinos em 3 dias seguidos!',     total: 3, reward: 350, type: 'streakDays' },
+  { emoji: '🐍', name: 'A Serpente Ágil',       description: 'Complete 4 treinos de Mobilidade!',      total: 4, reward: 380, type: 'category', category: 'Mobilidade' },
 ];
 
+// Segunda-feira 00:00 local da semana de `date` — mesmo alinhamento usado no
+// reset semanal (checkWeeklyReset), pra não trocar o chefe no meio da semana.
+function getMondayOf(date = new Date()) {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Dom
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+// 2024-01-01 foi uma segunda-feira — usado só como referência fixa pra contar semanas
+const EPOCH_MONDAY = new Date(2024, 0, 1);
+
+export function getBossWeekNumber() {
+  const monday = getMondayOf();
+  return Math.floor((monday - EPOCH_MONDAY) / (7 * 24 * 60 * 60 * 1000));
+}
+
 export function getBossOfWeek() {
-  const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
-  const boss    = ALL_BOSSES[weekNum % ALL_BOSSES.length];
+  const weekNum = getBossWeekNumber();
+  const idx     = ((weekNum % ALL_BOSSES.length) + ALL_BOSSES.length) % ALL_BOSSES.length;
+  const boss    = ALL_BOSSES[idx];
   const now     = new Date();
   const dayOfWeek = now.getDay();
   const daysLeft  = dayOfWeek === 0 ? 1 : 8 - dayOfWeek;
@@ -495,39 +521,35 @@ export const leaderboardData = [
   { rank: 12, name: 'Isabela M.', xp: 3200, streak: 3, avatar: 'I', league: '🥉', change: 2 },
 ];
 
-export const achievements = [
-  // Streak
-  { id: 1,  emoji: '🔥', name: 'Série de 7',    desc: '7 dias seguidos',             unlocked: true,  color: '#F97316', category: 'streak',   xpReward: 100,  unlockedAt: 'Há 16 dias' },
-  { id: 2,  emoji: '🔥', name: 'Série de 14',   desc: '14 dias seguidos',            unlocked: true,  color: '#EF4444', category: 'streak',   xpReward: 200,  unlockedAt: 'Há 9 dias' },
-  { id: 3,  emoji: '🔥', name: 'Em Chamas',     desc: 'Série de 30 dias',            unlocked: false, color: '#8B5CF6', category: 'streak',   xpReward: 500,  progress: 23, total: 30 },
-  { id: 4,  emoji: '🔥', name: 'Indomável',     desc: 'Série de 60 dias',            unlocked: false, color: '#F59E0B', category: 'streak',   xpReward: 1000, progress: 23, total: 60 },
-  { id: 5,  emoji: '🔥', name: 'Lenda Viva',    desc: 'Série de 100 dias',           unlocked: false, color: '#06B6D4', category: 'streak',   xpReward: 2000, progress: 23, total: 100 },
-  // Treinos
-  { id: 6,  emoji: '💪', name: '10 Treinos',    desc: 'Complete 10 treinos',         unlocked: true,  color: '#8B5CF6', category: 'treinos',  xpReward: 150,  unlockedAt: 'Há 2 meses' },
-  { id: 7,  emoji: '🏅', name: '50 Treinos',    desc: 'Complete 50 treinos',         unlocked: true,  color: '#F59E0B', category: 'treinos',  xpReward: 400,  unlockedAt: 'Há 3 semanas' },
-  { id: 8,  emoji: '💯', name: '100 Treinos',   desc: 'Complete 100 treinos',        unlocked: false, color: '#F59E0B', category: 'treinos',  xpReward: 800,  progress: 89, total: 100 },
-  { id: 9,  emoji: '🏆', name: '200 Treinos',   desc: 'Complete 200 treinos',        unlocked: false, color: '#06B6D4', category: 'treinos',  xpReward: 2000, progress: 89, total: 200 },
-  // XP
-  { id: 10, emoji: '⚡', name: 'Primeiro XP',   desc: 'Ganhe seu primeiro XP',       unlocked: true,  color: '#F59E0B', category: 'xp',       xpReward: 50,   unlockedAt: 'Há 3 meses' },
-  { id: 11, emoji: '⚡', name: '1000 XP/dia',   desc: 'Ganhe 1000 XP em um dia',    unlocked: false, color: '#EF4444', category: 'xp',       xpReward: 300,  progress: 120, total: 1000 },
-  { id: 12, emoji: '💎', name: '10.000 XP',     desc: 'Acumule 10.000 XP totais',   unlocked: false, color: '#67E8F9', category: 'xp',       xpReward: 1000, progress: 7200, total: 10000 },
-  // Especial
-  { id: 13, emoji: '🦁', name: 'Caçador',       desc: 'Derrote um chefe semanal',    unlocked: true,  color: '#EF4444', category: 'especial', xpReward: 300,  unlockedAt: 'Há 5 dias' },
-  { id: 14, emoji: '🎯', name: 'Focado',        desc: 'Complete 7 desafios diários', unlocked: true,  color: '#10B981', category: 'especial', xpReward: 200,  unlockedAt: 'Há 1 semana' },
-  { id: 15, emoji: '👑', name: 'Liga Diamante', desc: 'Alcance a Liga Diamante',     unlocked: false, color: '#67E8F9', category: 'especial', xpReward: 1500 },
-  { id: 16, emoji: '🏆', name: 'Top 3',         desc: 'Fique no top 3 do ranking',   unlocked: false, color: '#FFD700', category: 'especial', xpReward: 1000 },
-  { id: 17, emoji: '🌙', name: 'Madrugador',    desc: 'Treine às 6h da manhã',       unlocked: false, color: '#6366F1', category: 'especial', xpReward: 200 },
-  { id: 18, emoji: '🎽', name: 'Sem Desculpas', desc: 'Treine 5x na mesma semana',   unlocked: false, color: '#10B981', category: 'especial', xpReward: 350,  progress: 3, total: 5 },
+export const flameTiers = [
+  { min: 0,   label: 'Faísca',    color: '#9CA3AF', gradient: ['#374151', '#1F2937'] },
+  { min: 10,  label: 'Aquecendo', color: '#F97316', gradient: ['#7C2D12', '#1C0A04'] },
+  { min: 21,  label: 'Em Chamas', color: '#EF4444', gradient: ['#7F1D1D', '#1C0505'] },
+  { min: 35,  label: 'Inferno',   color: '#8B5CF6', gradient: ['#4C1D95', '#1C0A3E'] },
+  { min: 60,  label: 'Lendário',  color: '#F59E0B', gradient: ['#78350F', '#1C0A00'] },
+  { min: 100, label: 'Imortal',   color: '#06B6D4', gradient: ['#164E63', '#051020'] },
 ];
 
-export const flameTiers = [
-  { min: 0,  label: 'Faísca',    color: '#9CA3AF', gradient: ['#374151', '#1F2937'] },
-  { min: 7,  label: 'Aquecendo', color: '#F97316', gradient: ['#7C2D12', '#1C0A04'] },
-  { min: 14, label: 'Em Chamas', color: '#EF4444', gradient: ['#7F1D1D', '#1C0505'] },
-  { min: 21, label: 'Inferno',   color: '#8B5CF6', gradient: ['#4C1D95', '#1C0A3E'] },
-  { min: 30, label: 'Lendário',  color: '#F59E0B', gradient: ['#78350F', '#1C0A00'] },
-  { min: 60, label: 'Imortal',   color: '#06B6D4', gradient: ['#164E63', '#051020'] },
+// Jornada de títulos — progressão de longo prazo baseada no total de treinos
+// concluídos (nunca reseta), independente da sequência/chama (que é dia-a-dia).
+export const identityTitles = [
+  { title: 'Fantasma da Academia',  color: '#6B7280', icon: SkullIcon,            min: 0,   req: 'Ponto de partida' },
+  { title: 'Atleta Dedicado',       color: '#3B82F6', icon: BarbellIcon,          min: 5,   req: '5 treinos concluídos' },
+  { title: 'Rei do Cardio',         color: '#10B981', icon: PersonSimpleWalkIcon, min: 15,  req: '15 treinos concluídos' },
+  { title: 'Guerreiro Consistente', color: '#EF4444', icon: ShieldIcon,           min: 30,  req: '30 treinos concluídos' },
+  { title: 'Veterano do Ferro',     color: '#8B5CF6', icon: TrophyIcon,           min: 60,  req: '60 treinos concluídos' },
+  { title: 'Monstro do Ferro',      color: '#F97316', icon: PawPrintIcon,         min: 100, req: '100 treinos concluídos' },
+  { title: 'Lenda Viva',            color: '#F59E0B', icon: StarIcon,             min: 200, req: '200 treinos concluídos' },
+  { title: 'Imortal',               color: '#06B6D4', icon: LightningIcon,       min: 350, req: '350 treinos concluídos' },
 ];
+
+export function getUserTitle(totalWorkouts = 0) {
+  let result = { ...identityTitles[0], idx: 0 };
+  for (let i = 1; i < identityTitles.length; i++) {
+    if (totalWorkouts >= identityTitles[i].min) result = { ...identityTitles[i], idx: i };
+  }
+  return result;
+}
 
 export const groupsData = [
   {

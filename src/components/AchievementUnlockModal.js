@@ -3,6 +3,7 @@ import { View, Text, Modal, Animated, StyleSheet, Dimensions } from 'react-nativ
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { LightningIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -122,7 +123,8 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
 
               {achievement.xp_reward > 0 && (
                 <View style={[styles.xpRow, { backgroundColor: color + '20', borderColor: color + '40' }]}>
-                  <Text style={[styles.xpText, { color }]}>⚡ +{achievement.xp_reward} XP</Text>
+                  <LightningIcon size={16} color={color} weight="fill" />
+                  <Text style={[styles.xpText, { color }]}>+{achievement.xp_reward} XP</Text>
                 </View>
               )}
 
@@ -146,7 +148,7 @@ const styles = StyleSheet.create({
   emoji:    { fontSize: 44 },
   name:     { fontSize: 26, fontWeight: '900', marginBottom: 8, textAlign: 'center', letterSpacing: -0.5 },
   desc:     { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 21, marginBottom: 20 },
-  xpRow:    { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 99, borderWidth: 1, marginBottom: 20 },
+  xpRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 99, borderWidth: 1, marginBottom: 20 },
   xpText:   { fontSize: 15, fontWeight: '800' },
   tap:      { fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: '500' },
 });

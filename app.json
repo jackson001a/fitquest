@@ -11,30 +11,50 @@
       "resizeMode": "contain",
       "backgroundColor": "#0A0A18"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.capifit.app",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["capifit"],
+        "LSApplicationQueriesSchemes": [
+          "capifit",
+          "capifit"
+        ],
         "NSCameraUsageDescription": "O CapiFit precisa da câmera para verificar sua presença na academia.",
-        "NSPhotoLibraryUsageDescription": "Para salvar fotos do seu progresso."
+        "NSPhotoLibraryUsageDescription": "Para salvar fotos do seu progresso.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
-      "adaptiveIcon": { "backgroundColor": "#0A0A18" },
+      "adaptiveIcon": {
+        "backgroundColor": "#0A0A18"
+      },
       "package": "com.capifit.app",
-      "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE"],
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE"
+      ],
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "capifit" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "capifit"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-asset",
       "expo-font",
@@ -45,6 +65,11 @@
           "color": "#8B5CF6"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "cb0c290d-6814-485e-90db-afec19303560"
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 import { Share } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
-import { toDateString, getMondayOf } from './userService';
+import { toDateString, getMondayOf, isNewWeek as isNewWeekVs } from './userService';
 
 const APP_SCHEME = 'capifit';
 const APP_STORE_URL = 'https://capifit.app'; // atualizar quando publicar
@@ -59,7 +59,7 @@ export async function searchUsers(query, currentUserId) {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, xp, streak_count, league, league_emoji, user_code, onboarding_done')
+    .select('id, name, xp, streak_count, league, league_emoji, user_code, onboarding_done, avatar_url')
     .eq('onboarding_done', true)
     .neq('id', currentUserId)
     .or(isCode
@@ -69,6 +69,21 @@ export async function searchUsers(query, currentUserId) {
 
   if (error) throw error;
   return data ?? [];
+}
+
+// Status de amizade entre dois usuários (pra saber o que mostrar no perfil de alguém)
+export async function getFriendshipStatus(myUserId, otherUserId) {
+  if (!myUserId || !otherUserId || myUserId === otherUserId) return { status: 'self' };
+
+  const { data } = await supabase
+    .from('friendships')
+    .select('id, user_id, friend_id, status')
+    .or(`and(user_id.eq.${myUserId},friend_id.eq.${otherUserId}),and(user_id.eq.${otherUserId},friend_id.eq.${myUserId})`)
+    .maybeSingle();
+
+  if (!data) return { status: 'none' };
+  if (data.status === 'accepted') return { status: 'accepted', id: data.id };
+  return { status: data.user_id === myUserId ? 'pending_sent' : 'pending_received', id: data.id };
 }
 
 // Envia pedido de amizade
@@ -113,7 +128,7 @@ export async function declineFriendRequest(friendshipId) {
 export async function getPendingRequests(userId) {
   const { data, error } = await supabase
     .from('friendships')
-    .select('id, user_id, users!friendships_user_id_fkey(id, name, xp, streak_count, user_code)')
+    .select('id, user_id, users!friendships_user_id_fkey(id, name, xp, streak_count, user_code, avatar_url)')
     .eq('friend_id', userId)
     .eq('status', 'pending');
   if (error) throw error;
@@ -124,13 +139,13 @@ export async function getPendingRequests(userId) {
 export async function getFriends(userId) {
   const { data: sent } = await supabase
     .from('friendships')
-    .select('friend_id, users!friendships_friend_id_fkey(id, name, xp, streak_count, league, league_emoji, user_code)')
+    .select('friend_id, users!friendships_friend_id_fkey(id, name, xp, streak_count, league, league_emoji, user_code, avatar_url)')
     .eq('user_id', userId)
     .eq('status', 'accepted');
 
   const { data: received } = await supabase
     .from('friendships')
-    .select('user_id, users!friendships_user_id_fkey(id, name, xp, streak_count, league, league_emoji, user_code)')
+    .select('user_id, users!friendships_user_id_fkey(id, name, xp, streak_count, league, league_emoji, user_code, avatar_url)')
     .eq('friend_id', userId)
     .eq('status', 'accepted');
 
@@ -218,18 +233,94 @@ export async function joinSquadByCode(userId, inviteCode) {
   return squad;
 }
 
+// ─── Convites diretos (sem precisar de código) ────────────────────────────
+// Convida um amigo direto pro squad — ele recebe o convite e só precisa aceitar
+export async function inviteFriendToSquad(squadId, inviterId, inviteeId) {
+  const { data: existing } = await supabase
+    .from('squad_invites')
+    .select('id, status')
+    .eq('squad_id', squadId)
+    .eq('invitee_id', inviteeId)
+    .maybeSingle();
+
+  if (existing?.status === 'pending') return { already: true };
+
+  const { data, error } = await supabase
+    .from('squad_invites')
+    .insert({ squad_id: squadId, inviter_id: inviterId, invitee_id: inviteeId, status: 'pending' })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { data, already: false };
+}
+
+// Convites de squad pendentes que EU recebi
+export async function getPendingSquadInvites(userId) {
+  const { data, error } = await supabase
+    .from('squad_invites')
+    .select('id, squad_id, created_at, inviter:users!squad_invites_inviter_id_fkey(id,name,avatar_url), squads(id,name,emoji,mode,is_duo,status,max_members,squad_members(id))')
+    .eq('invitee_id', userId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  // Some squad pode ter sido excluído ou já ter encerrado — não mostra convite órfão
+  return (data ?? []).filter(inv => inv.squads && inv.squads.status !== 'completed');
+}
+
+// Aceita convite de squad — entra no squad e marca o convite como aceito
+export async function acceptSquadInvite(inviteId, squadId, userId) {
+  const { data: squad } = await supabase.from('squads').select('max_members, status').eq('id', squadId).single();
+  if (!squad || squad.status === 'completed') throw new Error('Esse desafio já foi encerrado.');
+
+  const { count } = await supabase
+    .from('squad_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('squad_id', squadId);
+  if (count >= squad.max_members) throw new Error('Esse grupo já está cheio.');
+
+  const { error: joinError } = await supabase
+    .from('squad_members')
+    .upsert({ squad_id: squadId, user_id: userId, role: 'member' },
+      { onConflict: 'squad_id,user_id', ignoreDuplicates: true });
+  if (joinError) throw joinError;
+
+  await supabase.from('squad_invites').update({ status: 'accepted' }).eq('id', inviteId);
+}
+
+// Recusa convite de squad
+export async function declineSquadInvite(inviteId) {
+  const { error } = await supabase.from('squad_invites').delete().eq('id', inviteId);
+  if (error) throw error;
+}
+
+// checked_in_today nunca era resetado pra false num novo dia — derivamos o status
+// "check-in de hoje" comparando last_challenge_checkin (data) com o dia atual,
+// em vez de confiar no booleano gravado (que fica preso em `true` para sempre).
+function withFreshCheckinFlags(squads) {
+  const today = toDateString();
+  return squads.map(sq => ({
+    ...sq,
+    squad_members: (sq.squad_members ?? []).map(sm => ({
+      ...sm,
+      checked_in_today: sm.last_challenge_checkin ? sm.last_challenge_checkin === today : sm.checked_in_today,
+    })),
+  }));
+}
+
 // Squads do usuário (com membros) — com fallback se migration 008 ainda não aplicada
 export async function getUserSquads(userId) {
   const { data: full, error: fullErr } = await supabase
     .from('squad_members')
-    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count)))')
+    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count, avatar_url)))')
     .eq('user_id', userId);
 
-  if (!fullErr && full) return full.map(m => m.squads).filter(Boolean);
+  if (!fullErr && full) return withFreshCheckinFlags(full.map(m => m.squads).filter(Boolean));
 
   const { data: basic } = await supabase
     .from('squad_members')
-    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count)))')
+    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count, avatar_url)))')
     .eq('user_id', userId);
 
   return (basic ?? []).map(m => m.squads).filter(Boolean);
@@ -316,7 +407,7 @@ export async function createDuel(challengerId, rivalId, config = {}) {
 export async function getUserDuels(userId) {
   const { data } = await supabase
     .from('rivalries')
-    .select('*, challenger:users!rivalries_challenger_id_fkey(id,name,xp,streak_count), rival:users!rivalries_rival_id_fkey(id,name,xp,streak_count)')
+    .select('*, challenger:users!rivalries_challenger_id_fkey(id,name,xp,streak_count,avatar_url), rival:users!rivalries_rival_id_fkey(id,name,xp,streak_count,avatar_url)')
     .or(`challenger_id.eq.${userId},rival_id.eq.${userId}`)
     .eq('status', 'active')
     .order('created_at', { ascending: false });
@@ -343,7 +434,11 @@ export async function updateDuelScore(duelId, challengerId, rivalId, checkerUser
 
 export async function startChallenge(squadId) {
   const { error } = await supabase.from('squads')
-    .update({ status: 'active', result: null, group_streak: 0, started_at: new Date().toISOString() })
+    .update({
+      status: 'active', result: null, group_streak: 0,
+      week_min_checkins: 0, week_min_start: toDateString(getMondayOf()),
+      started_at: new Date().toISOString(),
+    })
     .eq('id', squadId);
   if (error) throw error;
   await supabase.from('squad_members')
@@ -366,7 +461,7 @@ export async function finalizeSquad(squadId, result, winnerUserId = null) {
     const { unlockManualAchievement, ACHIEVEMENT_IDS, saveActivity } = require('./achievementService');
     const { data: squad } = await supabase.from('squads').select('is_duo').eq('id', squadId).single();
     const achievId = squad?.is_duo ? ACHIEVEMENT_IDS.CAMPEAO_DUELO : ACHIEVEMENT_IDS.GUERREIRO_CLA;
-    const { data: user } = await supabase.from('users').select('xp, coins').eq('id', winnerUserId).single();
+    const { data: user } = await supabase.from('users').select('xp, gems').eq('id', winnerUserId).single();
     const ach = await unlockManualAchievement(winnerUserId, achievId, user ?? {});
     if (ach) await saveActivity(winnerUserId, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
   } catch (_) {}
@@ -376,16 +471,19 @@ export async function getSquadsWithHistory(userId) {
   // Tenta com colunas novas (migration 008). Se falhar, usa fallback sem elas.
   const { data: full, error: fullErr } = await supabase
     .from('squad_members')
-    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count)))')
+    .select('squad_id, role, challenge_streak, squads(*, squad_members(id, user_id, role, checked_in_today, challenge_streak, challenge_week_checkins, challenge_week_start, last_challenge_checkin, users(name, xp, streak_count, avatar_url)))')
     .eq('user_id', userId);
 
   if (!fullErr && full) {
-    return full.map(m => ({ ...m.squads, myStreak: m.challenge_streak ?? 0, myRole: m.role })).filter(Boolean);
+    const withMeta = full
+      .filter(m => m.squads)
+      .map(m => ({ ...m.squads, myStreak: m.challenge_streak ?? 0, myRole: m.role }));
+    return withFreshCheckinFlags(withMeta);
   }
 
   const { data: basic } = await supabase
     .from('squad_members')
-    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count)))')
+    .select('squad_id, role, squads(*, squad_members(id, user_id, role, checked_in_today, users(name, xp, streak_count, avatar_url)))')
     .eq('user_id', userId);
 
   return (basic ?? []).map(m => ({ ...m.squads, myStreak: 0, myRole: m.role })).filter(Boolean);
@@ -396,7 +494,7 @@ export async function registerChallengeCheckin(userId) {
   const monday = toDateString(getMondayOf());
   const { data: memberships } = await supabase
     .from('squad_members')
-    .select('id, squad_id, challenge_streak, last_challenge_checkin, challenge_week_checkins, challenge_week_start, squads(status, mode, min_weekly_checkins, group_streak, squad_members(user_id, last_challenge_checkin))')
+    .select('id, squad_id, challenge_streak, last_challenge_checkin, challenge_week_checkins, challenge_week_start, squads(status, mode, min_weekly_checkins, group_streak, week_min_checkins, week_min_start, squad_members(user_id, challenge_week_checkins, challenge_week_start))')
     .eq('user_id', userId);
   for (const m of memberships ?? []) {
     const squad = m.squads;
@@ -409,16 +507,39 @@ export async function registerChallengeCheckin(userId) {
       challenge_streak: newStreak, last_challenge_checkin: today,
       challenge_week_checkins: weekCheckins, challenge_week_start: monday, checked_in_today: true,
     }).eq('id', m.id);
+
+    // ── Foguinho do grupo/dupla colaborativa: cumulativo, baseado no menor nº de
+    // check-ins entre os membros nesta semana (não importa em qual dia cada um foi).
+    // Ex.: A=3, B=2, C=1 → foguinho soma até 1 (só uma "rodada" completa por todos).
+    // Quando o mínimo bate a meta semanal, o foguinho estabiliza até a próxima semana —
+    // check-ins extras não contam além da meta.
     if (squad.mode !== 'battle') {
-      const allIn = squad.squad_members?.every(sm => sm.user_id === userId || sm.last_challenge_checkin === today);
-      if (allIn) await supabase.from('squads').update({ group_streak: (squad.group_streak ?? 0) + 1 }).eq('id', m.squad_id);
+      const weeklyGoal = squad.min_weekly_checkins ?? 3;
+      const effectiveCounts = (squad.squad_members ?? []).map(sm => {
+        const raw = sm.user_id === userId
+          ? weekCheckins
+          : (sm.challenge_week_start === monday ? (sm.challenge_week_checkins ?? 0) : 0);
+        return Math.min(raw, weeklyGoal);
+      });
+      const currentMin = effectiveCounts.length > 0 ? Math.min(...effectiveCounts) : 0;
+
+      const isSquadNewWeek = squad.week_min_start !== monday;
+      const baseline = isSquadNewWeek ? 0 : (squad.week_min_checkins ?? 0);
+      if (currentMin > baseline) {
+        await supabase.from('squads').update({
+          group_streak: (squad.group_streak ?? 0) + (currentMin - baseline),
+          week_min_checkins: currentMin,
+          week_min_start: monday,
+        }).eq('id', m.squad_id);
+      } else if (isSquadNewWeek) {
+        await supabase.from('squads').update({ week_min_checkins: 0, week_min_start: monday }).eq('id', m.squad_id);
+      }
     }
   }
 }
 
 export async function checkAndFinalizeSquads(userId) {
   const now = new Date();
-  const monday = getMondayOf();
   // Se migration 008 não aplicada, essa função simplesmente não faz nada
   const { data: memberships, error } = await supabase
     .from('squad_members')
@@ -435,7 +556,10 @@ export async function checkAndFinalizeSquads(userId) {
     const weeksPassed = Math.max(1, Math.ceil((now - startedAt) / (7 * 86400000)));
     const totalGoal = (s.min_weekly_checkins ?? 3) * weeksPassed;
     const minWeekly  = s.min_weekly_checkins ?? 3;
-    const isNewWeek  = startedAt && new Date(m.challenge_week_start ?? 0) < monday && m.challenge_week_start;
+    // "YYYY-MM-DD" precisa ser comparado como data LOCAL — `new Date(string)` interpreta
+    // como meia-noite UTC, o que fazia a semana "virar" cedo demais em fusos atrás de UTC
+    // (ex: Brasil), derrubando o desafio como "perdido" já no dia em que era criado.
+    const isNewWeek  = !!(startedAt && m.challenge_week_start && isNewWeekVs(m.challenge_week_start));
 
     // ── Verificação semanal — vale para AMBOS os modos ──────────────────────
     // Se virou semana e alguém não bateu a meta da semana anterior → encerra

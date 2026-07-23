@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon, BarbellIcon, CheckCircleIcon, ClipboardTextIcon, FireIcon, LeafIcon, PauseIcon, PlayIcon, WarningCircleIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { getExerciseImages, getExerciseMeta } from '../services/exerciseService';
@@ -14,7 +14,7 @@ const { width: SW } = Dimensions.get('window');
 const IMG_H = SW * 0.65;
 
 const LEVEL_COLOR = { 'Iniciante': '#10B981', 'Intermediário': '#F59E0B', 'Avançado': '#EF4444' };
-const LEVEL_EMOJI = { 'Iniciante': '🌱', 'Intermediário': '💪', 'Avançado': '🔥' };
+const LEVEL_ICON = { 'Iniciante': LeafIcon, 'Intermediário': BarbellIcon, 'Avançado': FireIcon };
 
 export default function ExerciseDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -63,7 +63,7 @@ export default function ExerciseDetailScreen({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <ArrowLeftIcon size={22} color={COLORS.white}  weight="regular" />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{exerciseName}</Text>
         <View style={{ width: 40 }} />
@@ -121,7 +121,9 @@ export default function ExerciseDetailScreen({ navigation, route }) {
                 style={styles.playBtn}
                 onPress={() => setPlaying(p => !p)}
                 activeOpacity={0.8}>
-                <Ionicons name={playing ? 'pause' : 'play'} size={16} color={COLORS.white} />
+                {playing
+                  ? <PauseIcon size={16} color={COLORS.white} weight="fill" />
+                  : <PlayIcon size={16} color={COLORS.white} weight="fill" />}
                 <Text style={styles.playBtnText}>{playing ? 'Pausar' : 'Animar'}</Text>
               </TouchableOpacity>
               )}
@@ -135,10 +137,9 @@ export default function ExerciseDetailScreen({ navigation, route }) {
             </>
           ) : (
             <View style={[styles.imgPlaceholder, styles.noImgPlaceholder]}>
-              <Text style={{ fontSize: 64 }}>🏋️</Text>
+              <BarbellIcon size={64} color={COLORS.gray} weight="regular" />
               <Text style={{ color: COLORS.gray, marginTop: 12, fontSize: 14, textAlign: 'center' }}>
-                Demonstração em breve!{'\n'}
-                <Text style={{ fontSize: 12 }}>Assine o ExerciseDB para GIFs animados</Text>
+                Demonstração em breve!
               </Text>
             </View>
           )}
@@ -147,7 +148,10 @@ export default function ExerciseDetailScreen({ navigation, route }) {
         {/* Info do exercício na sessão */}
         {(sets || reps || rest) && (
           <LinearGradient colors={['#2D1B69','#1A1A2E']} style={styles.sessionCard}>
-            <Text style={styles.sessionTitle}>📋 Na sua sessão de hoje</Text>
+            <View style={styles.iconLabelRow}>
+              <ClipboardTextIcon size={14} color={COLORS.purpleLight} weight="fill" />
+              <Text style={styles.sessionTitle}>Na sua sessão de hoje</Text>
+            </View>
             <View style={styles.sessionRow}>
               {sets && <View style={styles.sessionStat}><Text style={styles.sessionNum}>{sets}</Text><Text style={styles.sessionLabel}>séries</Text></View>}
               {reps && <View style={styles.sessionStat}><Text style={styles.sessionNum}>{reps}</Text><Text style={styles.sessionLabel}>repetições</Text></View>}
@@ -159,18 +163,21 @@ export default function ExerciseDetailScreen({ navigation, route }) {
         {/* Nível e equipamento */}
         <View style={styles.tagsRow}>
           <View style={[styles.tag, { backgroundColor: LEVEL_COLOR[meta.level] + '20', borderColor: LEVEL_COLOR[meta.level] + '50' }]}>
-            <Text style={{ fontSize: 14 }}>{LEVEL_EMOJI[meta.level]}</Text>
+            {(() => { const LevelIcon = LEVEL_ICON[meta.level]; return <LevelIcon size={14} color={LEVEL_COLOR[meta.level]} weight="fill" />; })()}
             <Text style={[styles.tagText, { color: LEVEL_COLOR[meta.level] }]}>{meta.level}</Text>
           </View>
           <View style={styles.tag}>
-            <Ionicons name="barbell-outline" size={14} color={COLORS.gray} />
+            <BarbellIcon size={14} color={COLORS.gray}  weight="regular" />
             <Text style={styles.tagText}>{meta.equipment}</Text>
           </View>
         </View>
 
         {/* Músculos trabalhados */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💪 Músculos trabalhados</Text>
+          <View style={styles.iconLabelRow}>
+            <BarbellIcon size={17} color={COLORS.white} weight="fill" />
+            <Text style={styles.sectionTitle}>Músculos trabalhados</Text>
+          </View>
           <View style={styles.musclesList}>
             {meta.muscles.map((m, i) => (
               <View key={i} style={[styles.muscleTag, i === 0 && styles.musclePrimary]}>
@@ -185,7 +192,10 @@ export default function ExerciseDetailScreen({ navigation, route }) {
 
         {/* Dicas de execução */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>✅ Como executar corretamente</Text>
+          <View style={styles.iconLabelRow}>
+            <CheckCircleIcon size={17} color={COLORS.green} weight="fill" />
+            <Text style={styles.sectionTitle}>Como executar corretamente</Text>
+          </View>
           {meta.tips.map((tip, i) => (
             <View key={i} style={styles.tipRow}>
               <View style={styles.tipNum}><Text style={styles.tipNumText}>{i + 1}</Text></View>
@@ -197,7 +207,10 @@ export default function ExerciseDetailScreen({ navigation, route }) {
         {/* Erros comuns */}
         <View style={styles.section}>
           <LinearGradient colors={['#2D0A0A','#1A0A0A']} style={styles.warningCard}>
-            <Text style={styles.warningTitle}>⚠️ Erros comuns a evitar</Text>
+            <View style={styles.iconLabelRow}>
+              <WarningCircleIcon size={15} color={COLORS.red} weight="fill" />
+              <Text style={styles.warningTitle}>Erros comuns a evitar</Text>
+            </View>
             <Text style={styles.warningText}>
               • Usar peso excessivo e perder a forma{'\n'}
               • Prender a respiração durante o movimento{'\n'}
@@ -236,6 +249,7 @@ const styles = StyleSheet.create({
   tagText:      { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
   section:      { paddingHorizontal: SPACING.md, marginTop: 20 },
   sectionTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800', marginBottom: 12 },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   musclesList:  { gap: 8 },
   muscleTag:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.border },
   musclePrimary:{ borderColor: COLORS.purple + '60', backgroundColor: 'rgba(139,92,246,0.08)' },

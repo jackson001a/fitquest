@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Ionicons } from '@expo/vector-icons';
+import { BarbellIcon, HouseIcon, MedalIcon, PersonIcon, TrophyIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
 import { useUser } from '../context/UserContext';
 
@@ -17,6 +17,14 @@ import OnboardingScreen   from '../screens/OnboardingScreen';
 import FriendsScreen           from '../screens/FriendsScreen';
 import CreateClanScreen        from '../screens/CreateClanScreen';
 import ExerciseDetailScreen    from '../screens/ExerciseDetailScreen';
+import EditGoalScreen          from '../screens/EditGoalScreen';
+import HelpScreen              from '../screens/HelpScreen';
+import AccountSecurityScreen   from '../screens/AccountSecurityScreen';
+import AuthChoiceScreen        from '../screens/AuthChoiceScreen';
+import LoginScreen             from '../screens/LoginScreen';
+import PaywallScreen           from '../screens/PaywallScreen';
+import XPToast                 from '../components/XPToast';
+import LevelUpModal             from '../components/LevelUpModal';
 
 const Tab         = createBottomTabNavigator();
 const HomeStack   = createStackNavigator();
@@ -43,11 +51,11 @@ function WorkoutsStackNavigator() {
 
 function CustomTabBar({ state, descriptors, navigation }) {
   const tabs = [
-    { name: 'Home',         icon: 'home',    label: 'Início'    },
-    { name: 'Workouts',     icon: 'barbell', label: 'Treinos'   },
-    { name: 'Leaderboard',  icon: 'trophy',  label: 'Ranking'   },
-    { name: 'Achievements', icon: 'medal',   label: 'Conquistas'},
-    { name: 'Profile',      icon: 'person',  label: 'Perfil'    },
+    { name: 'Home',         icon: HouseIcon,  label: 'Início'    },
+    { name: 'Workouts',     icon: BarbellIcon, label: 'Treinos'   },
+    { name: 'Leaderboard',  icon: TrophyIcon,  label: 'Ranking'   },
+    { name: 'Achievements', icon: MedalIcon,   label: 'Conquistas'},
+    { name: 'Profile',      icon: PersonIcon,  label: 'Perfil'    },
   ];
 
   return (
@@ -59,10 +67,10 @@ function CustomTabBar({ state, descriptors, navigation }) {
           <TouchableOpacity key={route.key} style={styles.tabItem}
             onPress={() => navigation.navigate(route.name)} activeOpacity={0.7}>
             {isFocused && <View style={styles.tabIndicator} />}
-            <Ionicons
-              name={isFocused ? tab.icon : `${tab.icon}-outline`}
+            <tab.icon
               size={22}
               color={isFocused ? COLORS.purple : COLORS.grayDark}
+              weight={isFocused ? 'fill' : 'regular'}
             />
             <Text style={[styles.tabLabel, isFocused && styles.tabLabelActive]}>
               {tab.label}
@@ -87,7 +95,7 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { onboardingDone, loading } = useUser();
+  const { onboardingDone, loading, loggedOut, isPremium } = useUser();
 
   if (loading) {
     return (
@@ -100,19 +108,32 @@ export default function AppNavigator() {
   }
 
   return (
-    <RootStack.Navigator screenOptions={{ headerShown: false }}>
-      {onboardingDone ? (
-        <>
-          <RootStack.Screen name="Main"       component={MainTabs}          options={{ animationEnabled: false }} />
-          <RootStack.Screen name="Friends"        component={FriendsScreen}        options={{ animationEnabled: true, gestureEnabled: true }} />
-          <RootStack.Screen name="CreateClan"    component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
-          <RootStack.Screen name="JoinClan"      component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
-          <RootStack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ animationEnabled: true, gestureEnabled: true }} />
-        </>
-      ) : (
-        <RootStack.Screen name="Onboarding" component={OnboardingScreen} options={{ animationEnabled: false }} />
-      )}
-    </RootStack.Navigator>
+    <View style={{ flex: 1 }}>
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        {loggedOut ? (
+          <>
+            <RootStack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ animationEnabled: false }} />
+            <RootStack.Screen name="Login"       component={LoginScreen}       options={{ animationEnabled: true, gestureEnabled: true }} />
+          </>
+        ) : onboardingDone ? (
+          <>
+            {!isPremium && <RootStack.Screen name="Paywall" component={PaywallScreen} options={{ animationEnabled: false, gestureEnabled: false }} />}
+            <RootStack.Screen name="Main"       component={MainTabs}          options={{ animationEnabled: false }} />
+            <RootStack.Screen name="Friends"        component={FriendsScreen}        options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="CreateClan"    component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="JoinClan"      component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="ExerciseDetail" component={ExerciseDetailScreen} options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="EditGoal"       component={EditGoalScreen}       options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="Help"            component={HelpScreen}            options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="AccountSecurity" component={AccountSecurityScreen} options={{ animationEnabled: true, gestureEnabled: true }} />
+          </>
+        ) : (
+          <RootStack.Screen name="Onboarding" component={OnboardingScreen} options={{ animationEnabled: false }} />
+        )}
+      </RootStack.Navigator>
+      <XPToast />
+      <LevelUpModal />
+    </View>
   );
 }
 

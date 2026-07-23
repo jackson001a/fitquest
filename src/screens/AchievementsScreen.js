@@ -1,32 +1,60 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, Text, ScrollView, StyleSheet, Animated, Dimensions,
+  View, Text, ScrollView, StyleSheet, Animated, Dimensions, Modal,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { BarbellIcon, CheckIcon, CrownIcon, FireIcon, LightningIcon, LockIcon, MedalIcon, TargetIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { flameTiers } from '../data/mockData';
 import { useUser } from '../context/UserContext';
-import { fetchUserAchievements } from '../services/achievementService';
+import { fetchUserAchievements, getCurrentProgress } from '../services/achievementService';
 
 const { width } = Dimensions.get('window');
 const CARD_W = (width - SPACING.md * 2 - 12) / 2;
 
 const CATEGORIES = [
-  { key: 'todos',    label: 'Todos',    emoji: '🏅' },
-  { key: 'streak',   label: 'Streak',   emoji: '🔥' },
-  { key: 'treinos',  label: 'Treinos',  emoji: '💪' },
-  { key: 'xp',       label: 'XP',       emoji: '⚡' },
-  { key: 'especial', label: 'Especial', emoji: '👑' },
+  { key: 'todos',    label: 'Todos',    icon: MedalIcon },
+  { key: 'streak',   label: 'Streak',   icon: FireIcon },
+  { key: 'treinos',  label: 'Treinos',  icon: BarbellIcon },
+  { key: 'xp',       label: 'XP',       icon: LightningIcon },
+  { key: 'especial', label: 'Especial', icon: CrownIcon },
 ];
 
+// ─── Explica em português o que cada tipo de condição está medindo ──────────
+function explainCondition(conditionType) {
+  switch (conditionType) {
+    case 'streak':               return 'sua sequência de dias seguidos treinando';
+    case 'workouts':              return 'o total de treinos concluídos (nunca reseta, mesmo se você perder a sequência)';
+    case 'xp':                    return 'seu XP total acumulado na conta';
+    case 'daily_xp':               return 'o XP ganho em um único dia';
+    case 'boss_kills':            return 'quantos chefes semanais você já derrotou';
+    case 'week_workouts':          return 'quantos treinos você fez nesta semana';
+    case 'commitment':            return 'seu índice de disciplina, calculado pela consistência do seu plano';
+    case 'challenges_completed':  return 'quantos desafios diários você já completou';
+    default:                      return 'uma ação específica, e não um número que sobe aos poucos';
+  }
+}
+
+// ─── Formata timestamp em "Hoje" / "Há Xd" / "Há Xm" ─────────────────────────
+function formatRelativeDate(iso) {
+  if (!iso) return null;
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return 'Hoje';
+  if (days === 1) return 'Há 1 dia';
+  if (days < 30) return `Há ${days} dias`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? 'Há 1 mês' : `Há ${months} meses`;
+}
+
 // ─── ACHIEVEMENT CARD ─────────────────────────────────────────────────────────
-function AchievementCard({ a, index }) {
+function AchievementCard({ a, index, onInfo }) {
   const scale    = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0.4)).current;
-  const pct      = a.progress != null ? Math.min(100, Math.round((a.progress / a.total) * 100)) : null;
+  // Conquistas manuais ("tudo ou nada") não têm progresso numérico — ou já
+  // desbloqueou, ou não.
+  const hasProgress = a.condition_type !== 'manual' && a.progress != null;
 
   useEffect(() => {
     Animated.spring(scale, { toValue: 1, delay: index * 40, friction: 6, useNativeDriver: true }).start();
@@ -45,6 +73,7 @@ function AchievementCard({ a, index }) {
       Animated.timing(scale, { toValue: 0.92, duration: 70, useNativeDriver: true }),
       Animated.spring(scale, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
+    onInfo?.(a);
   };
 
   return (
@@ -52,33 +81,33 @@ function AchievementCard({ a, index }) {
       <TouchableOpacity onPress={onPress} activeOpacity={1}>
         <LinearGradient
           colors={a.unlocked
-            ? [a.color + '40', a.color + '18', '#0D0D22']
-            : ['#13132B', '#0A0A18']}
+            ? [a.color + '75', a.color + '3A']
+            : [a.color + '22', a.color + '0D', '#0A0A18']}
           style={[s.card, {
-            borderColor: a.unlocked ? a.color + '80' : 'rgba(255,255,255,0.07)',
+            borderColor: a.unlocked ? a.color : a.color + '35',
             shadowColor: a.unlocked ? a.color : 'transparent',
           }]}
         >
           {a.unlocked && (
             <Animated.View pointerEvents="none"
               style={[StyleSheet.absoluteFill, {
-                borderRadius: RADIUS.xl, backgroundColor: a.color + '08', opacity: glowAnim,
+                borderRadius: RADIUS.xl, backgroundColor: a.color + '10', opacity: glowAnim,
               }]} />
           )}
 
           <View style={s.cardTop}>
             <LinearGradient
-              colors={a.unlocked ? [a.color + '60', a.color + '28'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)']}
+              colors={a.unlocked ? [a.color + 'A0', a.color + '55'] : [a.color + '35', a.color + '14']}
               style={s.emojiBox}
             >
-              <Text style={[s.emoji, !a.unlocked && { opacity: 0.25 }]}>{a.emoji}</Text>
+              <Text style={[s.emoji, !a.unlocked && { opacity: 0.4 }]}>{a.emoji}</Text>
             </LinearGradient>
             {a.unlocked
               ? <LinearGradient colors={[a.color, a.color + 'AA']} style={s.checkBadge}>
-                  <Ionicons name="checkmark" size={10} color="#fff" />
+                  <CheckIcon size={10} color="#fff"  weight="bold" />
                 </LinearGradient>
               : <View style={s.lockBadge}>
-                  <Ionicons name="lock-closed" size={9} color="rgba(255,255,255,0.25)" />
+                  <LockIcon size={9} color="rgba(255,255,255,0.25)"  weight="fill" />
                 </View>
             }
           </View>
@@ -86,33 +115,32 @@ function AchievementCard({ a, index }) {
           <Text style={[s.cardName, { color: a.unlocked ? '#fff' : 'rgba(255,255,255,0.3)' }]} numberOfLines={1}>
             {a.name}
           </Text>
-          <Text style={[s.cardDesc, { color: a.unlocked ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.18)' }]} numberOfLines={2}>
+          <Text style={[s.cardDesc, { color: a.unlocked ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.18)' }]} numberOfLines={2}>
             {a.desc ?? a.description}
           </Text>
 
-          {!a.unlocked && pct != null && (
-            <View style={s.progressWrap}>
-              <View style={s.progressBg}>
-                <LinearGradient
-                  colors={[a.color, a.color + '55']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={[s.progressFill, { width: `${pct}%` }]}
-                />
-              </View>
-              <Text style={[s.progressPct, { color: a.color }]}>{pct}%</Text>
+          {!a.unlocked && hasProgress && (
+            <Text style={[s.progressNum, { color: a.color }]}>{a.progress} / {a.total}</Text>
+          )}
+
+          {a.unlocked && formatRelativeDate(a.unlocked_at) && (
+            <Text style={[s.unlockedDate, { color: a.color + 'BB' }]}>✓ {formatRelativeDate(a.unlocked_at)}</Text>
+          )}
+
+          {!a.unlocked && a.condition_type === 'manual' && (
+            <View style={s.iconLabelRow}>
+              <TargetIcon size={11} color="rgba(255,255,255,0.25)" weight="regular" />
+              <Text style={s.manualHint}>Desbloqueia com uma ação específica</Text>
             </View>
           )}
 
-          {a.unlocked && a.unlockedAt && (
-            <Text style={[s.unlockedDate, { color: a.color + 'BB' }]}>✓ {a.unlockedAt}</Text>
-          )}
-
-          <View style={[s.xpPill, {
-            backgroundColor: a.unlocked ? a.color + '28' : 'rgba(255,255,255,0.04)',
-            borderColor:      a.unlocked ? a.color + '55' : 'rgba(255,255,255,0.07)',
+          <View style={[s.xpPill, s.iconLabelRow, {
+            backgroundColor: a.unlocked ? 'rgba(0,0,0,0.28)' : 'rgba(255,255,255,0.04)',
+            borderColor:      a.unlocked ? a.color + '90' : 'rgba(255,255,255,0.07)',
           }]}>
-            <Text style={[s.xpText, { color: a.unlocked ? a.color : 'rgba(255,255,255,0.2)' }]}>
-              ⚡ +{a.xpReward} XP
+            <LightningIcon size={12} color={a.unlocked ? '#fff' : 'rgba(255,255,255,0.2)'} weight="fill" />
+            <Text style={[s.xpText, { color: a.unlocked ? '#fff' : 'rgba(255,255,255,0.2)' }]}>
+              +{a.xpReward} XP
             </Text>
           </View>
         </LinearGradient>
@@ -122,45 +150,38 @@ function AchievementCard({ a, index }) {
 }
 
 // ─── NEXT TARGET CARD ─────────────────────────────────────────────────────────
-function NextCard({ a }) {
-  const pct     = Math.min(100, Math.round((a.progress / a.total) * 100));
-  const barAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(barAnim, { toValue: pct / 100, duration: 900, useNativeDriver: false }).start();
-  }, []);
-
+function NextCard({ a, onInfo }) {
+  const pct = Math.max(0, Math.min(1, a.total > 0 ? a.progress / a.total : 0));
   return (
-    <LinearGradient
-      colors={[a.color + '18', a.color + '08', '#0A0A18']}
-      style={[s.nextCard, { borderColor: a.color + '40' }]}
-    >
-      <LinearGradient colors={[a.color + '50', a.color + '20']} style={s.nextEmoji}>
-        <Text style={{ fontSize: 26 }}>{a.emoji}</Text>
-      </LinearGradient>
+    <TouchableOpacity onPress={() => onInfo?.(a)} activeOpacity={0.85}>
+      <LinearGradient
+        colors={[a.color + '75', a.color + '3A']}
+        style={[s.nextCard, { borderColor: a.color }]}
+      >
+        <LinearGradient colors={[a.color + 'A0', a.color + '55']} style={s.nextEmoji}>
+          <Text style={{ fontSize: 26 }}>{a.emoji}</Text>
+        </LinearGradient>
 
-      <View style={s.nextBody}>
-        <View style={s.nextTopRow}>
-          <Text style={s.nextName}>{a.name}</Text>
-          <Text style={[s.nextPct, { color: a.color }]}>{pct}%</Text>
+        <View style={s.nextBody}>
+          <View style={s.nextTopRow}>
+            <Text style={s.nextName}>{a.name}</Text>
+            <Text style={[s.nextProgress, { color: a.color }]}>{a.progress} / {a.total}</Text>
+          </View>
+          {(a.desc ?? a.description) && (
+            <Text style={s.nextDesc} numberOfLines={1}>{a.desc ?? a.description}</Text>
+          )}
+          <View style={s.nextBarBg}>
+            <View style={[s.nextBarFill, { width: `${pct * 100}%`, backgroundColor: a.color }]} />
+          </View>
+          <Text style={s.nextMissing}>faltam {Math.max(0, a.total - a.progress)}  ·  toque para entender</Text>
         </View>
-        {(a.desc ?? a.description) && (
-          <Text style={s.nextDesc} numberOfLines={1}>{a.desc ?? a.description}</Text>
-        )}
-        <View style={s.nextBarBg}>
-          <Animated.View style={[s.nextBarFill, {
-            width: barAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
-            backgroundColor: a.color,
-          }]} />
-        </View>
-        <Text style={s.nextProgress}>{a.progress} / {a.total}</Text>
-      </View>
 
-      <LinearGradient colors={[a.color + '35', a.color + '15']} style={s.nextXP}>
-        <Text style={[s.nextXPNum, { color: a.color }]}>+{a.xpReward}</Text>
-        <Text style={s.nextXPLabel}>XP</Text>
+        <View style={[s.nextXP, { backgroundColor: 'rgba(0,0,0,0.28)', borderWidth: 1, borderColor: a.color + '90' }]}>
+          <Text style={[s.nextXPNum, { color: a.color }]}>+{a.xpReward}</Text>
+          <Text style={[s.nextXPLabel, { color: a.color }]}>XP</Text>
+        </View>
       </LinearGradient>
-    </LinearGradient>
+    </TouchableOpacity>
   );
 }
 
@@ -170,6 +191,8 @@ export default function AchievementsScreen() {
   const { user } = useUser();
   const [activeCat,    setActiveCat]    = useState('todos');
   const [achievements, setAchievements] = useState([]);
+  const [infoFor,      setInfoFor]      = useState(null);
+  const [headerInfo,   setHeaderInfo]   = useState(false);
   const fireScale  = useRef(new Animated.Value(1)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const headerY    = useRef(new Animated.Value(-20)).current;
@@ -181,9 +204,15 @@ export default function AchievementsScreen() {
         ...a,
         xpReward: a.xp_reward ?? 0,
         total:    a.condition_value ?? 1,
+        // Progresso calculado na hora a partir do `user` do contexto (sempre
+        // fresco) em vez de confiar só no valor gravado no banco, que só é
+        // atualizado quando alguma ação dispara checkAndUnlockAchievements —
+        // sem isso o progresso exibido podia ficar temporariamente atrasado
+        // (ex: "10 Treinos" mostrando 3 mesmo já tendo feito 4).
+        progress: a.condition_type !== 'manual' ? getCurrentProgress(a, user) : (a.progress ?? 0),
       })));
     });
-  }, [user?.id, user?.streak, user?.totalWorkouts, user?.xp]);
+  }, [user?.id, user?.streak, user?.totalWorkouts, user?.xp, user?.todayXP, user?.commitment, user?.weekWorkouts, user?.totalChallengesCompleted, user?.totalBossKills]);
 
   useEffect(() => {
     Animated.parallel([
@@ -205,7 +234,6 @@ export default function AchievementsScreen() {
 
   const unlockedCount = achievements.filter(a => a.unlocked).length;
   const totalCount    = achievements.length;
-  const overallPct    = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   const nextTargets = achievements
     .filter(a => !a.unlocked && a.condition_type !== 'manual' && (a.progress ?? 0) > 0)
@@ -217,8 +245,11 @@ export default function AchievementsScreen() {
     ? achievements
     : achievements.filter(a => a.category === activeCat);
 
-  const unlocked = filtered.filter(a => a.unlocked);
-  const locked   = filtered.filter(a => !a.unlocked);
+  // Conquistas já desbloqueadas viram selo no Perfil — aqui só mostramos o que
+  // ainda falta, para não repetir a mesma informação em dois lugares.
+  // As que já aparecem em "Quase lá" também somem da grade, pra não duplicar.
+  const nextTargetIds = new Set(nextTargets.map(a => a.id));
+  const locked = filtered.filter(a => !a.unlocked && !nextTargetIds.has(a.id));
 
   return (
     <View style={s.container}>
@@ -234,38 +265,14 @@ export default function AchievementsScreen() {
               <Text style={s.headerLabel}>CONQUISTAS</Text>
               <Text style={s.headerTitle}>Sua Jornada</Text>
             </View>
-            <View style={[s.headerBadge, { borderColor: currentTier.color + '60', backgroundColor: currentTier.color + '20' }]}>
+            <TouchableOpacity
+              style={[s.headerBadge, { borderColor: currentTier.color + '60', backgroundColor: currentTier.color + '20' }]}
+              onPress={() => setHeaderInfo(true)}
+              activeOpacity={0.8}
+            >
               <Text style={[s.headerBadgeNum, { color: currentTier.color }]}>{unlockedCount}</Text>
               <Text style={[s.headerBadgeSlash, { color: currentTier.color + '80' }]}>/{totalCount}</Text>
-            </View>
-          </View>
-
-          <View style={s.statsRow}>
-            {[
-              { emoji: '🔥', val: streak, lbl: 'dias', color: currentTier.color, anim: true },
-              { emoji: '⚡', val: (user?.xp ?? 0).toLocaleString(), lbl: 'XP total', color: '#FCD34D' },
-              { emoji: '💪', val: user?.totalWorkouts ?? 0, lbl: 'treinos', color: '#A78BFA' },
-              { emoji: '🏅', val: `${overallPct}%`, lbl: 'completo', color: '#10B981' },
-            ].map((st, i) => (
-              <React.Fragment key={i}>
-                {i > 0 && <View style={[s.statDivider, { backgroundColor: currentTier.color + '30' }]} />}
-                <View style={s.statItem}>
-                  {st.anim
-                    ? <Animated.Text style={[s.statEmoji, { transform: [{ scale: fireScale }] }]}>{st.emoji}</Animated.Text>
-                    : <Text style={s.statEmoji}>{st.emoji}</Text>}
-                  <Text style={[s.statVal, { color: st.color }]}>{st.val}</Text>
-                  <Text style={s.statLbl}>{st.lbl}</Text>
-                </View>
-              </React.Fragment>
-            ))}
-          </View>
-
-          <View style={s.headerBarBg}>
-            <LinearGradient
-              colors={[currentTier.color, nextTier?.color ?? currentTier.color]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={[s.headerBarFill, { width: `${overallPct}%` }]}
-            />
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
@@ -274,7 +281,10 @@ export default function AchievementsScreen() {
           {/* EVOLUÇÃO DA CHAMA */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>🔥 Evolução da Chama</Text>
+              <View style={s.iconLabelRow}>
+                <FireIcon size={16} color="#F97316" weight="fill" />
+                <Text style={s.sectionTitle}>Evolução da Chama</Text>
+              </View>
               <View style={[s.tierBadge, { backgroundColor: currentTier.color + '20', borderColor: currentTier.color + '50' }]}>
                 <Text style={[s.tierBadgeText, { color: currentTier.color }]}>{currentTier.label}</Text>
               </View>
@@ -297,25 +307,25 @@ export default function AchievementsScreen() {
                   return (
                     <View key={tier.label} style={s.flameTierItem}>
                       <LinearGradient
-                        colors={isUnlocked ? tier.gradient : ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
+                        colors={isUnlocked ? tier.gradient : [tier.color + '2A', tier.color + '10']}
                         style={[
                           s.flameTierCircle,
                           isActive && { borderColor: tier.color, borderWidth: 3, shadowColor: tier.color, shadowOpacity: 0.9, shadowRadius: 10, elevation: 10 },
-                          !isUnlocked && { opacity: 0.35 },
+                          !isUnlocked && { borderColor: tier.color + '30', borderWidth: 1 },
                         ]}
                       >
                         {isActive
-                          ? <Animated.Text style={[s.flameTierEmoji, { transform: [{ scale: fireScale }] }]}>🔥</Animated.Text>
-                          : <Text style={s.flameTierEmoji}>🔥</Text>}
+                          ? <Animated.View style={{ transform: [{ scale: fireScale }] }}><FireIcon size={26} color="#fff" weight="fill" /></Animated.View>
+                          : <FireIcon size={26} color={isUnlocked ? '#fff' : tier.color} weight="fill" style={!isUnlocked && { opacity: 0.5 }} />}
                       </LinearGradient>
                       {isActive && <View style={[s.activeDot, { backgroundColor: tier.color }]} />}
                       <Text style={[s.flameTierLabel,
                         isActive && { color: tier.color, fontWeight: '800' },
-                        !isUnlocked && { color: 'rgba(255,255,255,0.2)' },
+                        !isUnlocked && { color: tier.color + '90' },
                       ]}>
                         {tier.label}
                       </Text>
-                      <Text style={[s.flameTierMin, isUnlocked && { color: 'rgba(255,255,255,0.4)' }]}>
+                      <Text style={[s.flameTierMin, { color: isUnlocked ? 'rgba(255,255,255,0.4)' : tier.color + '60' }]}>
                         {tier.min === 0 ? 'início' : `${tier.min}d`}
                       </Text>
                     </View>
@@ -347,19 +357,25 @@ export default function AchievementsScreen() {
           {nextTargets.length > 0 && (
             <View style={s.section}>
               <View style={s.sectionHeader}>
-                <Text style={s.sectionTitle}>⚡ Quase lá...</Text>
+                <View style={s.iconLabelRow}>
+                  <LightningIcon size={16} color="#FCD34D" weight="fill" />
+                  <Text style={s.sectionTitle}>Quase lá...</Text>
+                </View>
                 <Text style={s.sectionSub}>{nextTargets.length} próximas</Text>
               </View>
-              {nextTargets.map(a => <NextCard key={a.id} a={a} />)}
+              {nextTargets.map(a => <NextCard key={a.id} a={a} onInfo={setInfoFor} />)}
             </View>
           )}
 
-          {/* TODAS AS CONQUISTAS */}
+          {/* POR DESTRAVAR */}
           <View style={s.section}>
             <View style={s.sectionHeader}>
-              <Text style={s.sectionTitle}>🏅 Todas as Conquistas</Text>
+              <View style={s.iconLabelRow}>
+                <MedalIcon size={16} color={COLORS.gold} weight="fill" />
+                <Text style={s.sectionTitle}>Por Destravar</Text>
+              </View>
               <View style={s.countBadge}>
-                <Text style={s.countBadgeText}>{totalCount}</Text>
+                <Text style={s.countBadgeText}>{locked.length}</Text>
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabScroll}>
@@ -370,46 +386,85 @@ export default function AchievementsScreen() {
                   onPress={() => setActiveCat(cat.key)}
                   activeOpacity={0.75}
                 >
-                  <Text style={s.tabEmoji}>{cat.emoji}</Text>
+                  <cat.icon size={14} color={activeCat === cat.key ? '#fff' : COLORS.gray} weight={activeCat === cat.key ? 'fill' : 'regular'} />
                   <Text style={[s.tabText, activeCat === cat.key && s.tabTextActive]}>{cat.label}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
 
-          {/* Desbloqueadas */}
-          {unlocked.length > 0 && (
-            <View style={s.gridSection}>
-              {activeCat === 'todos' && (
-                <Text style={s.gridLabel}>✅ Desbloqueadas ({unlocked.length})</Text>
-              )}
-              <View style={s.grid}>
-                {unlocked.map((a, i) => <AchievementCard key={a.id} a={a} index={i} />)}
-              </View>
-            </View>
-          )}
-
-          {/* Bloqueadas */}
+          {/* Bloqueadas — o que já foi desbloqueado vira selo no Perfil, não repete aqui */}
           {locked.length > 0 && (
-            <View style={[s.gridSection, unlocked.length > 0 && { marginTop: 4 }]}>
-              {activeCat === 'todos' && unlocked.length > 0 && (
-                <Text style={s.gridLabel}>🔒 Bloqueadas ({locked.length})</Text>
-              )}
+            <View style={s.gridSection}>
               <View style={s.grid}>
-                {locked.map((a, i) => <AchievementCard key={a.id} a={a} index={unlocked.length + i} />)}
+                {locked.map((a, i) => <AchievementCard key={a.id} a={a} index={i} onInfo={setInfoFor} />)}
               </View>
             </View>
           )}
 
-          {filtered.length === 0 && (
+          {locked.length === 0 && nextTargets.filter(a => activeCat === 'todos' || a.category === activeCat).length === 0 && (
             <View style={s.empty}>
-              <Text style={{ fontSize: 40 }}>🏅</Text>
-              <Text style={s.emptyText}>Nenhuma conquista nesta categoria</Text>
+              <TrophyIcon size={40} color={COLORS.gold} weight="fill" />
+              <Text style={s.emptyText}>Você já desbloqueou tudo nesta categoria!</Text>
             </View>
           )}
 
         </Animated.View>
       </ScrollView>
+
+      {/* Modal: o que essa conquista mede */}
+      <Modal visible={!!infoFor} transparent animationType="fade" onRequestClose={() => setInfoFor(null)}>
+        <TouchableOpacity style={s.infoBackdrop} activeOpacity={1} onPress={() => setInfoFor(null)}>
+          <TouchableOpacity activeOpacity={1} style={s.infoCard}>
+            {infoFor && (
+              <>
+                <View style={s.infoHeader}>
+                  <View style={s.iconLabelRow}>
+                    <Text style={{ fontSize: 22 }}>{infoFor.emoji}</Text>
+                    <Text style={s.infoTitle}>{infoFor.name}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setInfoFor(null)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <XIcon size={20} color={COLORS.gray} weight="bold" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={s.infoDesc}>{infoFor.desc ?? infoFor.description}</Text>
+                <Text style={s.infoExplain}>
+                  Isso é medido por {explainCondition(infoFor.condition_type)}.
+                </Text>
+                {infoFor.condition_type !== 'manual' ? (
+                  <Text style={s.infoProgress}>
+                    Progresso atual: <Text style={{ fontWeight: '900', color: infoFor.color }}>{infoFor.progress ?? 0} / {infoFor.total ?? infoFor.condition_value}</Text>
+                    {'  '}· faltam {Math.max(0, (infoFor.total ?? infoFor.condition_value) - (infoFor.progress ?? 0))}
+                  </Text>
+                ) : (
+                  <Text style={s.infoProgress}>Não tem número de progresso — ela desbloqueia de uma vez quando você faz a ação certa.</Text>
+                )}
+                <Text style={s.infoReward}>Recompensa: +{infoFor.xpReward ?? infoFor.xp_reward} XP</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Modal: o que o contador do topo significa */}
+      <Modal visible={headerInfo} transparent animationType="fade" onRequestClose={() => setHeaderInfo(false)}>
+        <TouchableOpacity style={s.infoBackdrop} activeOpacity={1} onPress={() => setHeaderInfo(false)}>
+          <TouchableOpacity activeOpacity={1} style={s.infoCard}>
+            <View style={s.infoHeader}>
+              <View style={s.iconLabelRow}>
+                <TrophyIcon size={20} color={COLORS.gold} weight="fill" />
+                <Text style={s.infoTitle}>Suas conquistas</Text>
+              </View>
+              <TouchableOpacity onPress={() => setHeaderInfo(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <XIcon size={20} color={COLORS.gray} weight="bold" />
+              </TouchableOpacity>
+            </View>
+            <Text style={s.infoDesc}>
+              {unlockedCount} de {totalCount} conquistas já desbloqueadas — faltam {totalCount - unlockedCount}. Toque em qualquer conquista na lista para ver exatamente o que ela mede e quanto falta.
+            </Text>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -417,6 +472,16 @@ export default function AchievementsScreen() {
 // ─── STYLES ──────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.bg },
+
+  // Modal de explicação
+  infoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: SPACING.md },
+  infoCard: { width: '100%', maxWidth: 420, backgroundColor: '#1A1A2E', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: COLORS.border, gap: 10 },
+  infoHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  infoTitle: { color: COLORS.white, fontSize: 16, fontWeight: '800' },
+  infoDesc: { color: 'rgba(255,255,255,0.85)', fontSize: 13, lineHeight: 19 },
+  infoExplain: { color: COLORS.gray, fontSize: 13, lineHeight: 19 },
+  infoProgress: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
+  infoReward: { color: COLORS.gold, fontSize: 13, fontWeight: '700' },
 
   // Header
   header: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.xl, gap: 16 },
@@ -426,18 +491,11 @@ const s = StyleSheet.create({
   headerBadge: { borderRadius: RADIUS.xl, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 8, flexDirection: 'row', alignItems: 'baseline', gap: 2 },
   headerBadgeNum: { fontSize: 24, fontWeight: '900' },
   headerBadgeSlash: { fontSize: 15, fontWeight: '600' },
-  statsRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: RADIUS.lg, paddingVertical: 12, paddingHorizontal: 8 },
-  statItem: { flex: 1, alignItems: 'center', gap: 2 },
-  statEmoji: { fontSize: 18 },
-  statVal: { fontSize: 15, fontWeight: '900', lineHeight: 19 },
-  statLbl: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '600' },
-  statDivider: { width: 1, height: 34, marginHorizontal: 4 },
-  headerBarBg: { height: 7, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: RADIUS.full, overflow: 'hidden' },
-  headerBarFill: { height: '100%', borderRadius: RADIUS.full },
 
   // Sections
   section: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionTitle: { color: COLORS.white, fontSize: 18, fontWeight: '900' },
   sectionSub: { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
   tierBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
@@ -453,7 +511,6 @@ const s = StyleSheet.create({
   flameScroll: { paddingHorizontal: SPACING.md, gap: 4 },
   flameTierItem: { alignItems: 'center', width: 78, gap: 5, zIndex: 1 },
   flameTierCircle: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: 'transparent' },
-  flameTierEmoji: { fontSize: 26 },
   activeDot: { width: 7, height: 7, borderRadius: 3.5, marginTop: -2 },
   flameTierLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '700', textAlign: 'center' },
   flameTierMin: { color: 'rgba(255,255,255,0.2)', fontSize: 10 },
@@ -468,20 +525,19 @@ const s = StyleSheet.create({
   nextBody: { flex: 1, gap: 5 },
   nextTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   nextName: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
-  nextPct: { fontSize: 14, fontWeight: '900' },
-  nextDesc: { color: COLORS.gray, fontSize: 11 },
-  nextBarBg: { height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'hidden' },
-  nextBarFill: { height: '100%', borderRadius: RADIUS.full },
-  nextProgress: { color: COLORS.grayDark, fontSize: 11, fontWeight: '600' },
+  nextDesc: { color: 'rgba(255,255,255,0.8)', fontSize: 11 },
+  nextProgress: { fontSize: 14, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  nextBarBg: { height: 3, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.25)', overflow: 'hidden', marginTop: 4 },
+  nextBarFill: { height: '100%', borderRadius: 2 },
+  nextMissing: { color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '600', marginTop: 2 },
   nextXP: { borderRadius: RADIUS.lg, paddingHorizontal: 12, paddingVertical: 10, alignItems: 'center', minWidth: 58, flexShrink: 0 },
-  nextXPNum: { fontSize: 16, fontWeight: '900' },
-  nextXPLabel: { color: COLORS.grayDark, fontSize: 10, fontWeight: '700' },
+  nextXPNum: { fontSize: 17, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.55)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  nextXPLabel: { fontSize: 10, fontWeight: '800' },
 
   // Tabs
   tabScroll: { gap: 8, paddingBottom: 6, paddingTop: 2 },
   tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 9, borderRadius: RADIUS.full, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
   tabActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
-  tabEmoji: { fontSize: 14 },
   tabText: { color: COLORS.gray, fontSize: 13, fontWeight: '700' },
   tabTextActive: { color: '#fff' },
 
@@ -500,11 +556,9 @@ const s = StyleSheet.create({
   lockBadge: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' },
   cardName: { fontSize: 14, fontWeight: '900', letterSpacing: 0.3 },
   cardDesc: { fontSize: 11, lineHeight: 16 },
-  progressWrap: { gap: 3, marginTop: 2 },
-  progressBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: RADIUS.full, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: RADIUS.full },
-  progressPct: { fontSize: 10, fontWeight: '800', alignSelf: 'flex-end' },
+  progressNum: { fontSize: 11, fontWeight: '800', marginTop: 2 },
   unlockedDate: { fontSize: 10, fontWeight: '600' },
+  manualHint: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.25)' },
   xpPill: { borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', marginTop: 'auto' },
   xpText: { fontSize: 12, fontWeight: '900' },
 

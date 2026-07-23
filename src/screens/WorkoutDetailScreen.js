@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, ScrollView, StyleSheet,
-  Animated, Modal, Dimensions, TextInput, KeyboardAvoidingView, Platform,
+  Animated, Modal, Dimensions, TextInput, KeyboardAvoidingView, Platform, AppState,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowClockwiseIcon, ArrowLeftIcon, CheckCircleIcon, CheckIcon, CircleIcon, ClipboardTextIcon, ClockIcon, FireIcon, InfoIcon, LightbulbIcon, LightningIcon, MinusCircleIcon, PauseIcon, PencilSimpleIcon, PlayCircleIcon, PlusCircleIcon, PlusIcon, ShareIcon, ShareNetworkIcon, StarIcon, TimerIcon, TrashIcon, TrendUpIcon, TrophyIcon, UsersIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
 import { savePersonalRecord } from '../services/achievementService';
@@ -17,7 +19,53 @@ const { width } = Dimensions.get('window');
 // Cache local de PRs durante a sessão (sincronizado com user.personal_records do Supabase)
 let PERSONAL_RECORDS = {};
 
-const REST_PRESETS = ['30s', '45s', '60s', '90s', '120s', '2min'];
+const REST_PRESETS = ['30s', '45s', '60s', '90s', '120s'];
+const REST_NOTIF_ID = 'rest_timer_end';
+
+// Estado da sessão ativa persiste em disco — sem isso o treino/descanso "morriam"
+// se o app fosse minimizado, tivesse a tela bloqueada ou fosse fechado de vez.
+const activeSessionKey = userId => `@capifit_active_workout_${userId ?? 'anon'}`;
+
+// Notificação local do fim do descanso — funciona mesmo com o app em background
+// ou fechado, porque quem dispara é o sistema operacional, não o JS do app.
+async function scheduleRestNotification(secs) {
+  await Notifications.cancelScheduledNotificationAsync(REST_NOTIF_ID).catch(() => {});
+  if (secs <= 0) return;
+  try {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== 'granted') {
+      const { status: asked } = await Notifications.requestPermissionsAsync();
+      if (asked !== 'granted') return;
+    }
+    if (Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('capifit', {
+        name: 'CapiFit', importance: Notifications.AndroidImportance.HIGH,
+      }).catch(() => {});
+    }
+    await Notifications.scheduleNotificationAsync({
+      identifier: REST_NOTIF_ID,
+      content: {
+        title: 'Descanso finalizado! ⏱️',
+        body: 'Bora começar a próxima série 💪',
+        data: { type: 'rest_end' },
+        sound: true,
+      },
+      // Precisa do "type" explícito — sem ele o expo-notifications (SDK 54) não
+      // reconhece o formato do trigger e a notificação dispara na hora, em vez
+      // de esperar os `secs` segundos do descanso.
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds: secs,
+        repeats: false,
+        channelId: Platform.OS === 'android' ? 'capifit' : undefined,
+      },
+    });
+  } catch (e) { console.warn('[WorkoutDetail] agendar notificação de descanso falhou:', e.message); }
+}
+
+async function cancelRestNotification() {
+  await Notifications.cancelScheduledNotificationAsync(REST_NOTIF_ID).catch(() => {});
+}
 
 export default function WorkoutDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -36,12 +84,12 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     muscles:   Array.isArray(rawWorkout.muscles)   ? rawWorkout.muscles   : [],
   };
   const { isUserCreated, isHistory } = route.params;
-  const { user, completeWorkout, addXP } = useUser();
+  const { user, completeWorkout, addXP, applyPersonalRecord } = useUser();
 
   // Sincroniza cache local com PRs reais do usuário (sem valores padrão)
   useEffect(() => {
-    PERSONAL_RECORDS = { ...(user?.personal_records ?? {}) };
-  }, [user?.personal_records]);
+    PERSONAL_RECORDS = { ...(user?.personalRecords ?? {}) };
+  }, [user?.personalRecords]);
 
   const [started, setStarted]             = useState(false);
   const [completed, setCompleted]         = useState(false);
@@ -49,11 +97,17 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   const [showXPModal, setShowXPModal]     = useState(false);
   const [allExercises, setAllExercises]   = useState([...workout.exercises]);
   const [logs, setLogs]                   = useState({});
-  const [restTimer, setRestTimer]         = useState({ active: false, total: 60, remaining: 60 });
+  // Descanso é controlado por timestamp real (endAt), não por contador de setInterval —
+  // assim ele sobrevive ao app ser minimizado/bloqueado (o JS pode pausar os timers em
+  // background, mas Date.now() continua correto quando o app volta ao primeiro plano).
+  const [restTimer, setRestTimer] = useState({ active: false, paused: false, total: 60, remaining: 60, endAt: null, pausedRemaining: 0 });
   const [showAddModal, setShowAddModal]   = useState(false);
   const [newEx, setNewEx]                 = useState({ name: '', sets: '3', reps: '10', kg: '', rest: '60s' });
   const [prAlert, setPrAlert]             = useState(null);
   const [editingRestIdx, setEditingRestIdx] = useState(null);
+  const [customRestValue, setCustomRestValue] = useState('');
+  const [restoredSession, setRestoredSession] = useState(false);
+  const [restJustEnded, setRestJustEnded] = useState(false);
 
   const progressAnim    = useRef(new Animated.Value(0)).current;
   const xpModalScale    = useRef(new Animated.Value(0)).current;
@@ -63,34 +117,171 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   const prAlertedExercises = useRef(new Set()); // 1 alerta por exercício por sessão
   const timerRef           = useRef(null);
   const restIntervalRef    = useRef(null);
+  const startTsRef         = useRef(null); // timestamp real de início do treino
 
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
+  // Timer principal calculado a partir de um timestamp real (não de contagem de
+  // setInterval) — assim o tempo exibido continua correto mesmo se o JS pausar
+  // os timers em background (app minimizado, tela bloqueada, trocou de app).
   useEffect(() => {
     if (started && !completed) {
-      timerRef.current = setInterval(() => setSeconds(s => s + 1), 1000);
+      if (!startTsRef.current) startTsRef.current = Date.now() - seconds * 1000;
+      timerRef.current = setInterval(() => {
+        setSeconds(Math.floor((Date.now() - startTsRef.current) / 1000));
+      }, 1000);
     } else {
       clearInterval(timerRef.current);
     }
     return () => clearInterval(timerRef.current);
   }, [started, completed]);
 
+  // Contagem regressiva do descanso — sempre recalculada a partir de endAt
+  // (timestamp real), não decrementada por tick, para não perder precisão.
+  useEffect(() => {
+    if (!restTimer.active || restTimer.paused || !restTimer.endAt) {
+      clearInterval(restIntervalRef.current);
+      return;
+    }
+    restIntervalRef.current = setInterval(() => {
+      setRestTimer(p => {
+        if (!p.active || p.paused || !p.endAt) return p;
+        const remaining = Math.max(0, Math.ceil((p.endAt - Date.now()) / 1000));
+        if (remaining <= 0) {
+          clearInterval(restIntervalRef.current);
+          setRestJustEnded(true);
+          return { ...p, active: false, remaining: 0 };
+        }
+        return { ...p, remaining };
+      });
+    }, 1000);
+    return () => clearInterval(restIntervalRef.current);
+  }, [restTimer.active, restTimer.paused, restTimer.endAt]);
+
+  // Banner "Descanso finalizado!" some sozinho depois de alguns segundos —
+  // ou assim que a próxima série for marcada (startRestTimer já zera o flag).
+  useEffect(() => {
+    if (!restJustEnded) return;
+    const t = setTimeout(() => setRestJustEnded(false), 6000);
+    return () => clearTimeout(t);
+  }, [restJustEnded]);
+
+  // Persiste a sessão ativa em disco — sem isso o treino/descanso "zerava" se o
+  // app fosse fechado de vez (só sobrevivia enquanto o componente ficasse montado).
+  const persistSession = () => {
+    if (!started || completed) return;
+    AsyncStorage.setItem(activeSessionKey(user?.id), JSON.stringify({
+      workoutName: workout.name,
+      allExercises,
+      logs,
+      startTs: startTsRef.current,
+      restTimer,
+    })).catch(() => {});
+  };
+
+  const clearSession = () => {
+    AsyncStorage.removeItem(activeSessionKey(user?.id)).catch(() => {});
+  };
+
+  // Restaura sessão salva (mesmo treino, ainda não concluído) ao abrir a tela —
+  // cobre o caso do app ter sido fechado de vez com o treino em andamento.
+  const skipHistoryInitRef = useRef(false);
+  useEffect(() => {
+    if (!user?.id) { setRestoredSession(true); return; }
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(activeSessionKey(user.id));
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.workoutName === workout.name) {
+            skipHistoryInitRef.current = true;
+            startTsRef.current = saved.startTs;
+            setAllExercises(saved.allExercises ?? [...workout.exercises]);
+            setLogs(saved.logs ?? {});
+            setSeconds(Math.floor((Date.now() - saved.startTs) / 1000));
+            if (saved.restTimer?.active) {
+              if (saved.restTimer.paused) {
+                setRestTimer(saved.restTimer);
+              } else {
+                const remaining = Math.max(0, Math.ceil((saved.restTimer.endAt - Date.now()) / 1000));
+                if (remaining > 0) setRestTimer({ ...saved.restTimer, remaining });
+                else {
+                  setRestTimer({ active: false, paused: false, total: 60, remaining: 0, endAt: null, pausedRemaining: 0 });
+                  setRestJustEnded(true);
+                }
+              }
+            }
+            setStarted(true);
+          }
+        }
+      } catch (e) { console.warn('[WorkoutDetail] restauração de sessão falhou:', e.message); }
+      setRestoredSession(true);
+    })();
+  }, [user?.id]);
+
+  // Ao voltar do background, recalcula tudo com base no relógio real —
+  // garante que o tempo "andou" mesmo se o app foi minimizado/bloqueado.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      if (next === 'active') {
+        if (started && !completed && startTsRef.current) {
+          setSeconds(Math.floor((Date.now() - startTsRef.current) / 1000));
+        }
+        setRestTimer(p => {
+          if (!p.active || p.paused || !p.endAt) return p;
+          const remaining = Math.max(0, Math.ceil((p.endAt - Date.now()) / 1000));
+          if (remaining <= 0) { setRestJustEnded(true); return { ...p, active: false, remaining: 0 }; }
+          return { ...p, remaining };
+        });
+      } else {
+        persistSession();
+      }
+    });
+    return () => sub.remove();
+  });
+
   useEffect(() => {
     if (!started) return;
-    const init = {};
-    allExercises.forEach((ex, i) => {
-      const lastKg = PERSONAL_RECORDS[ex.name]; // vazio para usuário novo
-      const repsArr = String(ex.reps).split(',').map(r => r.trim());
-      init[i] = Array.from({ length: ex.sets }, (_, si) => ({
-        kg: lastKg ? String(lastKg) : '', // só mostra peso se tem PR real
-        reps: repsArr[si] || repsArr[repsArr.length - 1] || '10',
-        done: false,
-      }));
-    });
-    setLogs(init);
-  }, [started]);
+    persistSession();
+  }, [allExercises, logs, restTimer, started]);
+
+  useEffect(() => {
+    if (!started || !restoredSession) return;
+    if (skipHistoryInitRef.current) { skipHistoryInitRef.current = false; return; }
+    let cancelled = false;
+    (async () => {
+      let lastLogsByExercise = {};
+      try {
+        if (user?.id) {
+          const { fetchLastWorkoutLog } = require('../services/userService');
+          const lastData = await fetchLastWorkoutLog(user.id, workout.name);
+          (lastData?.exercises ?? []).forEach(ex => {
+            if (ex?.name && Array.isArray(ex.setLogs)) lastLogsByExercise[ex.name] = ex.setLogs;
+          });
+        }
+      } catch (e) { console.warn('[WorkoutDetail] histórico de séries não encontrado:', e.message); }
+      if (cancelled) return;
+
+      const init = {};
+      allExercises.forEach((ex, i) => {
+        const lastKg   = PERSONAL_RECORDS[ex.name]; // vazio para usuário novo
+        const repsArr  = String(ex.reps).split(',').map(r => r.trim());
+        const prevSets = lastLogsByExercise[ex.name];
+        init[i] = Array.from({ length: ex.sets }, (_, si) => {
+          const prevSet = prevSets?.[si];
+          return {
+            kg:   prevSet?.kg   ? String(prevSet.kg)   : (lastKg ? String(lastKg) : ''),
+            reps: prevSet?.reps ? String(prevSet.reps) : (repsArr[si] || repsArr[repsArr.length - 1] || '10'),
+            done: false,
+          };
+        });
+      });
+      setLogs(init);
+    })();
+    return () => { cancelled = true; };
+  }, [started, restoredSession]);
 
   const doneCount      = Object.values(logs).filter(sets => sets.length > 0 && sets.every(s => s.done)).length;
   const totalExercises = allExercises.length;
@@ -104,14 +295,21 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   const formatTime = s =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const startWorkout = () => { setStarted(true); setSeconds(0); };
+  const startWorkout = () => { startTsRef.current = Date.now(); setStarted(true); setSeconds(0); };
 
   const finishWorkout = () => {
     clearInterval(timerRef.current);
     clearInterval(restIntervalRef.current);
+    cancelRestNotification().catch(() => {});
+    clearSession();
+    setRestJustEnded(false);
     setCompleted(true);
     setShowXPModal(true);
-    completeWorkout(workout, seconds);
+    const loggedExercises = allExercises.map((ex, i) => ({
+      ...ex,
+      setLogs: (logs[i] || []).map(s => ({ kg: s.kg, reps: s.reps })),
+    }));
+    completeWorkout({ ...workout, exercises: loggedExercises }, seconds);
     // Verifica se este treino conta para o desafio semanal
     try {
       const { getWeeklyWorkoutChallenge } = require('../data/mockData');
@@ -124,7 +322,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
         AS.getItem(wKey).then(v => {
           if (v !== 'done') {
             AS.setItem(wKey, 'done').catch(() => {});
-            addXP?.(challenge.xp); // bônus do desafio semanal
+            addXP?.(challenge.xp, 'Chefe da semana'); // bônus do desafio semanal
           }
         }).catch(() => {});
       }
@@ -154,28 +352,39 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     const set = logs[exIdx]?.[setIdx];
     if (!set) return;
     const nowDone = !set.done;
+    const kg = parseFloat(set.kg);
+
+    if (nowDone && (!set.kg || isNaN(kg) || kg <= 0)) {
+      const { Alert } = require('react-native');
+      Alert.alert('Peso obrigatório', 'Informe o peso (kg) usado nesta série antes de concluir.');
+      return;
+    }
+
     if (nowDone && set.kg) {
-      const kg       = parseFloat(set.kg);
       const exercise = allExercises[exIdx];
       if (!isNaN(kg) && kg > 0 && user?.id) {
-        const prevKg = user.personal_records?.[exercise.name]; // undefined = sem histórico
+        const prevKg = user.personalRecords?.[exercise.name]; // undefined = sem histórico ainda
+        const isNewRecord = prevKg === undefined || kg > prevKg;
 
-        if (prevKg !== undefined && kg > prevKg && !prAlertedExercises.current.has(exercise.name)) {
-          // Novo recorde real — mostra alerta 1x por exercício
-          prAlertedExercises.current.add(exercise.name);
+        // A primeira vez que um exercício é registrado também conta como recorde
+        // pessoal (não só quando um recorde anterior é batido) — antes disso, o
+        // primeiro registro só ficava em cache local da sessão, nunca era salvo
+        // no perfil nem mostrava nenhuma confirmação pro usuário.
+        if (isNewRecord) {
           PERSONAL_RECORDS[exercise.name] = kg;
-          setPrAlert({ exerciseName: exercise.name, kg });
-          prAlertAnim.setValue(0);
-          Animated.sequence([
-            Animated.timing(prAlertAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-            Animated.delay(2800),
-            Animated.timing(prAlertAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-          ]).start(() => setPrAlert(null));
-          savePersonalRecord(user.id, exercise.name, kg, user).catch(() => {});
-        } else if (prevKg === undefined && kg > 0) {
-          // Primeiro registro — salva só no cache local da sessão (não aparece no perfil)
-          // Será salvo no perfil apenas quando bater esse valor futuramente
-          PERSONAL_RECORDS[exercise.name] = kg;
+          if (!prAlertedExercises.current.has(exercise.name)) {
+            prAlertedExercises.current.add(exercise.name);
+            setPrAlert({ exerciseName: exercise.name, kg, isFirst: prevKg === undefined });
+            prAlertAnim.setValue(0);
+            Animated.sequence([
+              Animated.timing(prAlertAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+              Animated.delay(2800),
+              Animated.timing(prAlertAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+            ]).start(() => setPrAlert(null));
+          }
+          savePersonalRecord(user.id, exercise.name, kg, user)
+            .then(() => applyPersonalRecord?.(exercise.name, kg))
+            .catch(() => {});
         }
       }
     }
@@ -224,9 +433,13 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     setStarted(false);
     setCompleted(false);
     setSeconds(0);
+    startTsRef.current = null;
     clearInterval(timerRef.current);
     clearInterval(restIntervalRef.current);
-    setRestTimer({ active: false, total: 60, remaining: 60 });
+    cancelRestNotification().catch(() => {});
+    clearSession();
+    setRestJustEnded(false);
+    setRestTimer({ active: false, paused: false, total: 60, remaining: 60, endAt: null, pausedRemaining: 0 });
   };
 
   const updateExerciseRest = (idx, restVal) => {
@@ -236,16 +449,52 @@ export default function WorkoutDetailScreen({ navigation, route }) {
 
   const startRestTimer = secs => {
     clearInterval(restIntervalRef.current);
-    setRestTimer({ active: true, total: secs, remaining: secs });
-    restIntervalRef.current = setInterval(() => {
-      setRestTimer(p => {
-        if (p.remaining <= 1) { clearInterval(restIntervalRef.current); return { ...p, active: false, remaining: 0 }; }
-        return { ...p, remaining: p.remaining - 1 };
-      });
-    }, 1000);
+    const endAt = Date.now() + secs * 1000;
+    setRestJustEnded(false);
+    setRestTimer({ active: true, paused: false, total: secs, remaining: secs, endAt, pausedRemaining: 0 });
+    scheduleRestNotification(secs).catch(() => {});
   };
 
-  const skipRest = () => { clearInterval(restIntervalRef.current); setRestTimer(p => ({ ...p, active: false })); };
+  // Pausa de verdade: congela o tempo restante em vez de só deixar o ícone
+  // decorativo parado (antes o "botão de pausar" não fazia nada de fato).
+  const pauseRest = () => {
+    setRestTimer(p => {
+      if (!p.active || p.paused) return p;
+      const remaining = Math.max(0, Math.ceil((p.endAt - Date.now()) / 1000));
+      return { ...p, paused: true, remaining, pausedRemaining: remaining };
+    });
+    cancelRestNotification().catch(() => {});
+  };
+
+  const resumeRest = () => {
+    setRestTimer(p => {
+      if (!p.active || !p.paused) return p;
+      const endAt = Date.now() + p.pausedRemaining * 1000;
+      scheduleRestNotification(p.pausedRemaining).catch(() => {});
+      return { ...p, paused: false, endAt, remaining: p.pausedRemaining };
+    });
+  };
+
+  // Permite adicionar (ou tirar) tempo de descanso enquanto ele ainda está contando
+  const adjustRest = delta => {
+    setRestTimer(p => {
+      if (!p.active) return p;
+      if (p.paused) {
+        const newRemaining = Math.max(0, p.pausedRemaining + delta);
+        return { ...p, pausedRemaining: newRemaining, total: Math.max(1, p.total + delta), remaining: newRemaining };
+      }
+      const newEndAt = Math.max(Date.now(), p.endAt + delta * 1000);
+      const newRemaining = Math.max(0, Math.ceil((newEndAt - Date.now()) / 1000));
+      scheduleRestNotification(newRemaining).catch(() => {});
+      return { ...p, endAt: newEndAt, total: Math.max(1, p.total + delta), remaining: newRemaining };
+    });
+  };
+
+  const skipRest = () => {
+    clearInterval(restIntervalRef.current);
+    setRestTimer(p => ({ ...p, active: false }));
+    cancelRestNotification().catch(() => {});
+  };
 
   const addCustomExercise = () => {
     if (!newEx.name.trim()) return;
@@ -276,24 +525,24 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           <LinearGradient colors={workout.gradient} style={[styles.hero, { paddingTop: insets.top + 12 }]}>
             <View style={styles.heroTopRow}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                <Ionicons name="arrow-back" size={22} color="#fff" />
+                <ArrowLeftIcon size={22} color="#fff"  weight="regular" />
               </TouchableOpacity>
               <View style={styles.heroBadgeRow}>
                 {isHistory && (
                   <View style={[styles.myCreatedBadge, { backgroundColor: 'rgba(16,185,129,0.25)' }]}>
-                    <Ionicons name="checkmark-circle" size={11} color="#34D399" />
+                    <CheckCircleIcon size={11} color="#34D399"  weight="fill" />
                     <Text style={[styles.myCreatedText, { color: '#34D399' }]}>Treino concluído</Text>
                   </View>
                 )}
                 {isUserCreated && !isHistory && (
                   <View style={styles.myCreatedBadge}>
-                    <Ionicons name="star" size={11} color="#FCD34D" />
+                    <StarIcon size={11} color="#FCD34D"  weight="fill" />
                     <Text style={styles.myCreatedText}>Meu treino</Text>
                   </View>
                 )}
                 {!isUserCreated && !isHistory && (
                   <TouchableOpacity style={styles.resetBtn} onPress={resetToDefault}>
-                    <Ionicons name="refresh-outline" size={13} color="rgba(255,255,255,0.7)" />
+                    <ArrowClockwiseIcon size={13} color="rgba(255,255,255,0.7)"  weight="regular" />
                     <Text style={styles.resetBtnText}>Restaurar padrão</Text>
                   </TouchableOpacity>
                 )}
@@ -304,16 +553,19 @@ export default function WorkoutDetailScreen({ navigation, route }) {
             <Text style={styles.heroCategory}>{workout.category}</Text>
             <View style={styles.heroStats}>
               <View style={styles.heroStat}>
-                <Ionicons name="time" size={16} color="rgba(255,255,255,0.8)" />
+                <ClockIcon size={16} color="rgba(255,255,255,0.8)"  weight="fill" />
                 <Text style={styles.heroStatText}>{workout.duration} min</Text>
               </View>
               <View style={styles.heroStatDivider} />
               <View style={styles.heroStat}>
-                <Ionicons name="flame" size={16} color="rgba(255,255,255,0.8)" />
+                <FireIcon size={16} color="rgba(255,255,255,0.8)"  weight="fill" />
                 <Text style={styles.heroStatText}>{workout.calories} kcal</Text>
               </View>
               <View style={styles.heroStatDivider} />
-              <Text style={styles.heroStatText}>⚡ +{workout.xp} XP</Text>
+              <View style={styles.heroStat}>
+                <LightningIcon size={16} color="rgba(255,255,255,0.8)" weight="fill" />
+                <Text style={styles.heroStatText}>+{workout.xp} XP</Text>
+              </View>
               <View style={styles.heroStatDivider} />
               <View style={[styles.diffBadge, { backgroundColor: workout.difficultyColor + '30' }]}>
                 <Text style={[styles.diffText, { color: workout.difficultyColor }]}>{workout.difficulty}</Text>
@@ -334,19 +586,19 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           <LinearGradient colors={['#1A1A3E', '#12122A']} style={styles.timerCard}>
             <View style={styles.timerRow}>
               <View style={styles.timerBlock}>
-                <Ionicons name="timer" size={20} color={COLORS.purpleLight} />
+                <TimerIcon size={20} color={COLORS.purpleLight}  weight="regular" />
                 <Text style={styles.timerLabel}>Tempo</Text>
                 <Text style={styles.timerValue}>{formatTime(seconds)}</Text>
               </View>
               <View style={styles.timerDivider} />
               <View style={styles.timerBlock}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.green} />
+                <CheckCircleIcon size={20} color={COLORS.green}  weight="fill" />
                 <Text style={styles.timerLabel}>Exercícios</Text>
                 <Text style={styles.timerValue}>{doneCount}/{totalExercises}</Text>
               </View>
               <View style={styles.timerDivider} />
               <View style={styles.timerBlock}>
-                <Ionicons name="trending-up" size={20} color={COLORS.gold} />
+                <TrendUpIcon size={20} color={COLORS.gold}  weight="bold" />
                 <Text style={styles.timerLabel}>Progresso</Text>
                 <Text style={styles.timerValue}>{Math.round(exercisePct * 100)}%</Text>
               </View>
@@ -362,9 +614,14 @@ export default function WorkoutDetailScreen({ navigation, route }) {
         {/* EXERCISES */}
         <View style={styles.exercisesSection}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>{started ? '✅ Exercícios' : '📋 Lista de Exercícios'}</Text>
+            <View style={styles.iconLabelRow}>
+              {started
+                ? <CheckCircleIcon size={16} color={COLORS.white} weight="fill" />
+                : <ClipboardTextIcon size={16} color={COLORS.white} weight="fill" />}
+              <Text style={styles.sectionTitle}>{started ? 'Exercícios' : 'Lista de Exercícios'}</Text>
+            </View>
             <TouchableOpacity style={styles.addExBtn} onPress={() => setShowAddModal(true)} activeOpacity={0.8}>
-              <Ionicons name="add" size={15} color={COLORS.purpleLight} />
+              <PlusIcon size={15} color={COLORS.purpleLight}  weight="fill" />
               <Text style={styles.addExBtnText}>Adicionar</Text>
             </TouchableOpacity>
           </View>
@@ -388,7 +645,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                   <View style={styles.exerciseLeft}>
                     <View style={[styles.exNumCircle, isDone && styles.exNumCircleDone]}>
                       {isDone
-                        ? <Ionicons name="checkmark" size={14} color="#fff" />
+                        ? <CheckIcon size={14} color="#fff"  weight="bold" />
                         : <Text style={styles.exNum}>{idx + 1}</Text>
                       }
                     </View>
@@ -403,7 +660,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                         activeOpacity={0.7}
                         style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                         <Text style={[styles.exName, isDone && styles.exNameDone]}>{exercise.name}</Text>
-                        <Ionicons name="information-circle-outline" size={14} color={isDone ? COLORS.gray : COLORS.purpleLight} />
+                        <InfoIcon size={14} color={isDone ? COLORS.gray : COLORS.purpleLight}  weight="regular" />
                       </TouchableOpacity>
                       <Text style={styles.exDetail}>{exercise.sets} séries  ·  {exercise.reps}</Text>
                     </View>
@@ -419,9 +676,9 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                       style={[styles.restBadge, isEditingRest && styles.restBadgeActive]}
                       onPress={() => setEditingRestIdx(isEditingRest ? null : idx)}
                     >
-                      <Ionicons name="time-outline" size={11} color={isEditingRest ? COLORS.purpleLight : COLORS.gray} />
+                      <ClockIcon size={11} color={isEditingRest ? COLORS.purpleLight : COLORS.gray}  weight="regular" />
                       <Text style={[styles.restText, isEditingRest && { color: COLORS.purpleLight }]}>{exercise.rest}</Text>
-                      <Ionicons name="pencil-outline" size={9} color={isEditingRest ? COLORS.purpleLight : COLORS.grayDark} />
+                      <PencilSimpleIcon size={9} color={isEditingRest ? COLORS.purpleLight : COLORS.grayDark}  weight="regular" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -439,6 +696,27 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                         <Text style={[styles.restPickerText, exercise.rest === opt && styles.restPickerTextActive]}>{opt}</Text>
                       </TouchableOpacity>
                     ))}
+                    <View style={styles.restPickerCustomRow}>
+                      <TextInput
+                        style={styles.restPickerCustomInput}
+                        value={customRestValue}
+                        onChangeText={setCustomRestValue}
+                        placeholder="outro (s)"
+                        placeholderTextColor={COLORS.grayDark}
+                        keyboardType="number-pad"
+                      />
+                      <TouchableOpacity
+                        style={styles.restPickerCustomBtn}
+                        onPress={() => {
+                          const n = parseInt(customRestValue);
+                          if (!n || n <= 0) return;
+                          updateExerciseRest(idx, `${n}s`);
+                          setCustomRestValue('');
+                        }}
+                      >
+                        <Text style={styles.restPickerCustomBtnText}>OK</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
@@ -476,32 +754,29 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                           selectTextOnFocus
                         />
                         <TouchableOpacity style={styles.setDoneBtn} onPress={() => toggleSetDone(idx, si)}>
-                          <Ionicons
-                            name={set.done ? 'checkmark-circle' : 'ellipse-outline'}
-                            size={26}
-                            color={set.done ? COLORS.green : COLORS.grayDark}
-                          />
+                          {set.done
+                            ? <CheckCircleIcon size={26} color={COLORS.green} weight="fill" />
+                            : <CircleIcon size={26} color={COLORS.grayDark} weight="regular" />}
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.setDelBtn}
                           onPress={() => deleteSet(idx, si)}
                           disabled={exLogs.length <= 1}
                         >
-                          <Ionicons
-                            name="remove-circle-outline"
+                          <MinusCircleIcon
                             size={18}
                             color={exLogs.length <= 1 ? 'transparent' : COLORS.red + '99'}
-                          />
+                           weight="regular" />
                         </TouchableOpacity>
                       </View>
                     ))}
                     <View style={styles.setActionsRow}>
                       <TouchableOpacity style={styles.addSetBtn} onPress={() => addSet(idx)}>
-                        <Ionicons name="add-circle-outline" size={14} color={COLORS.purpleLight} />
+                        <PlusCircleIcon size={14} color={COLORS.purpleLight}  weight="regular" />
                         <Text style={styles.addSetBtnText}>Adicionar série</Text>
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.delExBtn} onPress={() => deleteExercise(idx)}>
-                        <Ionicons name="trash-outline" size={13} color={COLORS.red} />
+                        <TrashIcon size={13} color={COLORS.red}  weight="regular" />
                         <Text style={styles.delExBtnText}>Remover exercício</Text>
                       </TouchableOpacity>
                     </View>
@@ -511,7 +786,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                 {/* Delete button when NOT started */}
                 {!started && (
                   <TouchableOpacity style={styles.delExBtnStatic} onPress={() => deleteExercise(idx)}>
-                    <Ionicons name="trash-outline" size={14} color={COLORS.red + 'CC'} />
+                    <TrashIcon size={14} color={COLORS.red + 'CC'}  weight="regular" />
                     <Text style={styles.delExBtnStaticText}>Remover</Text>
                   </TouchableOpacity>
                 )}
@@ -524,7 +799,10 @@ export default function WorkoutDetailScreen({ navigation, route }) {
         {!started && (
           <View style={styles.tipsSection}>
             <LinearGradient colors={['#1A1A2E', '#0D0D1A']} style={styles.tipsCard}>
-              <Text style={styles.tipsTitle}>💡 Dicas do Treino</Text>
+              <View style={styles.iconLabelRow}>
+                <LightbulbIcon size={15} color={COLORS.gold} weight="fill" />
+                <Text style={styles.tipsTitle}>Dicas do Treino</Text>
+              </View>
               <Text style={styles.tipText}>• Aqueça por 5 minutos antes de começar</Text>
               <Text style={styles.tipText}>• Mantenha a forma correta em todos os exercícios</Text>
               <Text style={styles.tipText}>• Hidrate-se durante o treino</Text>
@@ -538,20 +816,52 @@ export default function WorkoutDetailScreen({ navigation, route }) {
       {restTimer.active && (
         <View style={[styles.restTimerBar, { bottom: insets.bottom + 88 }]}>
           <LinearGradient colors={['#1E1B4B', '#12122A']} style={styles.restTimerInner}>
-            <View style={styles.restTimerLeft}>
-              <Text style={styles.restTimerEmoji}>⏸</Text>
+            <View style={styles.restTimerTopRow}>
+              <TouchableOpacity
+                style={styles.restPauseBtn}
+                onPress={restTimer.paused ? resumeRest : pauseRest}
+                activeOpacity={0.8}
+              >
+                {restTimer.paused
+                  ? <PlayCircleIcon size={22} color={COLORS.purpleLight} weight="fill" />
+                  : <PauseIcon size={22} color={COLORS.purpleLight} weight="fill" />}
+              </TouchableOpacity>
               <View style={{ flex: 1 }}>
-                <Text style={styles.restTimerLabel}>Tempo de descanso</Text>
+                <Text style={styles.restTimerLabel}>{restTimer.paused ? 'Descanso pausado' : 'Tempo de descanso'}</Text>
                 <View style={styles.restBarBg}>
-                  <View style={[styles.restBarFill, { width: `${(restTimer.remaining / restTimer.total) * 100}%` }]} />
+                  <View style={[styles.restBarFill, { width: `${Math.min(100, (restTimer.remaining / restTimer.total) * 100)}%` }]} />
                 </View>
               </View>
+              <Text style={styles.restTimerCount}>{formatTime(restTimer.remaining)}</Text>
             </View>
-            <Text style={styles.restTimerCount}>{formatTime(restTimer.remaining)}</Text>
-            <TouchableOpacity style={styles.skipRestBtn} onPress={skipRest}>
-              <Text style={styles.skipRestText}>Pular</Text>
-            </TouchableOpacity>
+            <View style={styles.restTimerBottomRow}>
+              <TouchableOpacity style={styles.restAdjustBtn} onPress={() => adjustRest(15)}>
+                <Text style={styles.restAdjustText}>+15s</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.restAdjustBtn} onPress={() => adjustRest(30)}>
+                <Text style={styles.restAdjustText}>+30s</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.restAdjustBtn} onPress={() => adjustRest(-15)}>
+                <Text style={styles.restAdjustText}>-15s</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <TouchableOpacity style={styles.skipRestBtn} onPress={skipRest}>
+                <Text style={styles.skipRestText}>Pular</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
+        </View>
+      )}
+
+      {/* DESCANSO FINALIZADO */}
+      {!restTimer.active && restJustEnded && (
+        <View style={[styles.restTimerBar, { bottom: insets.bottom + 88 }]}>
+          <TouchableOpacity activeOpacity={0.8} onPress={() => setRestJustEnded(false)}>
+            <LinearGradient colors={['#065F46', '#022C22']} style={styles.restEndedInner}>
+              <CheckCircleIcon size={22} color={COLORS.green} weight="fill" />
+              <Text style={styles.restEndedText}>Descanso finalizado! Bora pra próxima série 💪</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -563,13 +873,21 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           transform: [{ translateY: prAlertAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }],
         }]}>
           <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.prAlertInner}>
-            <Text style={styles.prAlertEmoji}>🏆</Text>
+            <TrophyIcon size={28} color="#fff" weight="fill" style={styles.prAlertEmoji} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.prAlertTitle}>NOVO RECORDE PESSOAL!</Text>
+              <Text style={styles.prAlertTitle}>{prAlert.isFirst ? 'RECORDE REGISTRADO!' : 'NOVO RECORDE PESSOAL!'}</Text>
               <Text style={styles.prAlertSub}>{prAlert.exerciseName} · {prAlert.kg}kg</Text>
             </View>
-            <TouchableOpacity style={styles.prShareBtn} activeOpacity={0.8}>
-              <Ionicons name="share-outline" size={16} color="#92400E" />
+            <TouchableOpacity
+              style={styles.prShareBtn}
+              activeOpacity={0.8}
+              onPress={async () => {
+                const { shareExternal, buildShareText } = require('../services/socialService');
+                const msg = buildShareText(user ?? {}, 'record', `${prAlert.exerciseName} — ${prAlert.kg}kg 🏆`);
+                await shareExternal(msg);
+              }}
+            >
+              <ShareIcon size={16} color="#92400E"  weight="regular" />
               <Text style={styles.prShareText}>Compartilhar</Text>
             </TouchableOpacity>
           </LinearGradient>
@@ -586,7 +904,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                 style={styles.startBtn}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               >
-                <Ionicons name="play-circle" size={24} color="#fff" />
+                <PlayCircleIcon size={24} color="#fff"  weight="fill" />
                 <Text style={styles.startBtnText}>Iniciar Treino</Text>
                 <View style={styles.startXPBadge}>
                   <Text style={styles.startXPText}>+{workout.xp} XP</Text>
@@ -596,7 +914,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           ) : (
             <TouchableOpacity onPress={finishWorkout} activeOpacity={0.9}>
               <LinearGradient colors={['#10B981', '#047857']} style={styles.startBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                <Ionicons name="trophy" size={24} color="#fff" />
+                <TrophyIcon size={24} color="#fff"  weight="fill" />
                 <Text style={styles.startBtnText}>Concluir Treino</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -611,7 +929,10 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           <View style={styles.addModalSheet}>
             <LinearGradient colors={['#1A1A3E', '#0A0A18']} style={styles.addModalContent}>
               <View style={styles.addModalHandle} />
-              <Text style={styles.addModalTitle}>➕ Adicionar Exercício</Text>
+              <View style={styles.iconLabelRow}>
+                <PlusCircleIcon size={16} color={COLORS.white} weight="fill" />
+                <Text style={styles.addModalTitle}>Adicionar Exercício</Text>
+              </View>
 
               <View style={styles.addModalField}>
                 <Text style={styles.addModalLabel}>Nome do exercício</Text>
@@ -672,6 +993,14 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                       <Text style={[styles.restOptText, newEx.rest === opt && styles.restOptTextActive]}>{opt}</Text>
                     </TouchableOpacity>
                   ))}
+                  <TextInput
+                    style={styles.restOptCustomInput}
+                    value={/^\d+s$/.test(newEx.rest) && !REST_PRESETS.includes(newEx.rest) ? newEx.rest.replace('s', '') : ''}
+                    onChangeText={v => setNewEx(p => ({ ...p, rest: v ? `${v}s` : '60s' }))}
+                    placeholder="outro (s)"
+                    placeholderTextColor={COLORS.grayDark}
+                    keyboardType="number-pad"
+                  />
                 </View>
               </View>
 
@@ -733,7 +1062,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                     Alert.alert('Erro', 'Não foi possível publicar no feed.');
                   }
                 }}>
-                <Ionicons name="people-outline" size={18} color={COLORS.green} />
+                <UsersIcon size={18} color={COLORS.green}  weight="regular" />
                 <Text style={[styles.modalShareText, { color: COLORS.green }]}>No Feed</Text>
               </TouchableOpacity>
               {/* Compartilhar fora do app */}
@@ -743,7 +1072,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
                   const msg = buildShareText(user ?? {}, 'workout', `${workout.name} — ${workout.xp} XP`);
                   await shareExternal(msg);
                 }}>
-                <Ionicons name="share-social-outline" size={18} color={COLORS.purpleLight} />
+                <ShareNetworkIcon size={18} color={COLORS.purpleLight}  weight="regular" />
                 <Text style={styles.modalShareText}>Fora do app</Text>
               </TouchableOpacity>
             </View>
@@ -798,6 +1127,7 @@ const styles = StyleSheet.create({
   exercisesSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.md },
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
   sectionTitle: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
   addExBtnText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   noExState: { alignItems: 'center', paddingVertical: 32 },
@@ -828,22 +1158,26 @@ const styles = StyleSheet.create({
   restPickerOptActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
   restPickerText: { color: COLORS.gray, fontSize: 11, fontWeight: '700' },
   restPickerTextActive: { color: '#fff' },
+  restPickerCustomRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  restPickerCustomInput: { width: 64, backgroundColor: COLORS.bgSecondary, borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 10, paddingVertical: 5, color: COLORS.white, fontSize: 11, textAlign: 'center' },
+  restPickerCustomBtn: { backgroundColor: COLORS.purple, borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5 },
+  restPickerCustomBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
   // Set logger
   setLoggerWrap: { marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10, gap: 4 },
   setLogHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 },
   setLogHeaderText: { color: COLORS.grayDark, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
-  setColNum: { width: 44, textAlign: 'center' },
-  setColInput: { flex: 1, textAlign: 'center' },
-  setColCheck: { width: 40 },
-  setColDel: { width: 28 },
+  setColNum: { width: 44, flexShrink: 0, textAlign: 'center' },
+  setColInput: { flex: 1, minWidth: 0, textAlign: 'center' },
+  setColCheck: { width: 40, flexShrink: 0 },
+  setColDel: { width: 28, flexShrink: 0 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, borderRadius: RADIUS.sm },
   setRowDone: { backgroundColor: 'rgba(16,185,129,0.07)' },
-  setNum: { width: 44, textAlign: 'center', color: COLORS.gray, fontSize: 13, fontWeight: '700' },
-  setInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 8, paddingVertical: 7, color: COLORS.white, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  setNum: { width: 44, flexShrink: 0, textAlign: 'center', color: COLORS.gray, fontSize: 13, fontWeight: '700' },
+  setInput: { flex: 1, minWidth: 0, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 8, paddingVertical: 7, color: COLORS.white, fontSize: 14, fontWeight: '700', textAlign: 'center' },
   setInputDone: { backgroundColor: 'rgba(16,185,129,0.10)', borderColor: 'rgba(16,185,129,0.25)', color: COLORS.green },
-  setDoneBtn: { width: 40, alignItems: 'center' },
-  setDelBtn: { width: 28, alignItems: 'center' },
+  setDoneBtn: { width: 40, flexShrink: 0, alignItems: 'center' },
+  setDelBtn: { width: 28, flexShrink: 0, alignItems: 'center' },
   setActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
   addSetBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 4 },
   addSetBtnText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '600' },
@@ -862,15 +1196,21 @@ const styles = StyleSheet.create({
 
   // Rest timer bar
   restTimerBar: { position: 'absolute', left: SPACING.md, right: SPACING.md, zIndex: 10 },
-  restTimerInner: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
-  restTimerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  restTimerInner: { borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', gap: 10 },
+  restTimerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  restPauseBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(139,92,246,0.15)', alignItems: 'center', justifyContent: 'center' },
   restTimerEmoji: { fontSize: 20 },
   restTimerLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4 },
   restBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'hidden' },
   restBarFill: { height: '100%', backgroundColor: COLORS.purple, borderRadius: RADIUS.full },
   restTimerCount: { color: COLORS.white, fontSize: 20, fontWeight: '900' },
+  restTimerBottomRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  restAdjustBtn: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  restAdjustText: { color: COLORS.purpleLight, fontSize: 11, fontWeight: '700' },
   skipRestBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
   skipRestText: { color: COLORS.gray, fontSize: 12, fontWeight: '700' },
+  restEndedInner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: RADIUS.lg, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
+  restEndedText: { color: COLORS.white, fontSize: 13, fontWeight: '700', flex: 1 },
 
   // PR alert
   prAlert: { position: 'absolute', left: SPACING.md, right: SPACING.md, zIndex: 20 },
@@ -903,6 +1243,7 @@ const styles = StyleSheet.create({
   restOptActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
   restOptText: { color: COLORS.gray, fontSize: 12, fontWeight: '700' },
   restOptTextActive: { color: '#fff' },
+  restOptCustomInput: { width: 74, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.full, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 10, paddingVertical: 7, color: COLORS.white, fontSize: 12, textAlign: 'center' },
   addModalBtn: { borderRadius: RADIUS.lg, paddingVertical: 14, alignItems: 'center' },
   addModalBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 

@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TextInput,
-  FlatList, Alert, Share, ActivityIndicator,
+  FlatList, Alert, Share, ActivityIndicator, Image,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { ArrowLeftIcon, CheckCircleIcon, CheckIcon, EnvelopeSimpleIcon, FireIcon, LightningIcon, MagnifyingGlassIcon, ShareIcon, UserPlusIcon, UsersIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -119,12 +119,22 @@ export default function FriendsScreen({ navigation }) {
     const avatar = u.name?.[0]?.toUpperCase() ?? '?';
     return (
       <View style={styles.userRow}>
-        <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.avatar}>
-          <Text style={styles.avatarText}>{avatar}</Text>
-        </LinearGradient>
+        {u.avatar_url ? (
+          <Image source={{ uri: u.avatar_url }} style={styles.avatar} />
+        ) : (
+          <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.avatar}>
+            <Text style={styles.avatarText}>{avatar}</Text>
+          </LinearGradient>
+        )}
         <View style={styles.userInfo}>
           <Text style={styles.userName}>{u.name}</Text>
-          <Text style={styles.userSub}>⚡ {u.xp ?? 0} XP  •  🔥 {u.streak_count ?? 0} dias</Text>
+          <View style={styles.iconLabelRow}>
+            <LightningIcon size={11} color={COLORS.gray} weight="fill" />
+            <Text style={styles.userSub}>{u.xp ?? 0} XP</Text>
+            <Text style={styles.userSub}>  •  </Text>
+            <FireIcon size={11} color={COLORS.gray} weight="fill" />
+            <Text style={styles.userSub}>{u.streak_count ?? 0} dias</Text>
+          </View>
         </View>
         {action}
       </View>
@@ -137,7 +147,7 @@ export default function FriendsScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <ArrowLeftIcon size={22} color={COLORS.white}  weight="regular" />
         </TouchableOpacity>
         <Text style={styles.title}>Amigos</Text>
         <View style={{ width: 40 }} />
@@ -151,7 +161,7 @@ export default function FriendsScreen({ navigation }) {
             <Text style={styles.codeValue}>{user?.user_code ?? '------'}</Text>
           </View>
           <TouchableOpacity style={styles.shareCodeBtn} onPress={handleShareLink} activeOpacity={0.8}>
-            <Ionicons name="share-outline" size={18} color={COLORS.purpleLight} />
+            <ShareIcon size={18} color={COLORS.purpleLight}  weight="regular" />
             <Text style={styles.shareCodeText}>Compartilhar</Text>
           </TouchableOpacity>
         </View>
@@ -177,7 +187,7 @@ export default function FriendsScreen({ navigation }) {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>👥</Text>
+              <UsersIcon size={36} color={COLORS.gray} weight="regular" style={styles.emptyEmoji} />
               <Text style={styles.emptyTitle}>Nenhum amigo ainda</Text>
               <Text style={styles.emptySub}>Busque pelo nome ou compartilhe seu código para adicionar amigos.</Text>
             </View>
@@ -185,7 +195,7 @@ export default function FriendsScreen({ navigation }) {
           renderItem={({ item }) => (
             <UserRow u={item} action={
               <View style={styles.friendBadge}>
-                <Ionicons name="checkmark-circle" size={20} color={COLORS.green} />
+                <CheckCircleIcon size={20} color={COLORS.green}  weight="fill" />
               </View>
             } />
           )}
@@ -195,7 +205,7 @@ export default function FriendsScreen({ navigation }) {
       {tab === 'buscar' && (
         <View style={{ flex: 1 }}>
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={18} color={COLORS.gray} />
+            <MagnifyingGlassIcon size={18} color={COLORS.gray}  weight="bold" />
             <TextInput
               style={styles.searchInput}
               placeholder="Nome ou código de 6 letras..."
@@ -232,7 +242,7 @@ export default function FriendsScreen({ navigation }) {
                   ? <View style={styles.sentBadge}><Text style={styles.sentText}>Enviado</Text></View>
                   : <TouchableOpacity style={styles.addBtn} activeOpacity={0.8}
                       onPress={() => handleSendRequest(item.id, item.name)}>
-                      <Ionicons name="person-add" size={16} color={COLORS.white} />
+                      <UserPlusIcon size={16} color={COLORS.white}  weight="fill" />
                     </TouchableOpacity>
               } />
             )}
@@ -247,7 +257,7 @@ export default function FriendsScreen({ navigation }) {
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>📬</Text>
+              <EnvelopeSimpleIcon size={36} color={COLORS.gray} weight="regular" style={styles.emptyEmoji} />
               <Text style={styles.emptyTitle}>Nenhum pedido pendente</Text>
             </View>
           }
@@ -257,10 +267,10 @@ export default function FriendsScreen({ navigation }) {
               <UserRow u={u} action={
                 <View style={styles.requestBtns}>
                   <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAccept(item.id)}>
-                    <Ionicons name="checkmark" size={18} color={COLORS.white} />
+                    <CheckIcon size={18} color={COLORS.white}  weight="bold" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.declineBtn} onPress={() => handleDecline(item.id)}>
-                    <Ionicons name="close" size={18} color={COLORS.white} />
+                    <XIcon size={18} color={COLORS.white}  weight="bold" />
                   </TouchableOpacity>
                 </View>
               } />
@@ -301,6 +311,7 @@ const styles = StyleSheet.create({
   userInfo:    { flex: 1, marginLeft: 12 },
   userName:    { color: COLORS.white, fontSize: 15, fontWeight: '700' },
   userSub:     { color: COLORS.gray, fontSize: 12, marginTop: 2 },
+  iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   addBtn:      { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center' },
   friendBadge: { padding: 4 },
   sentBadge:   { backgroundColor: COLORS.border, borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
