@@ -16,6 +16,7 @@ import {
 import TouchableOpacity from '../components/TouchableOpacity';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowsDownUpIcon, BarbellIcon, CameraIcon, CheckCircleIcon, CheckIcon, ChecksIcon, CircleIcon, ClockIcon, DiamondIcon, DropIcon, FireIcon, FlagIcon, LightningIcon, MinusIcon, RocketIcon, ScanIcon, ShieldCheckeredIcon, ShieldIcon, SkullIcon, SnowflakeIcon, StarIcon, SwordIcon, TrendDownIcon, TrendUpIcon, TrophyIcon, UsersIcon, WarningIcon, XIcon } from 'phosphor-react-native';
@@ -529,6 +530,7 @@ function WaterTracker({ userId, goalLiters = 2.0, onGoalReached }) {
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, isPremium } = useUser();
+  const checkinSound = useAudioPlayer(require('../../assets/sounds/checkin-success.wav'));
   const [celebVisible, setCelebVisible] = useState(false);
   const [celebXpGain, setCelebXpGain] = useState(30);
   const [celebEvent, setCelebEvent]   = useState(null);
@@ -794,6 +796,8 @@ export default function HomeScreen({ navigation }) {
             const success = await doCheckin();
             if (success) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              checkinSound.seekTo(0);
+              checkinSound.play();
               const ev = Math.random() < FLAVOR_EVENT_CHANCE
                 ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
                 : null;
@@ -817,7 +821,7 @@ export default function HomeScreen({ navigation }) {
     } finally {
       if (!handedOff) setForegroundChecksPaused?.(false);
     }
-  }, [checkinDone, verifyModalVisible, isPremium, navigation, doCheckin, checkinScale, setForegroundChecksPaused]);
+  }, [checkinDone, verifyModalVisible, isPremium, navigation, doCheckin, checkinScale, setForegroundChecksPaused, checkinSound]);
 
   return (
     <View style={s.container}>

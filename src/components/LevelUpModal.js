@@ -3,6 +3,7 @@ import { View, Text, Modal, Animated, StyleSheet, Dimensions } from 'react-nativ
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import { TrendUpIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -14,6 +15,7 @@ const { width: SW, height: SH } = Dimensions.get('window');
 export default function LevelUpModal() {
   const { levelUpEvent, clearLevelUpEvent } = useUser();
   const visible = !!levelUpEvent;
+  const sound = useAudioPlayer(require('../../assets/sounds/level-up.wav'));
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const scale        = useRef(new Animated.Value(0.5)).current;
   const opacity       = useRef(new Animated.Value(0)).current;
@@ -26,6 +28,8 @@ export default function LevelUpModal() {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    sound.seekTo(0);
+    sound.play();
     Animated.parallel([
       Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(scale,        { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
