@@ -6,15 +6,16 @@ import * as Haptics from 'expo-haptics';
 import { useAudioPlayer } from 'expo-audio';
 import { TrendUpIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
-import { useUser } from '../context/UserContext';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
 // Comemoração de subir de nível — sem isso o usuário só descobria que subiu
 // de nível olhando o número na tela, sem nenhum feedback no momento.
-export default function LevelUpModal() {
-  const { levelUpEvent, clearLevelUpEvent } = useUser();
-  const visible = !!levelUpEvent;
+// Componente puramente apresentacional: quem decide QUANDO mostrar (e garante
+// que não apareça ao mesmo tempo que outro popup de comemoração) é o
+// CelebrationOverlay, que lê a fila unificada do UserContext.
+export default function LevelUpModal({ level, onDismiss }) {
+  const visible = level != null;
   const sound = useAudioPlayer(require('../../assets/sounds/level-up.wav'));
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const scale        = useRef(new Animated.Value(0.5)).current;
@@ -43,15 +44,15 @@ export default function LevelUpModal() {
       Animated.timing(rays, { toValue: 1, duration: 6000, useNativeDriver: true })
     ).start();
 
-    const t = setTimeout(clearLevelUpEvent, 3800);
+    const t = setTimeout(onDismiss, 3800);
     return () => clearTimeout(t);
-  }, [levelUpEvent?.id]);
+  }, [level]);
 
-  if (!levelUpEvent) return null;
+  if (level == null) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={clearLevelUpEvent}>
-      <TouchableOpacity style={StyleSheet.absoluteFill} onPress={clearLevelUpEvent} activeOpacity={1}>
+    <Modal visible={visible} transparent animationType="none" onRequestClose={onDismiss}>
+      <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onDismiss} activeOpacity={1}>
         <Animated.View style={[
           StyleSheet.absoluteFill,
           { backgroundColor: '#000', opacity: backdropAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.88] }) },
@@ -79,7 +80,7 @@ export default function LevelUpModal() {
               </Animated.View>
 
               <Text style={styles.subtitle}>✦ VOCÊ SUBIU DE NÍVEL ✦</Text>
-              <Text style={styles.level}>Nível {levelUpEvent.level}</Text>
+              <Text style={styles.level}>Nível {level}</Text>
               <Text style={styles.desc}>Continue treinando para chegar ainda mais longe!</Text>
 
               <Text style={styles.tap}>Toque para continuar</Text>

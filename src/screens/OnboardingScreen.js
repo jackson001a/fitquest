@@ -111,11 +111,25 @@ const VISIBLE = 5;
 
 function DrumPicker({ data, unit, selectedIndex, onSelect }) {
   const scrollY = useRef(new Animated.Value(selectedIndex * ITEM_H)).current;
-  
+  const lastTickIdxRef = useRef(selectedIndex);
+
   const handleScroll = React.useMemo(() => Animated.event(
     [{ nativeEvent: { contentOffset: { y: scrollY } } }],
     { useNativeDriver: true }
   ), [scrollY]);
+
+  // Vibração sutil a cada item que passa pelo centro — dá a sensação física
+  // de "catraca" de um seletor giratório de verdade.
+  useEffect(() => {
+    const id = scrollY.addListener(({ value }) => {
+      const idx = Math.round(value / ITEM_H);
+      if (idx !== lastTickIdxRef.current && idx >= 0 && idx < data.length) {
+        lastTickIdxRef.current = idx;
+        Haptics.selectionAsync();
+      }
+    });
+    return () => scrollY.removeListener(id);
+  }, [scrollY, data.length]);
 
   const handleEnd = useCallback((e) => {
     const raw = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
@@ -198,6 +212,7 @@ function InteractiveScale({ min, max, initialValue, currentWeight, onSelect }) {
     if (v !== valRef.current) {
       valRef.current = v;
       setDisplayVal(v);
+      Haptics.selectionAsync();
     }
   }, [min, count]);
 
@@ -502,8 +517,26 @@ export default function OnboardingScreen({ navigation }) {
     loadingProg.setValue(0);
     setLoadingMsgIdx(0);
     setLoadingPct(0);
+    // Vibração vai ficando mais forte conforme o plano "carrega" — começa
+    // bem leve e sobe de intensidade a cada 10%, terminando com uma vibração
+    // de sucesso quando chega em 100%.
+    let lastBucket = -1;
     const id = loadingProg.addListener(({ value }) => {
-      setLoadingPct(Math.round(value * 100));
+      const pct = Math.round(value * 100);
+      setLoadingPct(pct);
+      const bucket = Math.floor(pct / 10);
+      if (bucket !== lastBucket) {
+        lastBucket = bucket;
+        if (pct >= 100) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else if (pct >= 70) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+        } else if (pct >= 35) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        } else {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }
     });
     Animated.timing(loadingProg, { toValue: 1, duration: 5000, useNativeDriver: false }).start();
     const t = setTimeout(goNext, 5500);

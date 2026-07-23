@@ -84,7 +84,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     muscles:   Array.isArray(rawWorkout.muscles)   ? rawWorkout.muscles   : [],
   };
   const { isUserCreated, isHistory } = route.params;
-  const { user, completeWorkout, addXP, applyPersonalRecord } = useUser();
+  const { user, completeWorkout, addXP, applyPersonalRecord, setCelebrationsPaused } = useUser();
 
   // Sincroniza cache local com PRs reais do usuário (sem valores padrão)
   useEffect(() => {
@@ -305,6 +305,9 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     setRestJustEnded(false);
     setCompleted(true);
     setShowXPModal(true);
+    // Segura a fila de comemorações (conquista/level up) enquanto o resumo do
+    // treino estiver na tela — evita dois popups competindo pelo mesmo instante.
+    setCelebrationsPaused?.(true);
     const loggedExercises = allExercises.map((ex, i) => ({
       ...ex,
       setLogs: (logs[i] || []).map(s => ({ kg: s.kg, reps: s.reps })),
@@ -337,7 +340,11 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     Animated.parallel([
       Animated.timing(xpModalScale,   { toValue: 0, duration: 200, useNativeDriver: true }),
       Animated.timing(xpModalOpacity, { toValue: 0, duration: 200, useNativeDriver: true }),
-    ]).start(() => { setShowXPModal(false); navigation.goBack(); });
+    ]).start(() => {
+      setShowXPModal(false);
+      setCelebrationsPaused?.(false); // libera conquista/level up pendentes, se houver
+      navigation.goBack();
+    });
   };
 
   const updateSet = (exIdx, setIdx, field, value) => {

@@ -529,9 +529,13 @@ function WaterTracker({ userId, goalLiters = 2.0, onGoalReached }) {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, isPremium } = useUser();
+  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, setCelebrationsPaused, isPremium } = useUser();
   const checkinSound = useAudioPlayer(require('../../assets/sounds/checkin-success.wav'));
   const [celebVisible, setCelebVisible] = useState(false);
+  // Segura a fila de comemorações (conquista/level up) enquanto o popup de
+  // check-in/chefe derrotado estiver na tela — evita dois popups disputando
+  // o mesmo instante.
+  useEffect(() => { setCelebrationsPaused?.(celebVisible); }, [celebVisible]);
   const [celebXpGain, setCelebXpGain] = useState(30);
   const [celebEvent, setCelebEvent]   = useState(null);
   const bonusGivenRef    = useRef(false);

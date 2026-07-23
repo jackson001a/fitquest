@@ -24,7 +24,7 @@ import AuthChoiceScreen        from '../screens/AuthChoiceScreen';
 import LoginScreen             from '../screens/LoginScreen';
 import PaywallScreen           from '../screens/PaywallScreen';
 import XPToast                 from '../components/XPToast';
-import LevelUpModal             from '../components/LevelUpModal';
+import CelebrationOverlay       from '../components/CelebrationOverlay';
 
 const Tab         = createBottomTabNavigator();
 const HomeStack   = createStackNavigator();
@@ -132,7 +132,7 @@ export default function AppNavigator() {
         )}
       </RootStack.Navigator>
       <XPToast />
-      <LevelUpModal />
+      <CelebrationOverlay />
     </View>
   );
 }

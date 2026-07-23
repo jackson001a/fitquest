@@ -125,14 +125,28 @@ export function UserProvider({ children }) {
   }, []);
   const clearXpToast = useCallback(() => setXpToast(null), []);
 
-  // Comemoração de subir de nível — centralizada aqui (em vez de em cada ação
-  // que dá XP) porque o nível é sempre recalculado do zero a partir do XP em
-  // normalizeUser: qualquer ganho de XP que cruze um limiar já muda `user.level`,
-  // então basta observar essa mudança para pegar toda fonte de XP de uma vez
-  // (check-in, treino, desafio, bônus de conquista etc.).
-  const [levelUpEvent, setLevelUpEvent] = useState(null);
+  // ─── Fila unificada de comemorações (conquista desbloqueada / subiu de nível) ──
+  // Várias coisas podem "merecer" um popup no mesmo instante (treino concluído
+  // gera XP, que desbloqueia conquista, que sobe de nível — tudo na mesma ação).
+  // Mostrar todos os popups ao mesmo tempo como Modals separados fazia um
+  // "engolir" o outro (só o som tocava, nada aparecia). A fila garante que só
+  // um Modal fica visível por vez, um atrás do outro. Os modais "locais" da
+  // própria tela (resumo do treino, comemoração de check-in) têm prioridade —
+  // a tela chama `setCelebrationsPaused(true)` enquanto o modal dela estiver
+  // aberto, e a fila só começa a desfilar depois que ela libera.
+  const [celebrationQueue, setCelebrationQueue] = useState([]);
+  const [celebrationsPaused, setCelebrationsPausedState] = useState(false);
   const prevLevelRef = useRef(null);
-  const clearLevelUpEvent = useCallback(() => setLevelUpEvent(null), []);
+
+  const enqueueCelebration = useCallback((item) => {
+    setCelebrationQueue(prev => [...prev, { id: `${Date.now()}_${Math.random().toString(36).slice(2)}`, ...item }]);
+  }, []);
+  const advanceCelebration = useCallback(() => {
+    setCelebrationQueue(prev => prev.slice(1));
+  }, []);
+  const setCelebrationsPaused = useCallback((paused) => {
+    setCelebrationsPausedState(paused);
+  }, []);
 
   // checkAndUnlockAchievements/unlockManualAchievement gravam o bônus de XP
   // direto no Supabase, mas não atualizavam o estado local — o app só refletia
@@ -162,7 +176,7 @@ export function UserProvider({ children }) {
   useEffect(() => {
     if (user == null) { prevLevelRef.current = null; return; }
     if (prevLevelRef.current != null && user.level > prevLevelRef.current) {
-      setLevelUpEvent({ id: Date.now(), level: user.level });
+      enqueueCelebration({ kind: 'levelup', level: user.level });
     }
     prevLevelRef.current = user.level;
   }, [user?.level]);
@@ -393,14 +407,20 @@ export function UserProvider({ children }) {
       await registerChallengeCheckin(current.id);
     } catch (e) { console.warn('[doCheckin] registro de desafio social falhou:', e.message); }
 
-    // Salva atividade + checa conquistas
+    // Salva atividade do check-in (separado da checagem de conquistas abaixo —
+    // se essa gravação falhar, não pode derrubar a checagem de conquistas junto)
     try {
       await saveActivity(current.id, 'checkin', 'Check-in na academia ✅', '✅', result.xpGain);
+    } catch (e) { console.warn('[doCheckin] salvar atividade falhou:', e.message); }
+
+    // Checa conquistas — em try/catch próprio para não depender do saveActivity acima
+    try {
       const unlocked = await checkAndUnlockAchievements(current.id, updated);
       applyAchievementBonus(updated, unlocked);
       if (unlocked.length > 0) {
         setNewAchievements(prev => [...prev, ...unlocked]);
         for (const ach of unlocked) {
+          enqueueCelebration({ kind: 'achievement', achievement: ach });
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
       }
@@ -431,6 +451,13 @@ export function UserProvider({ children }) {
     setUser(optimistic); // ← UI atualiza imediatamente
 
     // ── Persiste em background (sem rollback — estado otimista é mantido) ───
+    // total_boss_kills é calculado uma única vez aqui e usado tanto na gravação
+    // quanto no objeto local — antes era calculado só dentro do updateUser() e
+    // nunca entrava no `updated` local, então o Caçador (que depende desse
+    // valor) só via o número certo depois de reabrir o app.
+    const newTotalBossKills = newBossKills >= 5
+      ? (current.total_boss_kills ?? 0) + 1
+      : (current.total_boss_kills ?? 0);
     try {
       const fields = await processWorkout(current.id, current, workout.xp);
       await saveWorkoutCompletion(current.id, workout, durationSeconds);
@@ -442,29 +469,39 @@ export function UserProvider({ children }) {
       const gemsFields = bonusGems > 0 ? { gems: (current.gems ?? 0) + bonusGems } : {};
       await updateUser(current.id, {
         boss_kills_this_week: newBossKills,
-        total_boss_kills: newBossKills >= 5
-          ? (current.total_boss_kills ?? 0) + 1
-          : (current.total_boss_kills ?? 0),
+        total_boss_kills: newTotalBossKills,
         ...gemsFields,
       });
-      const updated = normalizeUser({ ...current, ...fields, ...gemsFields, boss_kills_this_week: newBossKills });
+      const updated = normalizeUser({ ...current, ...fields, ...gemsFields, boss_kills_this_week: newBossKills, total_boss_kills: newTotalBossKills });
       userRef.current = updated;
       setUser(updated);
     } catch (e) {
       console.warn('[completeWorkout] Falha de rede — XP mantido localmente:', e.message);
       // Não faz rollback: usuário completou o treino e mantém o XP
-      // Na próxima abertura do app o servidor sincroniza
+      // Na próxima abertura do app o servidor sincroniza — mas o boss kill
+      // local ainda precisa refletir aqui, senão o Caçador nunca dispara hoje
+      if (userRef.current) {
+        const withBossKills = normalizeUser({ ...userRef.current, total_boss_kills: newTotalBossKills });
+        userRef.current = withBossKills;
+        setUser(withBossKills);
+      }
     }
 
-    // Salva atividade + checa conquistas
+    // Salva atividade do treino (separado da checagem de conquistas abaixo —
+    // se essa gravação falhar, não pode derrubar a checagem de conquistas junto,
+    // que antes ficava presa no mesmo try/catch e nunca rodava nesse caso)
+    try {
+      await saveActivity(current.id, 'workout', `Completou ${workout.name}`, workout.emoji, workout.xp);
+    } catch (e) { console.warn('[completeWorkout] salvar atividade falhou:', e.message); }
+
     try {
       let latestUser = userRef.current ?? optimistic;
-      await saveActivity(current.id, 'workout', `Completou ${workout.name}`, workout.emoji, workout.xp);
       const unlocked = await checkAndUnlockAchievements(current.id, latestUser);
       latestUser = applyAchievementBonus(latestUser, unlocked);
       if (unlocked.length > 0) {
         setNewAchievements(prev => [...prev, ...unlocked]);
         for (const ach of unlocked) {
+          enqueueCelebration({ kind: 'achievement', achievement: ach });
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
       }
@@ -477,6 +514,7 @@ export function UserProvider({ children }) {
         if (ach) {
           latestUser = applyXPBonus(latestUser, ach.xp_reward ?? 0);
           setNewAchievements(prev => [...prev, ach]);
+          enqueueCelebration({ kind: 'achievement', achievement: ach });
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
       }
@@ -489,6 +527,7 @@ export function UserProvider({ children }) {
         if (cacador) {
           latestUser = applyXPBonus(latestUser, cacador.xp_reward ?? 0);
           setNewAchievements(prev => [...prev, cacador]);
+          enqueueCelebration({ kind: 'achievement', achievement: cacador });
           await saveActivity(current.id, 'achievement', `Conquistou "${cacador.name}"! ${cacador.emoji}`, cacador.emoji, cacador.xp_reward ?? 0);
         }
       }
@@ -529,6 +568,7 @@ export function UserProvider({ children }) {
       if (unlocked.length > 0) {
         setNewAchievements(prev => [...prev, ...unlocked]);
         for (const ach of unlocked) {
+          enqueueCelebration({ kind: 'achievement', achievement: ach });
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
       }
@@ -591,6 +631,7 @@ export function UserProvider({ children }) {
       if (unlocked.length > 0) {
         setNewAchievements(prev => [...prev, ...unlocked]);
         for (const ach of unlocked) {
+          enqueueCelebration({ kind: 'achievement', achievement: ach });
           await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
         }
       }
@@ -793,8 +834,10 @@ export function UserProvider({ children }) {
       activatePremium,
       xpToast,
       clearXpToast,
-      levelUpEvent,
-      clearLevelUpEvent,
+      celebrationQueue,
+      advanceCelebration,
+      celebrationsPaused,
+      setCelebrationsPaused,
     }}>
       {children}
     </UserContext.Provider>
