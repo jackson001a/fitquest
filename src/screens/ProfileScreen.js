@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated, Dimensions, Modal, TextInput, Image, Alert,
+  View, Text, ScrollView, StyleSheet, Animated, Dimensions, Modal, TextInput, Image, Alert,
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';

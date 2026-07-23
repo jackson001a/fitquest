@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Linking } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Linking } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { ArrowLeftIcon, CaretDownIcon, EnvelopeSimpleIcon, LifebuoyIcon, QuestionIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';

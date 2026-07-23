@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput,
+  View, Text, ScrollView, StyleSheet, TextInput,
   Animated, Dimensions, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -4,7 +4,6 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   Animated,
   Dimensions,
@@ -14,6 +13,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import TouchableOpacity from '../components/TouchableOpacity';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
