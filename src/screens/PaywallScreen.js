@@ -298,7 +298,7 @@ export default function PaywallScreen({ navigation }) {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
         <TouchableOpacity onPress={leavePaywall} style={s.hiddenClose} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
-          <XIcon size={14} color="rgba(255,255,255,0.25)" weight="bold" />
+          <XIcon size={20} color="rgba(255,255,255,0.55)" weight="bold" />
         </TouchableOpacity>
 
         <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
@@ -346,7 +346,7 @@ export default function PaywallScreen({ navigation }) {
       >
         {exitStage === 'loading'
           ? <ActivityIndicator size="small" color="rgba(255,255,255,0.25)" />
-          : <XIcon size={14} color="rgba(255,255,255,0.25)" weight="bold" />}
+          : <XIcon size={20} color="rgba(255,255,255,0.55)" weight="bold" />}
       </TouchableOpacity>
 
       <ScrollView style={s.body} contentContainerStyle={s.bodyPad} showsVerticalScrollIndicator={false}>
@@ -447,8 +447,9 @@ const s = StyleSheet.create({
   bodyPad: { paddingHorizontal: SPACING.lg, paddingBottom: 16 },
 
   hiddenClose: {
-    position: 'absolute', top: 14, right: 14, zIndex: 10,
-    width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
+    position: 'absolute', top: 24, right: 16, zIndex: 10,
+    width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
 
   exitOfferCard: {
