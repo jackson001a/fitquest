@@ -29,7 +29,8 @@
       },
       "entitlements": {
         "aps-environment": "development"
-      }
+      },
+      "appleTeamId": "F832746AW8"
     },
     "android": {
       "adaptiveIcon": {
