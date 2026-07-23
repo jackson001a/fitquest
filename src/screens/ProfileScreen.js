@@ -58,7 +58,7 @@ function StatBox({ value, label, icon: Icon, color }) {
 // ─── MAIN ────────────────────────────────────────────────────────────────────
 export default function ProfileScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, updateCurrentWeight, avatarPhoto, updateAvatarPhoto, notificationsEnabled, enableNotifications, doSignOut, isPremium } = useUser();
+  const { user, updateCurrentWeight, avatarPhoto, updateAvatarPhoto, notificationsEnabled, enableNotifications, doSignOut, isPremium, newAchievements } = useUser();
   const headerAnim = useRef(new Animated.Value(0)).current;
 
   const [viewYear,      setViewYear]      = useState(TODAY.getFullYear());
@@ -75,6 +75,25 @@ export default function ProfileScreen({ navigation }) {
   useEffect(() => {
     Animated.timing(headerAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();
   }, []);
+
+  // Reflete na hora as conquistas desbloqueadas nesta sessão nos selos do
+  // perfil — sem isso o selo só aparecia depois de sair e voltar pra aba.
+  useEffect(() => {
+    if (!newAchievements?.length) return;
+    setAchievements(prev => {
+      const byId = new Map(prev.map(a => [a.id, a]));
+      newAchievements.forEach(na => {
+        const existing = byId.get(na.id);
+        byId.set(na.id, {
+          ...existing,
+          ...na,
+          unlocked:    true,
+          unlocked_at: existing?.unlocked_at ?? new Date().toISOString(),
+        });
+      });
+      return Array.from(byId.values());
+    });
+  }, [newAchievements]);
 
   const pickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();

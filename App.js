@@ -1,17 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
+import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Linking from 'expo-linking';
 import AppNavigator from './src/navigation/AppNavigator';
+import { navigationRef } from './src/navigation/navigationRef';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { registerForPushNotifications, addNotificationResponseListener } from './src/services/notificationService';
 import AchievementUnlockModal from './src/components/AchievementUnlockModal';
 import { parseDeepLink } from './src/services/socialService';
-
-export const navigationRef = createNavigationContainerRef();
 
 // ─── Lida com deep links (capifit://...) ─────────────────────────────────────
 function handleDeepLink(url) {

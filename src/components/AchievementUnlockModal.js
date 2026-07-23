@@ -3,8 +3,10 @@ import { View, Text, Modal, Animated, StyleSheet, Dimensions } from 'react-nativ
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import { LightningIcon } from 'phosphor-react-native';
+import { useAudioPlayer } from 'expo-audio';
+import { LightningIcon, EyeIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
+import { navigationRef } from '../navigation/navigationRef';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
@@ -17,6 +19,7 @@ const CATEGORY_COLORS = {
 
 export default function AchievementUnlockModal({ achievement, onDismiss }) {
   const visible = !!achievement;
+  const sound = useAudioPlayer(require('../../assets/sounds/achievement-unlock.wav'));
   const backdropAnim = useRef(new Animated.Value(0)).current;
   const cardScale    = useRef(new Animated.Value(0.5)).current;
   const cardOpacity  = useRef(new Animated.Value(0)).current;
@@ -40,6 +43,8 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    sound.seekTo(0);
+    sound.play();
     Animated.parallel([
       Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(cardScale,    { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
@@ -69,6 +74,16 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
     const t = setTimeout(onDismiss, 4000);
     return () => clearTimeout(t);
   }, [visible]);
+
+  const handleViewAchievement = () => {
+    onDismiss();
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('Main', {
+        screen: 'Achievements',
+        params: { highlightId: achievement?.id },
+      });
+    }
+  };
 
   if (!achievement) return null;
 
@@ -128,7 +143,12 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
                 </View>
               )}
 
-              <Text style={styles.tap}>Toque para continuar</Text>
+              <TouchableOpacity onPress={handleViewAchievement} activeOpacity={0.85} style={[styles.viewBtn, { backgroundColor: color }]}>
+                <EyeIcon size={16} color="#fff" weight="bold" />
+                <Text style={styles.viewBtnText}>Ver conquista</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.tap}>Toque fora para fechar</Text>
             </LinearGradient>
           </Animated.View>
         </View>
@@ -150,5 +170,7 @@ const styles = StyleSheet.create({
   desc:     { fontSize: 15, color: COLORS.gray, textAlign: 'center', lineHeight: 21, marginBottom: 20 },
   xpRow:    { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 99, borderWidth: 1, marginBottom: 20 },
   xpText:   { fontSize: 15, fontWeight: '800' },
+  viewBtn:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 13, borderRadius: 99, marginBottom: 14 },
+  viewBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   tap:      { fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: '500' },
 });

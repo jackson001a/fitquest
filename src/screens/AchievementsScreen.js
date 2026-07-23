@@ -49,9 +49,10 @@ function formatRelativeDate(iso) {
 }
 
 // ─── ACHIEVEMENT CARD ─────────────────────────────────────────────────────────
-function AchievementCard({ a, index, onInfo }) {
+function AchievementCard({ a, index, onInfo, highlighted }) {
   const scale    = useRef(new Animated.Value(0)).current;
   const glowAnim = useRef(new Animated.Value(0.4)).current;
+  const highlightAnim = useRef(new Animated.Value(0)).current;
   // Conquistas manuais ("tudo ou nada") não têm progresso numérico — ou já
   // desbloqueou, ou não.
   const hasProgress = a.condition_type !== 'manual' && a.progress != null;
@@ -67,6 +68,18 @@ function AchievementCard({ a, index, onInfo }) {
       Animated.timing(glowAnim, { toValue: 0.4, duration: 1400, useNativeDriver: true }),
     ])).start();
   }, [a.unlocked]);
+
+  // Pisca a borda dourada quando o usuário chega aqui vindo do "Ver conquista" do modal
+  useEffect(() => {
+    if (!highlighted) { highlightAnim.setValue(0); return; }
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(highlightAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(highlightAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+      ]),
+      { iterations: 5 }
+    ).start();
+  }, [highlighted]);
 
   const onPress = () => {
     Animated.sequence([
@@ -92,6 +105,14 @@ function AchievementCard({ a, index, onInfo }) {
             <Animated.View pointerEvents="none"
               style={[StyleSheet.absoluteFill, {
                 borderRadius: RADIUS.xl, backgroundColor: a.color + '10', opacity: glowAnim,
+              }]} />
+          )}
+
+          {highlighted && (
+            <Animated.View pointerEvents="none"
+              style={[StyleSheet.absoluteFill, {
+                borderRadius: RADIUS.xl, borderWidth: 3, borderColor: COLORS.gold,
+                opacity: highlightAnim,
               }]} />
           )}
 
@@ -186,13 +207,16 @@ function NextCard({ a, onInfo }) {
 }
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
-export default function AchievementsScreen() {
+export default function AchievementsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
+  const { user, newAchievements } = useUser();
   const [activeCat,    setActiveCat]    = useState('todos');
+  const [viewMode,     setViewMode]     = useState('locked'); // 'locked' | 'unlocked'
   const [achievements, setAchievements] = useState([]);
   const [infoFor,      setInfoFor]      = useState(null);
   const [headerInfo,   setHeaderInfo]   = useState(false);
+  const [highlightId,  setHighlightId]  = useState(null);
+  const scrollRef  = useRef(null);
   const fireScale  = useRef(new Animated.Value(1)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const headerY    = useRef(new Animated.Value(-20)).current;
@@ -213,6 +237,43 @@ export default function AchievementsScreen() {
       })));
     });
   }, [user?.id, user?.streak, user?.totalWorkouts, user?.xp, user?.todayXP, user?.commitment, user?.weekWorkouts, user?.totalChallengesCompleted, user?.totalBossKills]);
+
+  // Reflete na hora conquistas desbloqueadas nesta sessão — sem isso a lista só
+  // atualizava depois de um refetch (troca de aba, reabrir o app), então o selo
+  // não aparecia "em tempo real" assim que a conquista era desbloqueada.
+  useEffect(() => {
+    if (!newAchievements?.length) return;
+    setAchievements(prev => {
+      const byId = new Map(prev.map(a => [a.id, a]));
+      newAchievements.forEach(na => {
+        const existing = byId.get(na.id);
+        byId.set(na.id, {
+          ...existing,
+          ...na,
+          xpReward:    na.xp_reward ?? existing?.xpReward ?? 0,
+          total:       na.condition_value ?? existing?.total ?? 1,
+          unlocked:    true,
+          unlocked_at: existing?.unlocked_at ?? new Date().toISOString(),
+          progress:    na.condition_value ?? existing?.progress ?? 1,
+        });
+      });
+      return Array.from(byId.values());
+    });
+  }, [newAchievements]);
+
+  // Chegou aqui pelo botão "Ver conquista" do modal de desbloqueio — troca pra
+  // aba de desbloqueadas, volta pro topo e pisca a borda da conquista certa.
+  useEffect(() => {
+    const id = route?.params?.highlightId;
+    if (!id) return;
+    setViewMode('unlocked');
+    setActiveCat('todos');
+    setHighlightId(id);
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
+    navigation?.setParams({ highlightId: undefined });
+    const t = setTimeout(() => setHighlightId(null), 5000);
+    return () => clearTimeout(t);
+  }, [route?.params?.highlightId]);
 
   useEffect(() => {
     Animated.parallel([
@@ -245,15 +306,16 @@ export default function AchievementsScreen() {
     ? achievements
     : achievements.filter(a => a.category === activeCat);
 
-  // Conquistas já desbloqueadas viram selo no Perfil — aqui só mostramos o que
-  // ainda falta, para não repetir a mesma informação em dois lugares.
-  // As que já aparecem em "Quase lá" também somem da grade, pra não duplicar.
+  // As que já aparecem em "Quase lá" somem da grade de bloqueadas, pra não duplicar.
   const nextTargetIds = new Set(nextTargets.map(a => a.id));
   const locked = filtered.filter(a => !a.unlocked && !nextTargetIds.has(a.id));
+  const unlocked = filtered
+    .filter(a => a.unlocked)
+    .sort((a, b) => new Date(b.unlocked_at ?? 0) - new Date(a.unlocked_at ?? 0));
 
   return (
     <View style={s.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+      <ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
 
         {/* HEADER */}
         <LinearGradient
@@ -367,17 +429,33 @@ export default function AchievementsScreen() {
             </View>
           )}
 
-          {/* POR DESTRAVAR */}
+          {/* GRADE — bloqueadas / desbloqueadas */}
           <View style={s.section}>
-            <View style={s.sectionHeader}>
-              <View style={s.iconLabelRow}>
-                <MedalIcon size={16} color={COLORS.gold} weight="fill" />
-                <Text style={s.sectionTitle}>Por Destravar</Text>
-              </View>
-              <View style={s.countBadge}>
-                <Text style={s.countBadgeText}>{locked.length}</Text>
-              </View>
+            <View style={s.modeSwitch}>
+              <TouchableOpacity
+                style={[s.modeBtn, viewMode === 'locked' && s.modeBtnActive]}
+                onPress={() => setViewMode('locked')}
+                activeOpacity={0.8}
+              >
+                <MedalIcon size={14} color={viewMode === 'locked' ? '#fff' : COLORS.gray} weight={viewMode === 'locked' ? 'fill' : 'regular'} />
+                <Text style={[s.modeBtnText, viewMode === 'locked' && s.modeBtnTextActive]}>Por Destravar</Text>
+                <View style={[s.countBadge, viewMode !== 'locked' && { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                  <Text style={s.countBadgeText}>{locked.length}</Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modeBtn, viewMode === 'unlocked' && s.modeBtnActive]}
+                onPress={() => setViewMode('unlocked')}
+                activeOpacity={0.8}
+              >
+                <TrophyIcon size={14} color={viewMode === 'unlocked' ? '#fff' : COLORS.gray} weight={viewMode === 'unlocked' ? 'fill' : 'regular'} />
+                <Text style={[s.modeBtnText, viewMode === 'unlocked' && s.modeBtnTextActive]}>Desbloqueadas</Text>
+                <View style={[s.countBadge, viewMode !== 'unlocked' && { backgroundColor: 'rgba(255,255,255,0.1)' }]}>
+                  <Text style={s.countBadgeText}>{unlockedCount}</Text>
+                </View>
+              </TouchableOpacity>
             </View>
+
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabScroll}>
               {CATEGORIES.map(cat => (
                 <TouchableOpacity
@@ -393,20 +471,40 @@ export default function AchievementsScreen() {
             </ScrollView>
           </View>
 
-          {/* Bloqueadas — o que já foi desbloqueado vira selo no Perfil, não repete aqui */}
-          {locked.length > 0 && (
-            <View style={s.gridSection}>
-              <View style={s.grid}>
-                {locked.map((a, i) => <AchievementCard key={a.id} a={a} index={i} onInfo={setInfoFor} />)}
-              </View>
-            </View>
-          )}
-
-          {locked.length === 0 && nextTargets.filter(a => activeCat === 'todos' || a.category === activeCat).length === 0 && (
-            <View style={s.empty}>
-              <TrophyIcon size={40} color={COLORS.gold} weight="fill" />
-              <Text style={s.emptyText}>Você já desbloqueou tudo nesta categoria!</Text>
-            </View>
+          {viewMode === 'locked' ? (
+            <>
+              {locked.length > 0 && (
+                <View style={s.gridSection}>
+                  <View style={s.grid}>
+                    {locked.map((a, i) => <AchievementCard key={a.id} a={a} index={i} onInfo={setInfoFor} />)}
+                  </View>
+                </View>
+              )}
+              {locked.length === 0 && nextTargets.filter(a => activeCat === 'todos' || a.category === activeCat).length === 0 && (
+                <View style={s.empty}>
+                  <TrophyIcon size={40} color={COLORS.gold} weight="fill" />
+                  <Text style={s.emptyText}>Você já desbloqueou tudo nesta categoria!</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {unlocked.length > 0 && (
+                <View style={s.gridSection}>
+                  <View style={s.grid}>
+                    {unlocked.map((a, i) => (
+                      <AchievementCard key={a.id} a={a} index={i} onInfo={setInfoFor} highlighted={a.id === highlightId} />
+                    ))}
+                  </View>
+                </View>
+              )}
+              {unlocked.length === 0 && (
+                <View style={s.empty}>
+                  <MedalIcon size={40} color={COLORS.gray} weight="regular" />
+                  <Text style={s.emptyText}>Nenhuma conquista desbloqueada nesta categoria ainda.</Text>
+                </View>
+              )}
+            </>
           )}
 
         </Animated.View>
@@ -500,8 +598,15 @@ const s = StyleSheet.create({
   sectionSub: { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
   tierBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   tierBadgeText: { fontSize: 12, fontWeight: '800' },
-  countBadge: { backgroundColor: COLORS.purple, borderRadius: RADIUS.full, minWidth: 28, height: 28, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  countBadgeText: { color: '#fff', fontSize: 13, fontWeight: '900' },
+  countBadge: { backgroundColor: COLORS.purple, borderRadius: RADIUS.full, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  countBadgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+
+  // Mode switch (Por Destravar / Desbloqueadas)
+  modeSwitch: { flexDirection: 'row', gap: 8, marginBottom: SPACING.sm },
+  modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: RADIUS.lg, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  modeBtnActive: { backgroundColor: COLORS.card, borderColor: COLORS.purple },
+  modeBtnText: { color: COLORS.gray, fontSize: 12.5, fontWeight: '700' },
+  modeBtnTextActive: { color: '#fff' },
 
   // Flame
   flameCard: { backgroundColor: COLORS.card, borderRadius: RADIUS.xl, borderWidth: 1, borderColor: COLORS.border, paddingTop: SPACING.md, paddingBottom: 14, gap: 14, overflow: 'hidden' },
