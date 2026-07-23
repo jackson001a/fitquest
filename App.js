@@ -9,7 +9,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
 import { UserProvider, useUser } from './src/context/UserContext';
 import { registerForPushNotifications, addNotificationResponseListener } from './src/services/notificationService';
-import AchievementUnlockModal from './src/components/AchievementUnlockModal';
+import * as OneSignalService from './src/services/oneSignalService';
 import { parseDeepLink } from './src/services/socialService';
 
 // ─── Lida com deep links (capifit://...) ─────────────────────────────────────
@@ -32,13 +32,36 @@ function handleDeepLink(url) {
 
 // ─── Componente interno que inicializa notificações e deep links ──────────────
 function AppInit() {
-  const { user, alerts, clearAlerts, newAchievements, dismissAchievement } = useUser();
+  const { user, alerts, clearAlerts } = useUser();
 
   // Push token
   useEffect(() => {
     if (!user?.id) return;
     registerForPushNotifications(user.id).catch(() => {});
   }, [user?.id]);
+
+  // OneSignal — identidade do usuário (login/logout) segue o mesmo ciclo do
+  // usuário do Supabase, pra segmentar/enviar push pro usuário certo
+  useEffect(() => {
+    if (user?.id) OneSignalService.login(user.id);
+    else OneSignalService.logout();
+  }, [user?.id]);
+
+  // OneSignal — inicialização + diálogo de verificação da integração (mostra
+  // só quando o dispositivo recebe um subscription ID real do servidor; a
+  // permissão de notificação só é pedida se o usuário tocar em "Got it")
+  useEffect(() => {
+    OneSignalService.initialize();
+    const unsubscribe = OneSignalService.setupPushSubscriptionVerification(() => {
+      Alert.alert(
+        'Your OneSignal SDK integration is complete!',
+        'You can now send Push Notifications & In-App Messages through OneSignal. Tap below to enable push notifications.',
+        [{ text: 'Got it', onPress: () => OneSignalService.requestPermission() }],
+        { cancelable: false }
+      );
+    });
+    return unsubscribe;
+  }, []);
 
   // Alertas de comprometimento (não streak_risk — vai inline no card)
   useEffect(() => {
@@ -69,12 +92,10 @@ function AppInit() {
     return unsub;
   }, []);
 
-  return (
-    <AchievementUnlockModal
-      achievement={newAchievements[0] ?? null}
-      onDismiss={dismissAchievement}
-    />
-  );
+  // O popup de conquista desbloqueada é renderizado pelo CelebrationOverlay
+  // (montado no AppNavigator), que orquestra ele junto com o de level up numa
+  // fila única — não duplicar o render aqui.
+  return null;
 }
 
 // ─── App principal ────────────────────────────────────────────────────────────

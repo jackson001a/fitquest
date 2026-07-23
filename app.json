@@ -24,7 +24,11 @@
         ],
         "NSCameraUsageDescription": "O CapiFit precisa da câmera para verificar sua presença na academia.",
         "NSPhotoLibraryUsageDescription": "Para salvar fotos do seu progresso.",
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
+      },
+      "entitlements": {
+        "aps-environment": "development"
       }
     },
     "android": {
@@ -56,6 +60,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "onesignal-expo-plugin",
+        {
+          "mode": "development"
+        }
+      ],
       "expo-asset",
       "expo-font",
       [
