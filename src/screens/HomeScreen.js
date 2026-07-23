@@ -15,6 +15,7 @@ import {
   Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as Haptics from 'expo-haptics';
 import Svg, { Circle } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowsDownUpIcon, BarbellIcon, CameraIcon, CheckCircleIcon, CheckIcon, ChecksIcon, CircleIcon, ClockIcon, DiamondIcon, DropIcon, FireIcon, FlagIcon, LightningIcon, MinusIcon, RocketIcon, ScanIcon, ShieldCheckeredIcon, ShieldIcon, SkullIcon, SnowflakeIcon, StarIcon, SwordIcon, TrendDownIcon, TrendUpIcon, TrophyIcon, UsersIcon, WarningIcon, XIcon } from 'phosphor-react-native';
@@ -792,6 +793,7 @@ export default function HomeScreen({ navigation }) {
           try {
             const success = await doCheckin();
             if (success) {
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               const ev = Math.random() < FLAVOR_EVENT_CHANCE
                 ? BOOST_EVENTS[Math.floor(Math.random() * BOOST_EVENTS.length)]
                 : null;

@@ -4,6 +4,7 @@ import {
   Animated, TextInput, Dimensions, KeyboardAvoidingView,
   Platform, FlatList, Image
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -407,6 +408,7 @@ export default function OnboardingScreen({ navigation }) {
 
   // ── Transition ──
   const transition = useCallback((dir, fn) => {
+    if (dir === 1) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 0, duration: 150, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: dir * -20, duration: 200, useNativeDriver: true }),

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Modal, TouchableOpacity, Animated, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
 import { COLORS } from '../theme';
 
 const { width: SW, height: SH } = Dimensions.get('window');
@@ -36,6 +37,7 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
       return;
     }
 
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     Animated.parallel([
       Animated.timing(backdropAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.spring(cardScale,    { toValue: 1, friction: 5, tension: 100, useNativeDriver: true }),
