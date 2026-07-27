@@ -22,6 +22,7 @@
       "infoPlist": {
         "NSCameraUsageDescription": "O CapiFit precisa da câmera para verificar sua presença na academia.",
         "NSPhotoLibraryUsageDescription": "O CapiFit precisa acessar suas fotos para você escolher uma imagem de perfil.",
+        "NSLocationWhenInUseUsageDescription": "O CapiFit não utiliza sua localização.",
         "ITSAppUsesNonExemptEncryption": false,
         "UIBackgroundModes": [
           "remote-notification"
