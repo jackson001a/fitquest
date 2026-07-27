@@ -115,20 +115,20 @@ export async function checkAndUnlockAchievements(userId, user) {
       .upsert(upserts, { onConflict: 'user_id,achievement_id' });
   }
 
-  // Bônus de XP pelas conquistas desbloqueadas
+  // Bônus de XP pelas conquistas desbloqueadas — gemas são sempre 1 por
+  // conquista (não escala com o xp_reward dela), pra não dar dezenas de gemas
+  // de uma vez quando várias conquistas destravam juntas no mesmo dia.
   let xpBonus = 0, gemsBonus = 0;
   if (newlyUnlocked.length > 0) {
     xpBonus = newlyUnlocked.reduce((sum, a) => sum + (a.xp_reward ?? 0), 0);
-    if (xpBonus > 0) {
-      gemsBonus = Math.floor(xpBonus / 20);
-      await updateUser(userId, {
-        xp:       (user.xp ?? 0) + xpBonus,
-        // O XP de conquista também precisa contar no "XP de hoje" — sem isso o
-        // contador diário ficava sempre atrasado em relação ao XP total ganho.
-        today_xp: (user.todayXP ?? user.today_xp ?? 0) + xpBonus,
-        gems:     (user.gems ?? 0) + gemsBonus,
-      });
-    }
+    gemsBonus = newlyUnlocked.length;
+    await updateUser(userId, {
+      xp:       (user.xp ?? 0) + xpBonus,
+      // O XP de conquista também precisa contar no "XP de hoje" — sem isso o
+      // contador diário ficava sempre atrasado em relação ao XP total ganho.
+      today_xp: (user.todayXP ?? user.today_xp ?? 0) + xpBonus,
+      gems:     (user.gems ?? 0) + gemsBonus,
+    });
   }
 
   // Anexa os totais de bônus no array retornado (sem quebrar quem só itera
@@ -244,18 +244,28 @@ export async function savePersonalRecord(userId, exerciseName, kg, user) {
 // ─── Busca ranking real do Supabase ──────────────────────────────────────────
 // Ordenado por check-ins do mês atual (não por XP) — desempata por sequência
 // atual e, por fim, por XP total.
-export async function fetchLeaderboard(limit = 20) {
+export async function fetchLeaderboard(limit = 20, location = null, excludeIds = []) {
   const firstOfMonth = (() => {
     const d = new Date();
     d.setDate(1);
     return d.toISOString().split('T')[0];
   })();
 
+  let usersQuery = supabase
+    .from('users')
+    .select('id, name, xp, streak_count, league, league_emoji, onboarding_done, avatar_url')
+    .eq('onboarding_done', true);
+
+  if (location?.estado && location?.cidade) {
+    usersQuery = usersQuery.eq('estado', location.estado).eq('cidade', location.cidade);
+  }
+
+  if (excludeIds?.length > 0) {
+    usersQuery = usersQuery.not('id', 'in', `(${excludeIds.join(',')})`);
+  }
+
   const [{ data: users }, { data: checkins }] = await Promise.all([
-    supabase
-      .from('users')
-      .select('id, name, xp, streak_count, league, league_emoji, onboarding_done, avatar_url')
-      .eq('onboarding_done', true),
+    usersQuery,
     supabase
       .from('checkins')
       .select('user_id')

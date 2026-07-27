@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowDownIcon, ArrowUpIcon, BarbellIcon, CalendarIcon, CaretRightIcon, CheckCircleIcon, ClockIcon, ConfettiIcon, CopyIcon, CrownIcon, DiamondIcon, FireIcon, HeartIcon, HourglassIcon, MedalIcon, MegaphoneIcon, MinusIcon, PlayCircleIcon, PlusIcon, ScrollIcon, ShareNetworkIcon, ShieldIcon, SignInIcon, SkullIcon, SparkleIcon, SwordIcon, TrashIcon, TrophyIcon, UserPlusIcon, UsersIcon, XCircleIcon } from 'phosphor-react-native';
+import { ArrowDownIcon, ArrowUpIcon, BarbellIcon, CalendarIcon, CaretRightIcon, CheckCircleIcon, ClockIcon, ConfettiIcon, CopyIcon, CrownIcon, DiamondIcon, FireIcon, GlobeHemisphereWestIcon, HeartIcon, HourglassIcon, MapPinIcon, MedalIcon, MegaphoneIcon, MinusIcon, PlayCircleIcon, PlusIcon, ScrollIcon, ShareNetworkIcon, ShieldIcon, SignInIcon, SkullIcon, SparkleIcon, SwordIcon, TrashIcon, TrophyIcon, UserPlusIcon, UsersIcon, XCircleIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -868,6 +868,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
   const partnerGoalMet = (partner?.weekCheckins ?? 0) >= weeklyGoal;
   const [showPartner, setShowPartner] = useState(false);
   const [inviteModal, setInviteModal] = useState(false);
+  const duoModeColor = isBattle ? '#EF4444' : '#10B981';
 
   const duoGradient = status === 'completed'
     ? (result?.type === 'won' || result?.type === 'champion' ? ['#064E3B','#022C22','#0A0A18'] : ['#450A0A','#1A0000','#0A0A18'])
@@ -970,9 +971,9 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
       {/* WAITING */}
       {status === 'waiting' && (
         <>
-          <View style={[styles.gcLobbyBadge, { borderColor: modeConf.color + '40', backgroundColor: modeConf.color + '15' }]}>
-            <ClockIcon size={11} color={modeConf.color} weight="fill" />
-            <Text style={[styles.gcLobbyBadgeText, { color: modeConf.color }]}>LOBBY DE DUPLA</Text>
+          <View style={[styles.gcLobbyBadge, { borderColor: duoModeColor + '40', backgroundColor: duoModeColor + '15' }]}>
+            <ClockIcon size={11} color={duoModeColor} weight="fill" />
+            <Text style={[styles.gcLobbyBadgeText, { color: duoModeColor }]}>LOBBY DE DUPLA</Text>
           </View>
 
           {members.length < 2 ? (
@@ -1062,11 +1063,11 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
 
           {squad.inviteCode && (
             <TouchableOpacity style={styles.duoCodeRow} onPress={() => onCopyCode?.(squad.inviteCode)} activeOpacity={0.7}>
-              <ShareNetworkIcon size={14} color={modeConf.color}  weight="fill" />
+              <ShareNetworkIcon size={14} color={duoModeColor}  weight="fill" />
               <Text style={styles.duoCodeLabel}>CHAVE DE CONVITE:</Text>
               <View style={styles.duoCodePill}>
                 <Text style={styles.duoCodeText}>{squad.inviteCode}</Text>
-                <CopyIcon size={12} color={modeConf.color}  weight="regular" />
+                <CopyIcon size={12} color={duoModeColor}  weight="regular" />
               </View>
             </TouchableOpacity>
           )}
@@ -1415,11 +1416,14 @@ const REACTIONS = [
 ];
 
 function FeedSection() {
-  const { user, avatarPhoto } = useUser();
+  const { user, avatarPhoto, blockedIds } = useUser();
   const [myReactions, setMyReactions]     = useState({}); // `${postId}_${key}` -> reagi ou não
   const [reactionCounts, setReactionCounts] = useState({}); // `${postId}_${key}` -> total de todo mundo
   const [posts, setPosts]             = useState([]);
   const [loadingFeed, setLoadingFeed] = useState(true);
+  const [selectedFeedUser, setSelectedFeedUser] = useState(null);
+
+  const visiblePosts = posts.filter(p => !blockedIds?.includes(p.user_id));
 
   const loadFeed = useCallback(() => {
     return supabase.from('feed_posts').select('*, users(name, avatar_url)').order('created_at', { ascending: false }).limit(20)
@@ -1506,7 +1510,7 @@ function FeedSection() {
         </TouchableOpacity>
       </View>
 
-      {!loadingFeed && posts.length === 0 && (
+      {!loadingFeed && visiblePosts.length === 0 && (
         <View style={styles.emptyState}>
           <MegaphoneIcon size={40} color={COLORS.gray} weight="regular" style={styles.emptyEmoji} />
           <Text style={styles.emptyTitle}>Feed vazio por enquanto</Text>
@@ -1514,7 +1518,7 @@ function FeedSection() {
         </View>
       )}
 
-      {posts.map((item) => {
+      {visiblePosts.map((item) => {
         const accent    = FEED_TYPE_COLOR[item.post_type] ?? COLORS.purple;
         const userName  = item.users?.name ?? 'Usuário';
         const avatarLetter = userName[0]?.toUpperCase() ?? '?';
@@ -1528,7 +1532,11 @@ function FeedSection() {
         })();
         return (
           <View key={item.id} style={[styles.feedCard, { borderColor: accent + '28' }]}>
-            <View style={styles.feedCardTop}>
+            <TouchableOpacity
+              style={styles.feedCardTop}
+              activeOpacity={item.user_id === user?.id ? 1 : 0.7}
+              onPress={() => item.user_id !== user?.id && setSelectedFeedUser({ id: item.user_id, name: userName, avatar_url: item.users?.avatar_url })}
+            >
               {resolveAvatar(item.users, item.user_id === user?.id, avatarPhoto) ? (
                 <Image source={{ uri: resolveAvatar(item.users, item.user_id === user?.id, avatarPhoto) }} style={styles.feedAvatar} />
               ) : (
@@ -1544,7 +1552,7 @@ function FeedSection() {
                 <Text style={styles.feedBadgeEmoji}>{item.emoji ?? '🏆'}</Text>
                 <Text style={[styles.feedBadgeText, { color: accent }]} numberOfLines={1}>{item.badge ?? item.post_type}</Text>
               </View>
-            </View>
+            </TouchableOpacity>
 
             <Text style={styles.feedContent}>{item.detail}</Text>
 
@@ -1572,6 +1580,13 @@ function FeedSection() {
           </View>
         );
       })}
+
+      <UserProfileModal
+        visible={!!selectedFeedUser}
+        targetUser={selectedFeedUser}
+        currentUserId={user?.id}
+        onClose={() => setSelectedFeedUser(null)}
+      />
     </View>
   );
 }
@@ -1631,12 +1646,14 @@ function PodiumItem({ user, position, avatarPhoto, onPress }) {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function LeaderboardScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { user: currentUser, avatarPhoto } = useUser();
+  const { user: currentUser, avatarPhoto, blockedIds } = useUser();
   const [tab, setTab]               = useState('Geral');
   const [rankingData, setRankingData] = useState([]);
   const [loadingRank, setLoadingRank] = useState(true);
   const [leagueModal, setLeagueModal] = useState(false);
   const [selectedRankUser, setSelectedRankUser] = useState(null);
+  const hasLocation = !!(currentUser?.estado && currentUser?.cidade);
+  const [rankScope, setRankScope] = useState(hasLocation ? 'cidade' : 'brasil'); // 'cidade' | 'brasil'
   const listAnim = useRef(new Animated.Value(20)).current;
 
   // Permite que outras telas (ex: Home → Competições) abram direto na aba certa
@@ -1648,21 +1665,26 @@ export default function LeaderboardScreen({ navigation, route }) {
     Animated.timing(listAnim, { toValue: 0, duration: 500, delay: 200, useNativeDriver: true }).start();
   }, []);
 
-  // Carrega ranking real do Supabase
+  // Carrega ranking real do Supabase — filtrado por cidade quando o escopo é 'cidade'
   useEffect(() => {
-    fetchLeaderboard(50).then(data => {
+    setLoadingRank(true);
+    const location = rankScope === 'cidade' && hasLocation
+      ? { estado: currentUser.estado, cidade: currentUser.cidade }
+      : null;
+
+    fetchLeaderboard(50, location, blockedIds).then(data => {
       const marked = data.map(u => ({ ...u, isUser: u.id === currentUser?.id }));
       setRankingData(marked);
       setLoadingRank(false);
 
       // Conquista "Top 3": desbloqueia se o usuário está entre os 3 primeiros do ranking global
       const mine = marked.find(u => u.isUser);
-      if (mine && mine.rank <= 3 && currentUser?.id) {
+      if (mine && mine.rank <= 3 && currentUser?.id && rankScope === 'brasil') {
         unlockManualAchievement(currentUser.id, ACHIEVEMENT_IDS.TOP_3, currentUser)
           .catch(e => console.warn('[LeaderboardScreen] conquista Top 3 falhou:', e.message));
       }
     }).catch(e => { console.warn('[LeaderboardScreen] falha ao carregar ranking:', e.message); setLoadingRank(false); });
-  }, [currentUser?.id]);
+  }, [currentUser?.id, rankScope, currentUser?.estado, currentUser?.cidade, blockedIds]);
 
   const top3      = rankingData.slice(0, 3);
   const rest      = rankingData.slice(3);
@@ -1741,6 +1763,43 @@ export default function LeaderboardScreen({ navigation, route }) {
         {/* ── GERAL ── */}
         {tab === 'Geral' && (
           <>
+            {hasLocation ? (
+              <View style={styles.scopeRow}>
+                <TouchableOpacity
+                  style={[styles.scopeChip, rankScope === 'cidade' && styles.scopeChipActive]}
+                  onPress={() => setRankScope('cidade')}
+                  activeOpacity={0.8}
+                >
+                  <MapPinIcon size={14} color={rankScope === 'cidade' ? COLORS.white : COLORS.gray} weight={rankScope === 'cidade' ? 'fill' : 'regular'} />
+                  <Text style={[styles.scopeChipText, rankScope === 'cidade' && styles.scopeChipTextActive]} numberOfLines={1}>
+                    {currentUser.cidade}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.scopeChip, rankScope === 'brasil' && styles.scopeChipActive]}
+                  onPress={() => setRankScope('brasil')}
+                  activeOpacity={0.8}
+                >
+                  <GlobeHemisphereWestIcon size={14} color={rankScope === 'brasil' ? COLORS.white : COLORS.gray} weight={rankScope === 'brasil' ? 'fill' : 'regular'} />
+                  <Text style={[styles.scopeChipText, rankScope === 'brasil' && styles.scopeChipTextActive]}>Brasil</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.locationBanner} activeOpacity={0.8} onPress={() => navigation.navigate('Location')}>
+                <MapPinIcon size={18} color={COLORS.purpleLight} weight="fill" />
+                <Text style={styles.locationBannerText}>Defina sua cidade para ver o ranking local</Text>
+                <CaretRightIcon size={14} color={COLORS.purpleLight} weight="bold" />
+              </TouchableOpacity>
+            )}
+
+            {rankScope === 'cidade' && !loadingRank && rankingData.length > 0 && rankingData.length < 5 && (
+              <View style={styles.fewUsersBanner}>
+                <Text style={styles.fewUsersText}>
+                  Poucas pessoas no ranking de {currentUser.cidade} ainda. Convide amigos ou veja o ranking nacional.
+                </Text>
+              </View>
+            )}
+
             <View style={styles.podiumSection}>
               <View style={styles.podiumRow}>
                 <PodiumItem user={top3[1]} position={2} avatarPhoto={avatarPhoto} onPress={setSelectedRankUser} />
@@ -1753,6 +1812,13 @@ export default function LeaderboardScreen({ navigation, route }) {
               {loadingRank && rest.length === 0 && (
                 <View style={{ padding: 24, alignItems: 'center' }}>
                   <Text style={{ color: COLORS.gray, fontSize: 14 }}>Carregando ranking...</Text>
+                </View>
+              )}
+              {!loadingRank && rankingData.length === 0 && (
+                <View style={{ padding: 24, alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.gray, fontSize: 14, textAlign: 'center' }}>
+                    Ainda não há ninguém no ranking de {currentUser.cidade}. Seja o primeiro a convidar amigos!
+                  </Text>
                 </View>
               )}
               {rest.map((user) => {
@@ -1927,6 +1993,18 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#fff' },
 
   // Geral — Podium
+  scopeRow: { flexDirection: 'row', gap: 8, paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  scopeChip: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: RADIUS.full, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  scopeChipActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
+  scopeChipText: { color: COLORS.gray, fontSize: 13, fontWeight: '700' },
+  scopeChipTextActive: { color: COLORS.white },
+
+  locationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: SPACING.md, marginTop: SPACING.lg, padding: 12, borderRadius: RADIUS.md, backgroundColor: 'rgba(139,92,246,0.1)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  locationBannerText: { flex: 1, color: COLORS.purpleLight, fontSize: 12.5, fontWeight: '700' },
+
+  fewUsersBanner: { marginHorizontal: SPACING.md, marginTop: SPACING.sm, padding: 12, borderRadius: RADIUS.md, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
+  fewUsersText: { color: COLORS.gray, fontSize: 12, lineHeight: 17 },
+
   podiumSection: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
   podiumRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 16 },
   podiumItem: { alignItems: 'center', gap: 6, flex: 1 },
@@ -1952,7 +2030,7 @@ const styles = StyleSheet.create({
   listName: { color: COLORS.white, fontSize: 14, fontWeight: '700' },
   listNameUser: { color: COLORS.purpleLight },
   listMeta: { flexDirection: 'row', gap: 8, marginTop: 2 },
-  listLeague: { fontSize: 12 },
+  listLeague: { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
   listStreak: { color: COLORS.gray, fontSize: 11 },
   listRight: { alignItems: 'flex-end', gap: 2 },
   listXP: { color: COLORS.white, fontSize: 15, fontWeight: '800' },

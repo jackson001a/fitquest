@@ -1,11 +1,15 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { signInAnonymous, signInWithEmail } from '../services/authService';
+import { signInAnonymous, signInWithEmail, signInWithGoogle, signInWithApple, deleteAccount as deleteAccountRequest, linkGoogleAccount, linkAppleAccount } from '../services/authService';
 import { supabase } from '../services/supabase';
-import { getOrCreateUser, updateUser, fetchTodayChallenges, completeChallengeinDB, saveWorkoutCompletion, computeLeague } from '../services/userService';
+import { getOrCreateUser, updateUser, fetchTodayChallenges, completeChallengeinDB, saveWorkoutCompletion, computeLeague, toDateString } from '../services/userService';
 import { calculateMissedDays, checkDailyReset, checkWeeklyReset, processCheckin, processWorkout, processChallenge, computeFlameActive } from '../services/streakService';
 import { checkAndUnlockAchievements, saveActivity, unlockManualAchievement, ACHIEVEMENT_IDS } from '../services/achievementService';
 import { scheduleFlameNotification, registerForPushNotifications } from '../services/notificationService';
+import { requestPermission as requestOneSignalPermission } from '../services/oneSignalService';
+import { moderateImage } from '../services/moderationService';
+import { blockUser as blockUserRequest, unblockUser as unblockUserRequest, getBlockedUserIds } from '../services/socialService';
+import { switchPurchaseUser, resetPurchaseUser, hasActiveEntitlement } from '../services/purchaseService';
 import { useAppState } from '../hooks/useAppState';
 import { dailyChallenges as mockChallenges } from '../data/mockData';
 
@@ -33,9 +37,11 @@ function recalcLevel(xp) {
   return { level, nextLevelXp: threshold };
 }
 
-// Gemas de bônus por subir de liga — raro (só 4 vezes na vida da conta),
-// bem mais difícil que "subir de nível" (que acontece toda hora).
-const LEAGUE_UP_GEMS = 4;
+// Gemas de bônus por subir de liga — raro (só 4 vezes na vida da conta).
+// Toda fonte de gema do app dá no máximo 1 por evento (ver também
+// achievementService.js e ShopModal.js) — evita que testar/jogar muito num
+// dia só empilhe dezenas de gemas de uma vez.
+const LEAGUE_UP_GEMS = 1;
 function leagueUpBonus(prevLeague, newXP) {
   return computeLeague(newXP).league !== prevLeague ? LEAGUE_UP_GEMS : 0;
 }
@@ -93,6 +99,8 @@ function normalizeUser(u) {
     avatarUrl:            u.avatar_url ?? null,
     isPremium:            u.is_premium ?? false,
     premiumPlan:          u.premium_plan ?? null,
+    estado:               u.estado ?? null,
+    cidade:               u.cidade ?? null,
   };
 }
 
@@ -112,6 +120,7 @@ export function UserProvider({ children }) {
   const [avatarPhoto,       setAvatarPhoto]       = useState(null);
   const [loggedOut,         setLoggedOut]         = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [blockedIds, setBlockedIds] = useState([]);
   const [xpToast, setXpToast] = useState(null);
   const xpToastIdRef = useRef(0);
 
@@ -173,6 +182,24 @@ export function UserProvider({ children }) {
   const userRef    = useRef(null);
   const mountedRef = useRef(true);
 
+  // ─── Detecta assinatura já ativa no RevenueCat (Apple ID/Google já premium,
+  // ex: conta sandbox reaproveitada ou reinstalação) e sincroniza sem o
+  // usuário precisar tocar em nada — sem isso ele ficava preso no paywall até
+  // tentar comprar manualmente, quando o erro "já é assinante" aparecia.
+  const syncPremiumEntitlement = useCallback(async (dbUser) => {
+    if (!dbUser || dbUser.isPremium) return;
+    try {
+      await switchPurchaseUser(dbUser.id);
+      const active = await hasActiveEntitlement();
+      if (!active) return;
+      const fields = { is_premium: true, premium_plan: 'restored', premium_since: new Date().toISOString() };
+      const updated = normalizeUser(await updateUser(dbUser.id, fields));
+      if (!mountedRef.current) return;
+      userRef.current = updated;
+      setUser(updated);
+    } catch (e) { console.warn('[syncPremiumEntitlement] falha:', e.message); }
+  }, []);
+
   useEffect(() => {
     if (user == null) { prevLevelRef.current = null; return; }
     if (prevLevelRef.current != null && user.level > prevLevelRef.current) {
@@ -196,7 +223,17 @@ export function UserProvider({ children }) {
     async function boot() {
       try {
         // 1. Tenta sessão salva localmente (AsyncStorage, sem rede)
-        const { data: { session } } = await supabase.auth.getSession();
+        // Se o refresh token salvo não existe mais no servidor (conta apagada,
+        // token revogado/expirado), getSession() lança em vez de retornar
+        // sessão nula — sem isso o boot travava aqui, sem sessão e sem tela.
+        let session;
+        try {
+          ({ data: { session } } = await supabase.auth.getSession());
+        } catch (e) {
+          console.warn('[boot] sessão local inválida, descartando:', e.message);
+          await supabase.auth.signOut().catch(() => {});
+          session = null;
+        }
         let authId = session?.user?.id;
 
         // 2. Se não tem sessão, verifica se foi um "sair da conta" explícito —
@@ -230,6 +267,8 @@ export function UserProvider({ children }) {
           loadChallenges(dbUser.id),
           runForegroundChecks(dbUser),
         ]).catch(e => console.warn('[boot] checagens de foreground falharam:', e.message));
+        syncPremiumEntitlement(dbUser);
+        getBlockedUserIds(dbUser.id).then(ids => { if (mountedRef.current) setBlockedIds(ids); }).catch(e => console.warn('[boot] falha ao carregar bloqueios:', e.message));
 
       } catch (e) {
         console.error('UserContext boot error:', e);
@@ -248,8 +287,23 @@ export function UserProvider({ children }) {
       (_event, session) => {
         if (!mountedRef.current) return;
         if (!session && userRef.current) {
-          // Token expirou — renova silenciosamente
-          signInAnonymous().catch(e => console.warn('[auth] renovação de sessão falhou:', e.message));
+          // Sessão caiu no meio do uso (token revogado/expirado além do refresh).
+          // Não basta logar anônimo de novo — sem recarregar o usuário do banco,
+          // a tela ficava presa nos dados da conta antiga enquanto as escritas
+          // passavam a apontar pra uma sessão nova (RLS bloqueia por auth_id
+          // divergente). Recarrega tudo do zero, como no boot.
+          (async () => {
+            try {
+              const anonUser = await signInAnonymous();
+              if (!anonUser?.id || !mountedRef.current) return;
+              const dbUser = normalizeUser(await getOrCreateUser(anonUser.id));
+              if (!mountedRef.current) return;
+              userRef.current = dbUser;
+              setUser(dbUser);
+              setOnboardingDone(dbUser.onboarding_done ?? false);
+              setAvatarPhoto(null);
+            } catch (e) { console.warn('[auth] renovação de sessão falhou:', e.message); }
+          })();
         }
       }
     );
@@ -384,6 +438,11 @@ export function UserProvider({ children }) {
     const current = userRef.current;
     if (!current) return false;
 
+    // lastCheckinDate só é null antes do primeiríssimo check-in da conta —
+    // usamos isso (em vez de uma flag local) pra saber se é o primeiro de
+    // verdade, mesmo que o streak tenha zerado depois.
+    const isFirstCheckinEver = !current.lastCheckinDate;
+
     const result = await processCheckin(current.id, current);
     if (!result) return false;
 
@@ -426,6 +485,18 @@ export function UserProvider({ children }) {
       }
     } catch (e) { console.warn('[doCheckin] checagem de conquistas falhou:', e.message); }
 
+    // Convite pra vincular Google/Apple — só no primeiro check-in da vida da
+    // conta, e só se ainda não tiver login de verdade (a fila de celebrações
+    // garante que isso nunca aparece junto com o popup de conquista/level up).
+    if (isFirstCheckinEver) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser?.is_anonymous) {
+          enqueueCelebration({ kind: 'linkAccount' });
+        }
+      } catch (e) { console.warn('[doCheckin] checagem de conta anônima falhou:', e.message); }
+    }
+
     return result;
   }, []);
 
@@ -434,8 +505,15 @@ export function UserProvider({ children }) {
     const current = userRef.current;
     if (!current) return;
 
+    // A pessoa pode treinar quantas vezes quiser no mesmo dia e ganha XP em
+    // todas — mas total_workouts/boss_kills_this_week (usados por conquistas
+    // como "Caçador" e "N Treinos") só avançam no primeiro treino do dia,
+    // senão dava pra destravar tudo isso num dia só batendo o botão várias vezes.
+    const today = toDateString();
+    const isFirstWorkoutToday = current.last_workout_date !== today;
+
     // ── Update otimista imediato (UI atualiza antes das chamadas de rede) ──
-    const newBossKills = (current.boss_kills_this_week ?? 0) + 1;
+    const newBossKills = isFirstWorkoutToday ? (current.boss_kills_this_week ?? 0) + 1 : (current.boss_kills_this_week ?? 0);
     const optimisticXP = (current.xp ?? 0) + workout.xp;
     const { level: optimisticLevel, nextLevelXp: optimisticNextXP } = recalcLevel(optimisticXP);
     const optimistic = normalizeUser({
@@ -444,8 +522,9 @@ export function UserProvider({ children }) {
       today_xp:            (current.today_xp ?? 0) + workout.xp,
       level:               optimisticLevel,
       next_level_xp:       optimisticNextXP,
-      total_workouts:      (current.total_workouts ?? 0) + 1,
+      total_workouts:      isFirstWorkoutToday ? (current.total_workouts ?? 0) + 1 : (current.total_workouts ?? 0),
       boss_kills_this_week: newBossKills,
+      last_workout_date:   today,
     });
     userRef.current = optimistic;
     setUser(optimistic); // ← UI atualiza imediatamente
@@ -455,7 +534,7 @@ export function UserProvider({ children }) {
     // quanto no objeto local — antes era calculado só dentro do updateUser() e
     // nunca entrava no `updated` local, então o Caçador (que depende desse
     // valor) só via o número certo depois de reabrir o app.
-    const newTotalBossKills = newBossKills >= 5
+    const newTotalBossKills = (isFirstWorkoutToday && newBossKills >= 5)
       ? (current.total_boss_kills ?? 0) + 1
       : (current.total_boss_kills ?? 0);
     try {
@@ -649,6 +728,16 @@ export function UserProvider({ children }) {
     setUser(updated);
   }, []);
 
+  // ─── Atualiza estado/cidade (para ranking local) ─────────────────────────
+  const updateLocation = useCallback(async (estado, cidade) => {
+    const current = userRef.current;
+    if (!current) return;
+    const fields = { estado, cidade };
+    const updated = normalizeUser(await updateUser(current.id, fields));
+    userRef.current = updated;
+    setUser(updated);
+  }, []);
+
   // ─── Reflete um recorde pessoal salvo no banco também no estado local ────
   // (o WorkoutDetailScreen já grava no Supabase via savePersonalRecord — isso
   // só evita esperar o próximo reload para o badge "último: Xkg" e a lista de
@@ -690,6 +779,7 @@ export function UserProvider({ children }) {
   // de novo sozinho — o usuário decide na tela seguinte se quer entrar ou criar conta.
   const doSignOut = useCallback(async () => {
     try { await supabase.auth.signOut(); } catch (e) { console.warn('[doSignOut] falha ao encerrar sessão:', e.message); }
+    try { await resetPurchaseUser(); } catch (e) { console.warn('[doSignOut] falha ao resetar RevenueCat:', e.message); }
     userRef.current = null;
     setUser(null);
     setOnboardingDone(false);
@@ -701,21 +791,83 @@ export function UserProvider({ children }) {
     try { await AsyncStorage.setItem(LOGGED_OUT_KEY, '1'); } catch (e) { console.warn('[doSignOut] falha ao salvar flag local:', e.message); }
   }, []);
 
-  // ─── Login com email + senha (conta já existente) ────────────────────────
-  const loginWithEmail = useCallback(async (email, password) => {
-    const authUser = await signInWithEmail(email, password); // lança erro se credenciais inválidas
+  // ─── Exclui a conta permanentemente ──────────────────────────────────────
+  const doDeleteAccount = useCallback(async () => {
+    await deleteAccountRequest(); // lança erro se falhar — a tela trata o Alert
+    try { await supabase.auth.signOut(); } catch (e) { console.warn('[doDeleteAccount] falha ao encerrar sessão local:', e.message); }
+    try { await resetPurchaseUser(); } catch (e) { console.warn('[doDeleteAccount] falha ao resetar RevenueCat:', e.message); }
+    userRef.current = null;
+    setUser(null);
+    setOnboardingDone(false);
+    setChallenges(mockChallenges);
+    setAlerts([]);
+    setNewAchievements([]);
+    setAvatarPhoto(null);
+    setLoggedOut(true);
+    try { await AsyncStorage.setItem(LOGGED_OUT_KEY, '1'); } catch (e) { console.warn('[doDeleteAccount] falha ao salvar flag local:', e.message); }
+  }, []);
+
+  // ─── Após vincular Google/Apple, traz o email do provedor pro perfil ─────
+  const syncLinkedEmail = useCallback(async () => {
+    const current = userRef.current;
+    if (!current) return;
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser?.email && authUser.email !== current.email) {
+        await updateUser(current.id, { email: authUser.email });
+        const updated = normalizeUser({ ...current, email: authUser.email });
+        userRef.current = updated;
+        setUser(updated);
+      }
+    } catch (e) { console.warn('[syncLinkedEmail] falha ao sincronizar email:', e.message); }
+  }, []);
+
+  // ─── Vincula Google/Apple à conta atual — mantém o mesmo auth_id, então
+  // todo o progresso (streak, XP, amigos, conquistas) continua intacto ──────
+  const doLinkGoogle = useCallback(async () => {
+    await linkGoogleAccount();
+    await syncLinkedEmail();
+  }, [syncLinkedEmail]);
+
+  const doLinkApple = useCallback(async () => {
+    await linkAppleAccount();
+    await syncLinkedEmail();
+  }, [syncLinkedEmail]);
+
+  // ─── Estabelece o app pro usuário autenticado (login por email, Google ou
+  // Apple caem todos aqui) — evita repetir a mesma sequência de setup 3 vezes ──
+  const hydrateSession = useCallback(async (authUser) => {
     const dbUser = normalizeUser(await getOrCreateUser(authUser.id));
     userRef.current = dbUser;
     setUser(dbUser);
     setOnboardingDone(dbUser.onboarding_done ?? false);
     setLoggedOut(false);
-    try { await AsyncStorage.removeItem(LOGGED_OUT_KEY); } catch (e) { console.warn('[loginWithEmail] falha ao limpar flag local:', e.message); }
+    try { await AsyncStorage.removeItem(LOGGED_OUT_KEY); } catch (e) { console.warn('[hydrateSession] falha ao limpar flag local:', e.message); }
     setAvatarPhoto(null);
-    AsyncStorage.getItem(avatarKeyFor(dbUser.id)).then(uri => { if (uri) setAvatarPhoto(uri); }).catch(e => console.warn('[loginWithEmail] avatar cache falhou:', e.message));
-    loadChallenges(dbUser.id).catch(e => console.warn('[loginWithEmail] falha ao carregar desafios:', e.message));
-    runForegroundChecks(dbUser).catch(e => console.warn('[loginWithEmail] checagens falharam:', e.message));
+    AsyncStorage.getItem(avatarKeyFor(dbUser.id)).then(uri => { if (uri) setAvatarPhoto(uri); }).catch(e => console.warn('[hydrateSession] avatar cache falhou:', e.message));
+    loadChallenges(dbUser.id).catch(e => console.warn('[hydrateSession] falha ao carregar desafios:', e.message));
+    runForegroundChecks(dbUser).catch(e => console.warn('[hydrateSession] checagens falharam:', e.message));
+    getBlockedUserIds(dbUser.id).then(setBlockedIds).catch(e => console.warn('[hydrateSession] falha ao carregar bloqueios:', e.message));
+    syncPremiumEntitlement(dbUser);
     return dbUser;
-  }, []);
+  }, [syncPremiumEntitlement]);
+
+  // ─── Login com email + senha (conta já existente) ────────────────────────
+  const loginWithEmail = useCallback(async (email, password) => {
+    const authUser = await signInWithEmail(email, password); // lança erro se credenciais inválidas
+    return hydrateSession(authUser);
+  }, [hydrateSession]);
+
+  // ─── Login com Google/Apple (conta já existente, ou criada na hora) ──────
+  const loginWithGoogle = useCallback(async () => {
+    const authUser = await signInWithGoogle();
+    return hydrateSession(authUser);
+  }, [hydrateSession]);
+
+  const loginWithApple = useCallback(async () => {
+    const authUser = await signInWithApple();
+    return hydrateSession(authUser);
+  }, [hydrateSession]);
 
   // ─── Cria uma conta nova (anônima) e manda para o onboarding ─────────────
   const startNewAccount = useCallback(async () => {
@@ -727,13 +879,15 @@ export function UserProvider({ children }) {
     setLoggedOut(false);
     setAvatarPhoto(null); // conta nova começa sem foto — nunca herda a da conta anterior
     try { await AsyncStorage.removeItem(LOGGED_OUT_KEY); } catch (e) { console.warn('[startNewAccount] falha ao limpar flag local:', e.message); }
+    syncPremiumEntitlement(dbUser);
     return dbUser;
-  }, []);
+  }, [syncPremiumEntitlement]);
 
   // ─── Solicita permissão de notificações push e registra o dispositivo ───
   const enableNotifications = useCallback(async () => {
     const current = userRef.current;
     const token = await registerForPushNotifications(current?.id);
+    requestOneSignalPermission();
     const enabled = !!token;
     setNotificationsEnabled(enabled);
     try { await AsyncStorage.setItem(NOTIFICATIONS_KEY, enabled ? '1' : '0'); } catch (e) { console.warn('[enableNotifications] falha ao salvar preferência:', e.message); }
@@ -744,6 +898,21 @@ export function UserProvider({ children }) {
   const updateAvatarPhoto = useCallback(async (uri) => {
     const current = userRef.current;
     if (!current) return;
+
+    let base64 = null;
+    const FileSystem = require('expo-file-system/legacy');
+
+    if (uri) {
+      // Modera ANTES de mostrar/enviar (exigência Apple Guideline 1.2) — nunca
+      // depois, pra não deixar conteúdo impróprio visível nem que seja por um instante.
+      base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+      const { approved, reason } = await moderateImage(base64);
+      if (!approved) {
+        const err = new Error(reason || 'Essa imagem não pode ser usada como foto de perfil.');
+        err.isModerationRejection = true;
+        throw err;
+      }
+    }
 
     // 1. Feedback instantâneo + cache local (mesma foto ao reabrir o app offline)
     setAvatarPhoto(uri);
@@ -757,11 +926,9 @@ export function UserProvider({ children }) {
     // recomendado pela própria Supabase para Expo.
     try {
       if (uri) {
-        const FileSystem = require('expo-file-system/legacy');
         const { decode }  = require('base64-arraybuffer');
         const ext      = (uri.split('.').pop() || 'jpg').split('?')[0].toLowerCase();
         const path     = `${current.auth_id}/avatar.${ext}`;
-        const base64   = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(path, decode(base64), { upsert: true, contentType: `image/${ext === 'jpg' ? 'jpeg' : ext}` });
@@ -781,6 +948,21 @@ export function UserProvider({ children }) {
     } catch (e) {
       console.warn('[updateAvatarPhoto] upload remoto falhou — foto só ficará visível neste aparelho:', e.message);
     }
+  }, []);
+
+  // ─── Bloqueia/desbloqueia usuário — some com posts e perfil dele pra mim ──
+  const doBlockUser = useCallback(async (targetId) => {
+    const current = userRef.current;
+    if (!current || !targetId) return;
+    await blockUserRequest(current.id, targetId);
+    setBlockedIds(prev => prev.includes(targetId) ? prev : [...prev, targetId]);
+  }, []);
+
+  const doUnblockUser = useCallback(async (targetId) => {
+    const current = userRef.current;
+    if (!current || !targetId) return;
+    await unblockUserRequest(current.id, targetId);
+    setBlockedIds(prev => prev.filter(id => id !== targetId));
   }, []);
 
   // ─── Ativa assinatura Premium (chamado após confirmação de compra na loja) ──
@@ -819,14 +1001,23 @@ export function UserProvider({ children }) {
       addGems,
       purchaseFreeze,
       updateCurrentWeight,
+      updateLocation,
       applyPersonalRecord,
+      blockedIds,
+      doBlockUser,
+      doUnblockUser,
       updateGoals,
       avatarPhoto,
       updateAvatarPhoto,
       setForegroundChecksPaused,
       loggedOut,
       doSignOut,
+      doDeleteAccount,
+      doLinkGoogle,
+      doLinkApple,
       loginWithEmail,
+      loginWithGoogle,
+      loginWithApple,
       startNewAccount,
       notificationsEnabled,
       enableNotifications,

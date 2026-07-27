@@ -45,6 +45,22 @@ export async function registerForPushNotifications(userId) {
   return token;
 }
 
+// ─── Reenvia o token pro backend SE a permissão já foi concedida antes ───────
+// Nunca chama requestPermissionsAsync — usada no boot do app, onde chamar a
+// versão que pede permissão de verdade fazia o iOS decidir (e negar/conceder)
+// o prompt nativo silenciosamente antes do usuário chegar na tela de
+// onboarding que deveria mostrá-lo pela primeira vez.
+export async function refreshPushTokenIfEnabled(userId) {
+  if (!Device.isDevice || !userId) return null;
+
+  const { status } = await Notifications.getPermissionsAsync();
+  if (status !== 'granted') return null;
+
+  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  if (token) await savePushToken(userId, token);
+  return token;
+}
+
 // ─── Agenda notificação local para meia-noite ─────────────────────────────────
 // Avisa que o foguinho vai apagar se não fizer check-in
 export async function scheduleFlameNotification(weeklyFrequency, weekCheckinsCount) {

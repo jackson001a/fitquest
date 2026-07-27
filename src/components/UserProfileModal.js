@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, Image, ActivityIndicator, Alert, Linking } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircleIcon, ClockIcon, FireIcon, LightningIcon, UserPlusIcon, XIcon } from 'phosphor-react-native';
+import { CheckCircleIcon, ClockIcon, FireIcon, FlagIcon, LightningIcon, ProhibitIcon, UserPlusIcon, XIcon } from 'phosphor-react-native';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { computeLeague } from '../services/userService';
 import { getFriendshipStatus, sendFriendRequest, acceptFriendRequest } from '../services/socialService';
+import { useUser } from '../context/UserContext';
+
+const SUPPORT_EMAIL = 'jacksondeandradee@gmail.com';
 
 export default function UserProfileModal({ visible, targetUser, currentUserId, onClose }) {
+  const { blockedIds, doBlockUser } = useUser();
   const [status,    setStatus]    = useState('loading');
   const [requestId, setRequestId] = useState(null);
   const [busy,      setBusy]      = useState(false);
+  const [blocking,  setBlocking]  = useState(false);
 
   useEffect(() => {
     if (!visible || !targetUser?.id) return;
@@ -54,6 +59,38 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleBlock = () => {
+    Alert.alert(
+      'Bloquear usuário',
+      `${targetUser.name} não vai mais aparecer no seu feed, ranking ou perfil, e a amizade (se houver) será desfeita. Você pode desbloquear depois em Configurações.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Bloquear',
+          style: 'destructive',
+          onPress: async () => {
+            setBlocking(true);
+            try {
+              await doBlockUser(targetUser.id);
+              onClose?.();
+            } catch (_) {
+              Alert.alert('Erro', 'Não foi possível bloquear agora. Tente novamente.');
+            } finally {
+              setBlocking(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleReport = () => {
+    const subject = encodeURIComponent('Denúncia de usuário — CapiFit');
+    const body = encodeURIComponent(`Estou denunciando o usuário "${targetUser.name}" (ID: ${targetUser.id}).\n\nMotivo:\n`);
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`)
+      .catch(() => Alert.alert('Erro', 'Não foi possível abrir o app de email.'));
   };
 
   return (
@@ -132,6 +169,24 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
               <Text style={[styles.pillText, { color: COLORS.green }]}>Vocês são amigos</Text>
             </View>
           )}
+
+          {targetUser.id !== currentUserId && !blockedIds?.includes(targetUser.id) && (
+            <View style={styles.moderationRow}>
+              <TouchableOpacity onPress={handleReport} activeOpacity={0.7} style={styles.moderationBtn} disabled={blocking}>
+                <FlagIcon size={13} color={COLORS.gray} weight="regular" />
+                <Text style={styles.moderationText}>Denunciar</Text>
+              </TouchableOpacity>
+              <View style={styles.moderationDivider} />
+              <TouchableOpacity onPress={handleBlock} activeOpacity={0.7} style={styles.moderationBtn} disabled={blocking}>
+                {blocking ? <ActivityIndicator size="small" color={COLORS.red} /> : (
+                  <>
+                    <ProhibitIcon size={13} color={COLORS.red} weight="regular" />
+                    <Text style={[styles.moderationText, { color: COLORS.red }]}>Bloquear usuário</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
         </TouchableOpacity>
       </TouchableOpacity>
     </Modal>
@@ -156,4 +211,9 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   pill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.full, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 16, paddingVertical: 10 },
   pillText: { color: COLORS.gray, fontSize: 13, fontWeight: '700' },
+
+  moderationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 16 },
+  moderationBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 },
+  moderationText: { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
+  moderationDivider: { width: 1, height: 12, backgroundColor: COLORS.border },
 });

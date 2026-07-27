@@ -85,32 +85,3 @@ export function addForegroundWillDisplayListener(callback) {
   OneSignal.Notifications.addEventListener('foregroundWillDisplay', callback);
   return () => OneSignal.Notifications.removeEventListener('foregroundWillDisplay', callback);
 }
-
-// ─── Diálogo de verificação da integração ────────────────────────────────────
-// Mostra 1x, assim que o dispositivo recebe um subscription ID real (atribuído
-// pelo servidor do OneSignal) — o placeholder "local-..." não conta como
-// registrado, é só o valor temporário usado antes do registro terminar.
-let verificationCallbackFired = false;
-
-function isRegistered(subscriptionId) {
-  return !!subscriptionId && !subscriptionId.startsWith('local-');
-}
-
-export function setupPushSubscriptionVerification(onReady) {
-  const notify = (subscriptionId) => {
-    if (isRegistered(subscriptionId) && !verificationCallbackFired) {
-      verificationCallbackFired = true;
-      onReady?.();
-    }
-  };
-
-  const unsubscribe = addPushSubscriptionListener((subscription) => {
-    notify(subscription?.current?.id);
-  });
-
-  // O ID pode já estar atribuído antes do listener ser registrado — por isso
-  // também avaliamos o valor atual imediatamente, sem depender só do evento.
-  getPushSubscriptionId().then(notify).catch(() => {});
-
-  return unsubscribe;
-}

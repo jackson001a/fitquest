@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, Linking }
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   BellIcon, CameraIcon, CheckCircleIcon, DropIcon, FireIcon, GiftIcon, LockOpenIcon,
   UsersThreeIcon, XIcon,
@@ -10,7 +11,7 @@ import {
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
 import {
-  isPurchasesAvailable, initPurchases, getOfferings, getOfferingByIdentifier,
+  isPurchasesAvailable, switchPurchaseUser, getOfferings, getOfferingByIdentifier,
   purchasePackage, restorePurchases,
 } from '../services/purchaseService';
 
@@ -23,6 +24,7 @@ const EXIT_PRICE_FALLBACK = 'R$ 99,00';
 const TRIAL_DAYS_FALLBACK  = 3;
 const ANNUAL_PRICE_FALLBACK  = 'R$ 149,90/ano';
 const MONTHLY_PRICE_FALLBACK = 'R$ 49,90/mês';
+const ANNUAL_MONTHLY_EQUIVALENT_FALLBACK = 'R$ 12,49';
 
 // $rc_monthly / $rc_annual não trazem o período no priceString — completamos pelo packageType
 function periodSuffix(pkg) {
@@ -84,6 +86,18 @@ export default function PaywallScreen({ navigation }) {
   const [exitOffering, setExitOffering] = useState(null);
   const [exitPurchasing, setExitPurchasing] = useState(false);
 
+  // O Paywall fica montado na stack entre visitas — sem isso, voltar aqui
+  // (ex: pelo botão de check-in) podia cair direto na tela de desconto se
+  // ela já tinha aparecido numa visita anterior. Toda entrada nova começa
+  // sempre pelo paywall normal, com os planos.
+  useFocusEffect(
+    useCallback(() => {
+      setExitStage(null);
+      setExitOffering(null);
+      setExitPurchasing(false);
+    }, [])
+  );
+
   // Busca a offering atual do RevenueCat (App Store Connect / Google Play já cadastrados lá)
   useEffect(() => {
     let mounted = true;
@@ -93,7 +107,7 @@ export default function PaywallScreen({ navigation }) {
         return;
       }
       try {
-        await initPurchases(user?.id);
+        await switchPurchaseUser(user?.id);
         const current = await getOfferings();
         if (mounted) setOffering(current);
       } catch (e) {
@@ -114,7 +128,7 @@ export default function PaywallScreen({ navigation }) {
   const monthlyPriceString = monthlyPkg?.product?.priceString ? `${monthlyPkg.product.priceString}${periodSuffix(monthlyPkg)}` : MONTHLY_PRICE_FALLBACK;
   const annualMonthlyEquivalent = annualPkg?.product
     ? formatMoney(annualPkg.product.price / 12, annualPkg.product.currencyCode)
-    : null;
+    : ANNUAL_MONTHLY_EQUIVALENT_FALLBACK;
 
   const trialDays = annualPkg ? getTrialDays(annualPkg) || TRIAL_DAYS_FALLBACK : TRIAL_DAYS_FALLBACK;
   const chargeDate = useMemo(() => formatChargeDate(trialDays), [trialDays]);
@@ -392,8 +406,8 @@ export default function PaywallScreen({ navigation }) {
               ? <ActivityIndicator size="small" color={COLORS.gray} style={{ marginTop: 4 }} />
               : (
                 <>
-                  <Text style={s.planPrice}>{annualPriceString}</Text>
-                  {annualMonthlyEquivalent && <Text style={s.planPriceSub}>equivale a {annualMonthlyEquivalent}/mês</Text>}
+                  <Text style={[s.planPrice, s.planPriceEmphasis]}>{annualMonthlyEquivalent}/mês</Text>
+                  <Text style={s.planPriceSub}>cobrado {annualPriceString}</Text>
                 </>
               )}
           </TouchableOpacity>
@@ -506,7 +520,8 @@ const s = StyleSheet.create({
   planLabel:      { fontSize: 14, fontWeight: '700', color: COLORS.gray, marginBottom: 4 },
   planPrice:      { fontSize: 18, fontWeight: '800', color: COLORS.white },
   planPriceUnit:  { fontSize: 12, fontWeight: '600', color: COLORS.gray },
-  planPriceSub:   { fontSize: 10.5, color: COLORS.orange, fontWeight: '700', marginTop: 4 },
+  planPriceSub:   { fontSize: 10.5, color: COLORS.gray, fontWeight: '600', marginTop: 4 },
+  planPriceEmphasis: { color: COLORS.orange, fontSize: 20 },
 
   ctaWrap: { marginTop: SPACING.lg, alignItems: 'center' },
   ctaBtn:  { width: '100%', borderRadius: RADIUS.full, paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },

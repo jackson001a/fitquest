@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  Image, Animated, ActivityIndicator, Dimensions,
+  Animated, ActivityIndicator, Dimensions,
 } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,18 +26,9 @@ export default function ExerciseDetailScreen({ navigation, route }) {
   const [imgIdx,     setImgIdx]     = useState(0);
   const [imgLoaded,  setImgLoaded]  = useState([false, false]);
   const [imgError,   setImgError]   = useState([false, false]);
-  const [gifFallback, setGifFallback] = useState(null); // URL do ExerciseDB como fallback
   const [playing,    setPlaying]    = useState(true);
   const fadeAnim  = useRef(new Animated.Value(1)).current;
   const intervalRef = useRef(null);
-
-  // ─── Fallback ExerciseDB quando ambas as imagens falham ────────────────────
-  useEffect(() => {
-    if (imgError[0] && imgError[1] && !gifFallback) {
-      const { fetchExerciseGifUrl } = require('../services/exerciseService');
-      fetchExerciseGifUrl(exerciseName).then(url => { if (url) setGifFallback(url); }).catch(() => {});
-    }
-  }, [imgError]);
 
   // ─── Animação entre imagem 0 e 1 (simula GIF) ────────────────────────────
   useEffect(() => {
@@ -97,20 +88,11 @@ export default function ExerciseDetailScreen({ navigation, route }) {
                 </View>
               )}
 
-              {/* Fallback GIF do ExerciseDB */}
-              {imgError[0] && imgError[1] && gifFallback && (
-                <Image
-                  source={{ uri: gifFallback }}
-                  style={[styles.exerciseImg, { position: 'absolute', top: 0, left: 0, right: 0 }]}
-                  resizeMode="contain"
-                />
-              )}
-              {/* Carregando fallback */}
-              {imgError[0] && imgError[1] && !gifFallback && (
+              {/* Ambas as imagens falharam — sem demonstração disponível */}
+              {imgError[0] && imgError[1] && (
                 <View style={[styles.imgPlaceholder, styles.noImgPlaceholder]}>
-                  <ActivityIndicator color={COLORS.purple} size="large" />
                   <Text style={{ color: COLORS.gray, marginTop: 12, fontSize: 13, textAlign: 'center' }}>
-                    Buscando demonstração...
+                    Demonstração não disponível
                   </Text>
                 </View>
               )}

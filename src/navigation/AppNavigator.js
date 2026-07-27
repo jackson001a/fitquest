@@ -20,6 +20,8 @@ import ExerciseDetailScreen    from '../screens/ExerciseDetailScreen';
 import EditGoalScreen          from '../screens/EditGoalScreen';
 import HelpScreen              from '../screens/HelpScreen';
 import AccountSecurityScreen   from '../screens/AccountSecurityScreen';
+import LocationScreen          from '../screens/LocationScreen';
+import BlockedUsersScreen      from '../screens/BlockedUsersScreen';
 import AuthChoiceScreen        from '../screens/AuthChoiceScreen';
 import LoginScreen             from '../screens/LoginScreen';
 import PaywallScreen           from '../screens/PaywallScreen';
@@ -113,7 +115,7 @@ export default function AppNavigator() {
         {loggedOut ? (
           <>
             <RootStack.Screen name="AuthChoice" component={AuthChoiceScreen} options={{ animationEnabled: false }} />
-            <RootStack.Screen name="Login"       component={LoginScreen}       options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="Login"       component={LoginScreen}       options={{ presentation: 'modal', animationEnabled: true, gestureEnabled: true }} />
           </>
         ) : onboardingDone ? (
           <>
@@ -126,6 +128,8 @@ export default function AppNavigator() {
             <RootStack.Screen name="EditGoal"       component={EditGoalScreen}       options={{ animationEnabled: true, gestureEnabled: true }} />
             <RootStack.Screen name="Help"            component={HelpScreen}            options={{ animationEnabled: true, gestureEnabled: true }} />
             <RootStack.Screen name="AccountSecurity" component={AccountSecurityScreen} options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="Location"        component={LocationScreen}        options={{ animationEnabled: true, gestureEnabled: true }} />
+            <RootStack.Screen name="BlockedUsers"    component={BlockedUsersScreen}    options={{ animationEnabled: true, gestureEnabled: true }} />
           </>
         ) : (
           <RootStack.Screen name="Onboarding" component={OnboardingScreen} options={{ animationEnabled: false }} />

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import TouchableOpacity from './TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircleIcon, DiamondIcon, FireIcon, InfoIcon, SkullIcon, SnowflakeIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
+import { CheckCircleIcon, DiamondIcon, FireIcon, InfoIcon, SnowflakeIcon, TrophyIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -74,7 +74,7 @@ export default function ShopModal({ visible, onClose }) {
   }
 
   function buyGems(pkg) {
-    Alert.alert('💎 Comprar Gemas', `${pkg.label} por ${pkg.price}\n\nPagamentos online em breve!\n\nDica: ganhe gemas derrotando o chefe da semana.`);
+    Alert.alert('💎 Comprar Gemas', `${pkg.label} por ${pkg.price}\n\nPagamentos online em breve!\n\nDica: desbloqueie conquistas pra ganhar gemas de graça.`);
   }
 
   const titleMap = { main: 'Loja', confirm: 'Confirmar', buy_gems: 'Comprar Gemas' };
@@ -146,9 +146,9 @@ export default function ShopModal({ visible, onClose }) {
                 <Text style={st.sectionTitle}>Como ganhar gemas</Text>
               </View>
               {[
-                { Icon: SkullIcon,   text: 'Derrote o chefe da semana',        reward: 2 },
-                { Icon: FireIcon,    text: 'Bata um marco de sequência (10/21/35/60/100 dias)', reward: 1 },
-                { Icon: TrophyIcon,  text: 'Suba de liga',                     reward: 4 },
+                { Icon: TrophyIcon,      text: 'Desbloqueie qualquer conquista',   reward: 1 },
+                { Icon: FireIcon,        text: 'Bata um marco de sequência (10/21/35/60/100 dias)', reward: 1 },
+                { Icon: CheckCircleIcon, text: 'Suba de liga',                     reward: 1 },
               ].map((item, i) => (
                 <View key={i} style={st.earnRow}>
                   <item.Icon size={18} color={COLORS.gray} weight="fill" />

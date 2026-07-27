@@ -1,13 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // Serviço de exercícios — Free Exercise DB (open source, gratuito)
 // Imagens: https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/{id}/0.jpg
-//
-// Para GIFs animados reais: subscreva ExerciseDB no RapidAPI (grátis 100 req/mês)
-// e descomente a função fetchExerciseDBGif abaixo.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const FREE_DB_BASE = 'https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises';
-const RAPID_API_KEY = process.env.EXPO_PUBLIC_RAPIDAPI_KEY;
 
 // ─── Mapeamento: nome em português → ID no Free Exercise DB ──────────────────
 export const PT_TO_EXERCISE_ID = {
@@ -148,30 +144,4 @@ export function getExerciseMeta(exerciseNamePT) {
     level: 'Intermediário',
     tips: ['Mantenha a forma correta', 'Respire durante o movimento', 'Aumente a carga progressivamente'],
   };
-}
-
-// ─── (Futuro) GIF animado real via ExerciseDB — ative após subscrever ────────
-// Para ativar: vá em rapidapi.com, busque "ExerciseDB", assine o plano FREE
-export async function fetchExerciseGifUrl(exerciseNamePT) {
-  if (!RAPID_API_KEY) return null;
-  const id = PT_TO_EXERCISE_ID[exerciseNamePT];
-  if (!id) return null;
-
-  // Converte ID do free DB para nome de busca no ExerciseDB
-  const searchName = id.replace(/_/g, ' ').toLowerCase();
-  try {
-    const res = await fetch(
-      `https://exercisedb.p.rapidapi.com/exercises/name/${encodeURIComponent(searchName)}?limit=1`,
-      {
-        headers: {
-          'x-rapidapi-host': 'exercisedb.p.rapidapi.com',
-          'x-rapidapi-key':  RAPID_API_KEY,
-        },
-      }
-    );
-    const data = await res.json();
-    return data?.[0]?.gifUrl ?? null;
-  } catch {
-    return null;
-  }
 }

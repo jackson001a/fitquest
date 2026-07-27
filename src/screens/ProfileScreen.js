@@ -5,7 +5,7 @@ import {
 import TouchableOpacity from '../components/TouchableOpacity';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarbellIcon, BellIcon, CalendarIcon, CameraIcon, CaretLeftIcon, CaretRightIcon, ChartBarIcon, CheckIcon, CrownIcon, FireIcon, GearIcon, LightningIcon, LockSimpleIcon, MedalIcon, QuestionIcon, ScalesIcon, ShareNetworkIcon, SignOutIcon, TargetIcon, TrophyIcon, UsersIcon, XIcon } from 'phosphor-react-native';
+import { BarbellIcon, BellIcon, CalendarIcon, CameraIcon, CaretLeftIcon, CaretRightIcon, ChartBarIcon, CheckIcon, CrownIcon, FireIcon, GearIcon, LightningIcon, LockSimpleIcon, MapPinIcon, MedalIcon, ProhibitIcon, QuestionIcon, ScalesIcon, ShareNetworkIcon, SignOutIcon, TargetIcon, TrophyIcon, UsersIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
@@ -32,13 +32,15 @@ const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 const DAYS_SHORT = ['S','T','Q','Q','S','S','D'];
 
 // SETTINGS é função para poder usar dados dinâmicos
-function buildSettings(friendsCount, dailyGoalXP, notificationsEnabled, isPremium) {
+function buildSettings(friendsCount, dailyGoalXP, notificationsEnabled, isPremium, cidade, estado) {
   return [
     { icon: CrownIcon,        label: 'Assinatura',    sub: isPremium ? 'Premium ativo · gerenciar' : 'Assine o FitQuest Premium' },
     { icon: BellIcon,         label: 'Notificações',  sub: notificationsEnabled ? 'Ativadas' : 'Toque para ativar' },
     { icon: TrophyIcon,       label: 'Metas',         sub: `Meta diária: ${dailyGoalXP} XP` },
     { icon: UsersIcon,        label: 'Amigos',        sub: friendsCount > 0 ? `${friendsCount} amigos conectados` : 'Convide amigos' },
-    { icon: LockSimpleIcon,   label: 'Conta e Segurança', sub: 'Login, senha e privacidade' },
+    { icon: MapPinIcon,       label: 'Localização',   sub: cidade ? `${cidade} · ${estado}` : 'Defina sua cidade para o ranking local' },
+    { icon: LockSimpleIcon,   label: 'Conta e Segurança', sub: 'Google, Apple, login e senha' },
+    { icon: ProhibitIcon,     label: 'Usuários bloqueados', sub: 'Gerenciar bloqueios' },
     { icon: ShareNetworkIcon, label: 'Compartilhar',  sub: 'Mostre seu progresso' },
     { icon: QuestionIcon,     label: 'Ajuda',         sub: 'FAQ e suporte' },
   ];
@@ -108,7 +110,15 @@ export default function ProfileScreen({ navigation }) {
       quality: 0.7,
     });
     if (!result.canceled && result.assets?.[0]?.uri) {
-      updateAvatarPhoto(result.assets[0].uri);
+      try {
+        await updateAvatarPhoto(result.assets[0].uri);
+      } catch (e) {
+        if (e?.isModerationRejection) {
+          Alert.alert('Imagem não permitida', e.message);
+        } else {
+          Alert.alert('Erro', 'Não foi possível atualizar sua foto agora.');
+        }
+      }
     }
   };
 
@@ -428,7 +438,7 @@ export default function ProfileScreen({ navigation }) {
             <GearIcon size={17} color={COLORS.white} weight="fill" />
             <Text style={styles.sectionTitle}>Configurações</Text>
           </View>
-          {buildSettings(friendsCount, user?.dailyGoal ?? 200, notificationsEnabled, isPremium).map((item, i) => (
+          {buildSettings(friendsCount, user?.dailyGoal ?? 200, notificationsEnabled, isPremium, user?.cidade, user?.estado).map((item, i) => (
             <TouchableOpacity key={i} style={styles.settingItem} activeOpacity={0.7}
               onPress={async () => {
                 if (item.label === 'Assinatura') {
@@ -443,6 +453,8 @@ export default function ProfileScreen({ navigation }) {
                 else if (item.label === 'Amigos') navigation.navigate('Friends');
                 else if (item.label === 'Metas') navigation.navigate('EditGoal');
                 else if (item.label === 'Conta e Segurança') navigation.navigate('AccountSecurity');
+                else if (item.label === 'Localização') navigation.navigate('Location');
+                else if (item.label === 'Usuários bloqueados') navigation.navigate('BlockedUsers');
                 else if (item.label === 'Ajuda') navigation.navigate('Help');
                 else if (item.label === 'Notificações') {
                   if (notificationsEnabled) {

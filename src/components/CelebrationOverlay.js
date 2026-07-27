@@ -2,6 +2,7 @@ import React from 'react';
 import { useUser } from '../context/UserContext';
 import AchievementUnlockModal from './AchievementUnlockModal';
 import LevelUpModal from './LevelUpModal';
+import LinkAccountModal from './LinkAccountModal';
 
 // Orquestra os popups de "conquista desbloqueada" e "subiu de nível" a partir
 // da fila unificada do UserContext — nunca mais de um por vez. Sem isso, duas
@@ -24,6 +25,10 @@ export default function CelebrationOverlay() {
       />
       <LevelUpModal
         level={current?.kind === 'levelup' ? current.level : null}
+        onDismiss={advanceCelebration}
+      />
+      <LinkAccountModal
+        visible={current?.kind === 'linkAccount'}
         onDismiss={advanceCelebration}
       />
     </>

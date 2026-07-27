@@ -4,10 +4,12 @@
     "slug": "capifit",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "scheme": "capifit",
     "splash": {
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#0A0A18"
     },
@@ -18,22 +20,21 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.capifit.app",
       "infoPlist": {
-        "LSApplicationQueriesSchemes": [
-          "capifit",
-          "capifit"
-        ],
         "NSCameraUsageDescription": "O CapiFit precisa da câmera para verificar sua presença na academia.",
-        "NSPhotoLibraryUsageDescription": "Para salvar fotos do seu progresso.",
+        "NSPhotoLibraryUsageDescription": "O CapiFit precisa acessar suas fotos para você escolher uma imagem de perfil.",
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       },
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "production"
       },
       "appleTeamId": "F832746AW8"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0A0A18"
       },
       "package": "com.capifit.app",
@@ -64,11 +65,12 @@
       [
         "onesignal-expo-plugin",
         {
-          "mode": "development"
+          "mode": "production"
         }
       ],
       "expo-asset",
       "expo-font",
+      "expo-apple-authentication",
       [
         "expo-notifications",
         {
@@ -76,7 +78,28 @@
           "color": "#8B5CF6"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.901094200793-hnrvd4v6qo0ma5fh40glce3qim5rulvu"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "extraPods": [
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "RecaptchaInterop", "modular_headers": true },
+              { "name": "AppCheckCore", "modular_headers": true },
+              { "name": "GTMSessionFetcher", "modular_headers": true },
+              { "name": "GTMAppAuth", "modular_headers": true },
+              { "name": "AppAuth", "modular_headers": true }
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

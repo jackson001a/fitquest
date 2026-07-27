@@ -2,23 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowClockwiseIcon, ArrowLeftIcon, CheckCircleIcon, ClockIcon, EnvelopeSimpleIcon, LockSimpleIcon, PhoneIcon, ShieldCheckIcon } from 'phosphor-react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import { ArrowClockwiseIcon, ArrowLeftIcon, CheckCircleIcon, ClockIcon, EnvelopeSimpleIcon, GoogleLogoIcon, LockSimpleIcon, PhoneIcon, ShieldCheckIcon, SignOutIcon, TrashIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
-import { getAuthIdentity, linkEmailToAnonymous, changePassword, resendEmailConfirmation } from '../services/authService';
+import { getAuthIdentity, linkEmailToAnonymous, changePassword, resendEmailConfirmation, isAppleSignInAvailable } from '../services/authService';
 
 export default function AccountSecurityScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user } = useUser();
+  const { user, doSignOut, doDeleteAccount, doLinkGoogle, doLinkApple, setForegroundChecksPaused } = useUser();
   const [identity, setIdentity] = useState(null);
   const [loadingIdentity, setLoadingIdentity] = useState(true);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  const [linkingProvider, setLinkingProvider] = useState(null); // null | 'google' | 'apple'
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
   const [confirm,  setConfirm]  = useState('');
   const [saving,   setSaving]   = useState(false);
   const [resending, setResending] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const refreshIdentity = () => {
     return getAuthIdentity()
@@ -30,10 +35,56 @@ export default function AccountSecurityScreen({ navigation }) {
     // Pré-preenche com o email já informado no onboarding — evita digitar de novo
     if (user?.email) setEmail(user.email);
     refreshIdentity().finally(() => setLoadingIdentity(false));
+    isAppleSignInAvailable().then(setAppleAvailable);
   }, []);
 
   const hasLogin = identity && !identity.isAnonymous && identity.email;
   const isPending = identity && !hasLogin && identity.pendingEmail;
+
+  const handleLinkConflict = () => {
+    Alert.alert(
+      'Conta já existe',
+      'Essa conta já está vinculada a outro perfil do CapiFit. Pra usar os dados dela você precisaria entrar com ela, perdendo o progresso deste aparelho.',
+    );
+  };
+
+  const handleLinkGoogle = async () => {
+    if (linkingProvider) return;
+    setLinkingProvider('google');
+    // O navegador do OAuth manda o app pro background e de volta — sem pausar,
+    // as checagens automáticas de foreground corriam com a troca do código
+    // PKCE e podiam derrubar a sessão que autorizou o link, quebrando o
+    // flow_state ("invalid flow state, no valid flow state found").
+    setForegroundChecksPaused(true);
+    try {
+      await doLinkGoogle();
+      await refreshIdentity();
+    } catch (e) {
+      if (e?.userCancelled) { /* silêncio */ }
+      else if (e?.isConflict) handleLinkConflict();
+      else Alert.alert('Não foi possível vincular', e?.message || 'Tente novamente em instantes.');
+    } finally {
+      setLinkingProvider(null);
+      setForegroundChecksPaused(false);
+    }
+  };
+
+  const handleLinkApple = async () => {
+    if (linkingProvider) return;
+    setLinkingProvider('apple');
+    setForegroundChecksPaused(true);
+    try {
+      await doLinkApple();
+      await refreshIdentity();
+    } catch (e) {
+      if (e?.userCancelled) { /* silêncio */ }
+      else if (e?.isConflict) handleLinkConflict();
+      else Alert.alert('Não foi possível vincular', e?.message || 'Tente novamente em instantes.');
+    } finally {
+      setLinkingProvider(null);
+      setForegroundChecksPaused(false);
+    }
+  };
 
   const handleCreateLogin = async () => {
     if (!email.trim() || !email.includes('@')) {
@@ -95,6 +146,63 @@ export default function AccountSecurityScreen({ navigation }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sair da conta',
+      hasLogin
+        ? 'Você poderá entrar novamente com seu login ou criar uma nova conta. Nada do seu progresso é apagado.'
+        : 'Sua conta ainda é anônima (sem Google, Apple ou email vinculado) — se sair agora, não tem como entrar de novo nela, e o progresso deste aparelho fica pra trás.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            setSigningOut(true);
+            try { await doSignOut(); } finally { setSigningOut(false); }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Excluir conta',
+      'Isso vai apagar permanentemente seu perfil, streak, conquistas e histórico de treinos. Essa ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Tem certeza?',
+              'Sua conta e todos os seus dados serão excluídos agora, de forma definitiva.',
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                {
+                  text: 'Excluir permanentemente',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      await doDeleteAccount();
+                    } catch (e) {
+                      Alert.alert('Erro', e.message || 'Não foi possível excluir sua conta agora.');
+                    } finally {
+                      setDeleting(false);
+                    }
+                  },
+                },
+              ],
+            );
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -184,7 +292,7 @@ export default function AccountSecurityScreen({ navigation }) {
               <ShieldCheckIcon size={20} color={COLORS.gold} weight="fill" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.statusTitle}>Você ainda não tem login</Text>
-                <Text style={styles.statusSub}>Sua conta é anônima. Crie um email e senha para não perder seu progresso se trocar de aparelho.</Text>
+                <Text style={styles.statusSub}>Sua conta é anônima. Vincule com Google, Apple ou email e senha para não perder seu progresso se trocar de aparelho.</Text>
               </View>
             </View>
 
@@ -194,6 +302,42 @@ export default function AccountSecurityScreen({ navigation }) {
                 <Text style={styles.contactText}>Telefone do cadastro: {user.phone}</Text>
               </View>
             ) : null}
+
+            <Text style={styles.sectionTitle}>Vincular conta</Text>
+            <View style={{ gap: 10, marginBottom: SPACING.lg }}>
+              <TouchableOpacity activeOpacity={0.88} onPress={handleLinkGoogle} disabled={!!linkingProvider} style={styles.googleBtn}>
+                {linkingProvider === 'google'
+                  ? <ActivityIndicator color="#1F1F1F" />
+                  : (
+                    <>
+                      <GoogleLogoIcon size={20} color="#1F1F1F" weight="bold" />
+                      <Text style={styles.googleBtnText}>Continuar com Google</Text>
+                    </>
+                  )}
+              </TouchableOpacity>
+
+              {appleAvailable && (
+                linkingProvider === 'apple' ? (
+                  <View style={[styles.googleBtn, { backgroundColor: '#000' }]}>
+                    <ActivityIndicator color="#fff" />
+                  </View>
+                ) : (
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                    cornerRadius={25}
+                    style={{ width: '100%', height: 50 }}
+                    onPress={handleLinkApple}
+                  />
+                )
+              )}
+            </View>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>ou</Text>
+              <View style={styles.dividerLine} />
+            </View>
 
             <Text style={styles.sectionTitle}>Criar login</Text>
             <View style={styles.inputWrap}>
@@ -238,6 +382,28 @@ export default function AccountSecurityScreen({ navigation }) {
             </TouchableOpacity>
           </>
         )}
+
+        <TouchableOpacity onPress={handleSignOut} disabled={signingOut} activeOpacity={0.85} style={styles.signOutBtn}>
+          {signingOut
+            ? <ActivityIndicator color={COLORS.gray} />
+            : (
+              <>
+                <SignOutIcon size={16} color={COLORS.gray} weight="regular" />
+                <Text style={styles.signOutBtnText}>Sair da conta</Text>
+              </>
+            )}
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleDeleteAccount} disabled={deleting} activeOpacity={0.85} style={styles.deleteBtn}>
+          {deleting
+            ? <ActivityIndicator color={COLORS.red} />
+            : (
+              <>
+                <TrashIcon size={16} color={COLORS.red} weight="regular" />
+                <Text style={styles.deleteBtnText}>Excluir conta permanentemente</Text>
+              </>
+            )}
+        </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -256,6 +422,17 @@ const styles = StyleSheet.create({
   contactText: { color: COLORS.grayDark, fontSize: 11, fontWeight: '600' },
 
   sectionTitle: { color: COLORS.white, fontSize: 14, fontWeight: '800', marginBottom: 10 },
+
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    backgroundColor: COLORS.white, borderRadius: RADIUS.full, height: 50,
+  },
+  googleBtnText: { color: '#1F1F1F', fontSize: 15, fontWeight: '700' },
+
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: SPACING.lg },
+  dividerLine: { flex: 1, height: 1, backgroundColor: COLORS.border },
+  dividerText: { color: COLORS.grayDark, fontSize: 11, fontWeight: '700' },
+
   inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, paddingVertical: 4 },
   input: { flex: 1, color: COLORS.white, fontSize: 15, fontWeight: '600', paddingVertical: 12 },
 
@@ -264,4 +441,10 @@ const styles = StyleSheet.create({
 
   saveBtn: { borderRadius: RADIUS.lg, paddingVertical: 16, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
+  signOutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: SPACING.xl, padding: 14, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.card },
+  signOutBtnText: { color: COLORS.gray, fontSize: 13.5, fontWeight: '700' },
+
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: SPACING.md, padding: 14, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)', backgroundColor: 'rgba(239,68,68,0.08)' },
+  deleteBtnText: { color: COLORS.red, fontSize: 13.5, fontWeight: '700' },
 });

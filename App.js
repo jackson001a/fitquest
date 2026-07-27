@@ -8,7 +8,7 @@ import * as Linking from 'expo-linking';
 import AppNavigator from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
 import { UserProvider, useUser } from './src/context/UserContext';
-import { registerForPushNotifications, addNotificationResponseListener } from './src/services/notificationService';
+import { refreshPushTokenIfEnabled, addNotificationResponseListener } from './src/services/notificationService';
 import * as OneSignalService from './src/services/oneSignalService';
 import { parseDeepLink } from './src/services/socialService';
 
@@ -34,10 +34,12 @@ function handleDeepLink(url) {
 function AppInit() {
   const { user, alerts, clearAlerts } = useUser();
 
-  // Push token
+  // Push token — só re-registra se o usuário JÁ concedeu permissão antes
+  // (nunca pede permissão aqui; isso é feito explicitamente no onboarding ou
+  // no toggle de Notificações do Perfil)
   useEffect(() => {
     if (!user?.id) return;
-    registerForPushNotifications(user.id).catch(() => {});
+    refreshPushTokenIfEnabled(user.id).catch(() => {});
   }, [user?.id]);
 
   // OneSignal — identidade do usuário (login/logout) segue o mesmo ciclo do
@@ -47,20 +49,10 @@ function AppInit() {
     else OneSignalService.logout();
   }, [user?.id]);
 
-  // OneSignal — inicialização + diálogo de verificação da integração (mostra
-  // só quando o dispositivo recebe um subscription ID real do servidor; a
-  // permissão de notificação só é pedida se o usuário tocar em "Got it")
+  // OneSignal — inicialização (a permissão de notificação é pedida
+  // explicitamente no onboarding ou no toggle de Notificações do Perfil)
   useEffect(() => {
     OneSignalService.initialize();
-    const unsubscribe = OneSignalService.setupPushSubscriptionVerification(() => {
-      Alert.alert(
-        'Your OneSignal SDK integration is complete!',
-        'You can now send Push Notifications & In-App Messages through OneSignal. Tap below to enable push notifications.',
-        [{ text: 'Got it', onPress: () => OneSignalService.requestPermission() }],
-        { cancelable: false }
-      );
-    });
-    return unsubscribe;
   }, []);
 
   // Alertas de comprometimento (não streak_risk — vai inline no card)

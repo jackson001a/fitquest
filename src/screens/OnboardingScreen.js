@@ -11,12 +11,13 @@ import { ArrowLeftIcon, ArrowsClockwiseIcon, BarbellIcon, BellIcon, BrainIcon, C
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import Svg, { Circle } from 'react-native-svg';
+import * as StoreReview from 'expo-store-review';
 import { useUser } from '../context/UserContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 const { width: SW, height: SH } = Dimensions.get('window');
-const TOTAL_STEPS = 28;
+const TOTAL_STEPS = 26;
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -322,84 +323,10 @@ function NameInputScreen({ value, onChange, onNext, disabled }) {
   );
 }
 
-function EmailInputScreen({ value, onChange, onNext, disabled }) {
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
-        <View style={{ marginBottom: 32, marginTop: 10 }}>
-          <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.white, lineHeight: 40, marginBottom: 8, letterSpacing: -1 }}>
-            Qual o seu e-mail?
-          </Text>
-          <Text style={{ fontSize: 17, color: COLORS.gray, lineHeight: 24, fontWeight: '500' }}>
-            Para proteger sua conta e progresso.
-          </Text>
-        </View>
-        <TextInput
-          style={{ backgroundColor: '#161625', borderRadius: 16, paddingVertical: 20, paddingHorizontal: 24, fontSize: 20, color: COLORS.white, fontWeight: '700' }}
-          value={value}
-          onChangeText={onChange}
-          placeholder="seu@email.com"
-          placeholderTextColor="#555"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          returnKeyType="done"
-          selectionColor={COLORS.white}
-        />
-      </View>
-      <View style={{ paddingBottom: 16, paddingTop: 8, backgroundColor: COLORS.bg }}>
-        <TouchableOpacity
-          onPress={onNext}
-          disabled={disabled}
-          activeOpacity={0.85}
-          style={{ borderRadius: 99, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: disabled ? '#2A2A4A' : COLORS.purple }}
-        >
-          <Text style={{ color: disabled ? '#888' : COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>Continuar</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
-
-function PhoneInputScreen({ value, onChange, onNext }) {
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-      <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 16 }}>
-        <View style={{ marginBottom: 32, marginTop: 10 }}>
-          <Text style={{ fontSize: 34, fontWeight: '800', color: COLORS.white, lineHeight: 40, marginBottom: 8, letterSpacing: -1 }}>
-            Qual o seu WhatsApp?
-          </Text>
-          <Text style={{ fontSize: 17, color: COLORS.gray, lineHeight: 24, fontWeight: '500' }}>
-            Para alertas importantes (opcional).
-          </Text>
-        </View>
-        <TextInput
-          style={{ backgroundColor: '#161625', borderRadius: 16, paddingVertical: 20, paddingHorizontal: 24, fontSize: 20, color: COLORS.white, fontWeight: '700' }}
-          value={value}
-          onChangeText={onChange}
-          placeholder="(11) 99999-9999"
-          placeholderTextColor="#555"
-          keyboardType="phone-pad"
-          returnKeyType="done"
-          selectionColor={COLORS.white}
-        />
-      </View>
-      <View style={{ paddingBottom: 16, paddingTop: 8, backgroundColor: COLORS.bg }}>
-        <TouchableOpacity
-          onPress={onNext}
-          activeOpacity={0.85}
-          style={{ borderRadius: 99, height: 56, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.purple }}
-        >
-          <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 }}>Continuar</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
-  );
-}
-
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function OnboardingScreen({ navigation }) {
-  const { completeOnboarding } = useUser();
+  const { completeOnboarding, enableNotifications } = useUser();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ workoutDays: [], height: '170', weight: '70', age: '25' });
 
@@ -469,6 +396,23 @@ export default function OnboardingScreen({ navigation }) {
     setAnswers(prev => ({ ...prev, [key]: value }));
   }, []);
 
+  // Pede a permissão de verdade (mostra o prompt nativo) — antes o botão só
+  // avançava a tela sem nunca chamar a API de notificações.
+  const handleEnableNotifications = useCallback(async () => {
+    try { await enableNotifications(); } catch (e) { console.warn('[onboarding] falha ao ativar notificações:', e.message); }
+    goNext();
+  }, [enableNotifications, goNext]);
+
+  // Pede a avaliação nativa da loja logo depois da prova social — o próprio
+  // iOS decide se mostra (limite de vezes por ano definido pela Apple), então
+  // só chamamos e seguimos, sem tentar saber o resultado.
+  const handleRequestReview = useCallback(async () => {
+    try {
+      if (await StoreReview.isAvailableAsync()) await StoreReview.requestReview();
+    } catch (e) { console.warn('[onboarding] falha ao pedir avaliação:', e.message); }
+    goNext();
+  }, [goNext]);
+
   const toggleDay = (id) => {
     setAnswers(prev => {
       const days = prev.workoutDays || [];
@@ -512,8 +456,8 @@ export default function OnboardingScreen({ navigation }) {
   }, [step]);
 
   useEffect(() => {
-    // Tela 23 (Index 26) - Loading Plan
-    if (step !== 26) return;
+    // Tela 23 (Index 24) - Loading Plan
+    if (step !== 24) return;
     loadingProg.setValue(0);
     setLoadingMsgIdx(0);
     setLoadingPct(0);
@@ -1201,14 +1145,14 @@ export default function OnboardingScreen({ navigation }) {
         </View>
       </View>
       <View style={{paddingHorizontal: 24}}>
-        <Btn label="Ativar notificações" />
+        <Btn label="Ativar notificações" onPress={handleEnableNotifications} />
         <Btn label="Pular" secondary />
       </View>
     </>
   );
 
-  // Telas 19-21: Input de nome/email/telefone
-  // Obs: renderizados separadamente no return principal para evitar perda de foco
+  // Tela 19: Input de nome
+  // Obs: renderizado separadamente no return principal para evitar perda de foco
 
 
   // Tela 22: Hora de gerar plano
@@ -1682,14 +1626,14 @@ export default function OnboardingScreen({ navigation }) {
         </View>
         <View style={{height: 24}}/>
       </ScrollView>
-      <Btn />
+      <Btn onPress={handleRequestReview} />
     </>
   );
 
   const STEPS = [
     Step0, Step1, Step2, Step3, StepAge, StepGoalLockInfo, Step4, Step5, Step6, Step7,
     Step8, Step9, Step10, Step11, Step12, Step13, Step14, Step15,
-    Step16, Step24, Step17, null, null, null, Step23, Step21,
+    Step16, Step24, Step17, null, Step23, Step21,
     Step22, StepPlan
   ];
   const StepComponent = STEPS[step];
@@ -1702,25 +1646,6 @@ export default function OnboardingScreen({ navigation }) {
           onChange={(v) => setAnswers(p => ({ ...p, name: v }))}
           onNext={goNext}
           disabled={!answers.name || answers.name.length < 2}
-        />
-      );
-    }
-    if (step === 22) {
-      return (
-        <EmailInputScreen
-          value={answers.email || ''}
-          onChange={(v) => setAnswers(p => ({ ...p, email: v }))}
-          onNext={goNext}
-          disabled={!answers.email || !answers.email.includes('@')}
-        />
-      );
-    }
-    if (step === 23) {
-      return (
-        <PhoneInputScreen
-          value={answers.phone || ''}
-          onChange={(v) => setAnswers(p => ({ ...p, phone: v }))}
-          onNext={goNext}
         />
       );
     }

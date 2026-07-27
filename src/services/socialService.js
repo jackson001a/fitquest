@@ -172,6 +172,49 @@ export async function addFriendByCode(myUserId, code) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// BLOQUEIO DE USUÁRIOS
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Bloqueia — some com posts/perfil dele pra mim e desfaz amizade nos dois sentidos
+export async function blockUser(blockerId, blockedId) {
+  await supabase
+    .from('friendships')
+    .delete()
+    .or(`and(user_id.eq.${blockerId},friend_id.eq.${blockedId}),and(user_id.eq.${blockedId},friend_id.eq.${blockerId})`);
+
+  const { error } = await supabase
+    .from('blocked_users')
+    .insert({ blocker_id: blockerId, blocked_id: blockedId });
+
+  if (error && error.code !== '23505') throw error; // 23505 = já bloqueado, ignora
+}
+
+export async function unblockUser(blockerId, blockedId) {
+  const { error } = await supabase
+    .from('blocked_users')
+    .delete()
+    .eq('blocker_id', blockerId)
+    .eq('blocked_id', blockedId);
+  if (error) throw error;
+}
+
+export async function getBlockedUserIds(userId) {
+  const { data } = await supabase.from('blocked_users').select('blocked_id').eq('blocker_id', userId);
+  return (data ?? []).map(r => r.blocked_id);
+}
+
+// Lista completa (com nome/avatar) pra tela de gerenciar bloqueios
+export async function getBlockedUsers(userId) {
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .select('id, blocked_id, users!blocked_users_blocked_id_fkey(id, name, avatar_url)')
+    .eq('blocker_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(r => ({ blockId: r.id, ...r.users }));
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // CLÃS / SQUADS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -447,7 +490,9 @@ export async function startChallenge(squadId) {
 }
 
 export async function deleteSquad(squadId) {
-  await supabase.from('squad_members').delete().eq('squad_id', squadId);
+  // squad_members tem ON DELETE CASCADE em squad_id — apagar squads já leva os
+  // membros junto. Apagar squad_members antes quebraria a policy de RLS de
+  // squads (que exige ser membro), deixando o squad órfão.
   const { error } = await supabase.from('squads').delete().eq('id', squadId);
   if (error) throw error;
 }

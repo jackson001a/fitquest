@@ -13,5 +13,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     autoRefreshToken: true,
     persistSession:   true,
     detectSessionInUrl: false,
+    // Sem isso o client usa flowType 'implicit' por padrão — signInWithOAuth/
+    // linkIdentity nunca geram nem guardam o code_verifier, e
+    // exchangeCodeForSession falha com "auth code and code verifier should
+    // be non-empty" (o code_verifier salvo em storage vem sempre vazio).
+    flowType: 'pkce',
   },
 });

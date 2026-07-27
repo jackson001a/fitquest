@@ -236,18 +236,26 @@ export async function processWorkout(userId, user, xpGain) {
   const newToday = (user.today_xp ?? 0) + xpGain;
   const { level, nextXP } = levelFromXP(newXP);
 
+  // A pessoa pode treinar quantas vezes quiser no mesmo dia e ganha XP em
+  // todas — mas total_workouts (usado pelas conquistas "N Treinos") só avança
+  // no primeiro treino do dia, senão dava pra destravar "200 Treinos" num
+  // fim de semana só, batendo o botão repetidas vezes.
+  const isFirstWorkoutToday = user.last_workout_date !== today;
+
   const fields = {
     xp:               newXP,
     today_xp:         newToday,
     level,
     next_level_xp:    nextXP,
-    total_workouts:   (user.total_workouts ?? 0) + 1,
     last_workout_date: today,
     last_active_date:  today,
   };
+  if (isFirstWorkoutToday) {
+    fields.total_workouts = (user.total_workouts ?? 0) + 1;
+  }
 
   await updateUser(userId, fields);
-  return fields;
+  return { ...fields, isFirstWorkoutToday };
 }
 
 // ─── Processa conclusão de desafio diário ────────────────────────────────────

@@ -13,8 +13,7 @@ ios/
 
 # Environment variables
 .env
-.env.local
-.env.*.local
+.env.*
 
 # Logs
 *.log
@@ -29,6 +28,9 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# Claude Code local config (permissions allowlist, pode conter valores locais)
+.claude/settings.json
 
 # Build artifacts
 *.jks
