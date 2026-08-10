@@ -36,7 +36,7 @@
     <header>
       <div class="brand"><span class="brand-dot"></span><span class="brand-name">CapiFit</span></div>
       <h1>Política de Privacidade</h1>
-      <div class="updated">Última atualização: 21 de julho de 2026</div>
+      <div class="updated">Última atualização: 10 de agosto de 2026</div>
     </header>
 
     <div class="card">
@@ -48,8 +48,8 @@
         <tr><td>Conta</td><td>E-mail (opcional), identificador de conta anônima, senha (criptografada)</td></tr>
         <tr><td>Perfil</td><td>Nome, foto de avatar, código de usuário</td></tr>
         <tr><td>Fitness</td><td>Peso, meta de peso, frequência semanal, dias de treino, histórico de treinos concluídos, XP, nível, sequência (streak)</td></tr>
-        <tr><td>Câmera e fotos</td><td>Foto de check-in na academia, foto de perfil (você escolhe quando usar)</td></tr>
-        <tr><td>Social</td><td>Lista de amigos, grupos/clãs, duelos, publicações e reações no feed</td></tr>
+        <tr><td>Câmera e fotos</td><td>Foto de perfil (armazenada, você escolhe quando usar). Foto de check-in na academia (processada de forma transitória apenas para validar o check-in — não é armazenada nem exibida a ninguém)</td></tr>
+        <tr><td>Social</td><td>Lista de amigos, grupos/clãs, duelos, reações no feed e participação no ranking público</td></tr>
         <tr><td>Assinatura</td><td>Status de assinatura Premium e plano escolhido (mensal/anual) — os dados de pagamento em si são processados pela Apple/Google, nunca por nós</td></tr>
         <tr><td>Notificações</td><td>Token de push notification do seu dispositivo (se você ativar lembretes)</td></tr>
         <tr><td>Técnico</td><td>Identificador do dispositivo, sistema operacional, logs de erro</td></tr>
@@ -64,19 +64,29 @@
         <li>Corrigir bugs, melhorar o desempenho e a segurança do Aplicativo.</li>
       </ul>
 
-      <h2>3. Compartilhamento com Terceiros</h2>
+      <h2>3. Visibilidade Pública do seu Perfil</h2>
+      <p>O CapiFit possui um ranking e um feed de atividades públicos, visíveis a qualquer pessoa que use o aplicativo — não apenas aos seus amigos ou ao seu grupo.</p>
+      <p>Ao criar uma conta e usar essas funcionalidades, ficam publicamente visíveis: seu apelido, sua foto de perfil, sua sequência (streak), seu nível e XP, suas conquistas e mensagens automáticas sobre seus check-ins (ex.: "Fulano treinou hoje"). Ao aceitar esta Política e os Termos de Uso no cadastro, você consente com essa exibição pública.</p>
+      <p>Você pode excluir sua conta a qualquer momento (seção 6), o que remove seus dados de todos os rankings, feeds e listas públicas do Aplicativo. Também é possível bloquear outros usuários e denunciar conteúdo, impedindo que eles vejam sua atividade ou interajam com você — disponível em Perfil e diretamente nos cards de outros usuários.</p>
+      <p>Sua foto de check-in nunca é publicada. Ela é enviada de forma transitória a um serviço de inteligência artificial (seção 4) apenas para validar que você está em um ambiente de treino, e não é armazenada nem exibida a ninguém.</p>
+
+      <h2>4. Compartilhamento com Terceiros</h2>
       <p>Não vendemos seus dados pessoais. Usamos os seguintes prestadores de serviço para operar o Aplicativo, cada um sujeito às suas próprias políticas de privacidade:</p>
       <ul>
-        <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos (fotos de perfil/check-in);</li>
+        <li><strong>Supabase</strong> — banco de dados e armazenamento de arquivos (fotos de perfil);</li>
         <li><strong>RevenueCat</strong> — gestão de assinaturas e validação de recibos de compra;</li>
         <li><strong>Apple App Store / Google Play</strong> — processamento de pagamento das assinaturas;</li>
-        <li><strong>Expo (push notifications)</strong> — envio de notificações ao seu dispositivo.</li>
+        <li><strong>OneSignal</strong> — envio de notificações push ao seu dispositivo;</li>
+        <li><strong>Google e Apple</strong> — autenticação/login com sua conta Google ou Apple, quando você optar por esse método;</li>
+        <li><strong>Anthropic (Claude)</strong> — análise automática e transitória da sua foto de check-in, para confirmar que foi tirada em uma academia;</li>
+        <li><strong>Google Cloud Vision</strong> — análise automática e transitória de fotos enviadas ao Aplicativo (perfil, check-in, feed), para bloquear conteúdo impróprio (adulto, violento ou gráfico).</li>
       </ul>
+      <p>Essas análises de imagem são feitas em tempo real, apenas para gerar o resultado da verificação (aprovado/reprovado); o Aplicativo não armazena essas fotos após a análise. A retenção temporária dessas imagens pelos provedores de IA para fins de segurança segue as políticas de privacidade deles.</p>
 
-      <h2>4. Armazenamento e Segurança</h2>
+      <h2>5. Armazenamento e Segurança</h2>
       <p>Seus dados são armazenados em servidores do Supabase com controle de acesso por conta (Row Level Security). Adotamos medidas técnicas razoáveis para proteger seus dados contra acesso não autorizado, mas nenhum sistema é 100% livre de falhas.</p>
 
-      <h2>5. Seus Direitos (LGPD)</h2>
+      <h2>6. Seus Direitos (LGPD)</h2>
       <p>Você pode, a qualquer momento, solicitar:</p>
       <ul>
         <li>Acesso aos dados que temos sobre você;</li>
@@ -86,18 +96,18 @@
       </ul>
       <p>Para exercer esses direitos, envie um e-mail para <a href="mailto:jacksondeandradee@gmail.com">jacksondeandradee@gmail.com</a>. Algumas funcionalidades do Aplicativo (como o histórico de treinos) também podem ser removidas diretamente pelas configurações da conta.</p>
 
-      <h2>6. Retenção de Dados</h2>
+      <h2>7. Retenção de Dados</h2>
       <p>Mantemos seus dados enquanto sua conta estiver ativa. Ao solicitar a exclusão da conta, seus dados pessoais são removidos dos nossos sistemas em até 30 dias, exceto quando a retenção for exigida por lei.</p>
 
-      <h2>7. Crianças e Adolescentes</h2>
-      <p>O CapiFit não é direcionado a crianças menores de 12 anos, e não coletamos intencionalmente dados dessa faixa etária. Conforme o art. 14 da LGPD, o tratamento de dados de crianças exige consentimento específico e em destaque de um dos pais ou responsável legal — algo que o Aplicativo, hoje, não verifica no cadastro.</p>
-      <p>Adolescentes entre 12 e 18 anos podem usar o CapiFit. Como o Aplicativo envolve fotos (check-in e avatar), dados sobre peso/metas físicas e interação social com outros usuários, recomendamos que o uso por adolescentes seja acompanhado por um responsável, em linha com o melhor interesse do titular previsto no art. 14, §5º da LGPD.</p>
+      <h2>8. Crianças e Adolescentes</h2>
+      <p>O CapiFit não é direcionado a crianças menores de 12 anos, e não coletamos intencionalmente dados dessa faixa etária. Conforme o art. 14 da LGPD, o tratamento de dados de crianças exige consentimento específico e em destaque de um dos pais ou responsável legal.</p>
+      <p>Adolescentes entre 12 e 18 anos podem usar o CapiFit. Para proteger todos os usuários, o Aplicativo permite bloquear qualquer pessoa, denunciar conteúdo ou perfis impróprios e excluir a conta a qualquer momento, com efeito imediato sobre a visibilidade pública dos seus dados. Recomendamos que o uso por adolescentes seja acompanhado por um responsável, em linha com o melhor interesse do titular previsto no art. 14, §5º da LGPD.</p>
       <p>Se você é pai, mãe ou responsável e acredita que uma criança menor de 12 anos nos forneceu dados pessoais sem o consentimento adequado, entre em contato para que possamos removê-los.</p>
 
-      <h2>8. Alterações nesta Política</h2>
+      <h2>9. Alterações nesta Política</h2>
       <p>Podemos atualizar esta Política periodicamente. Mudanças relevantes serão comunicadas dentro do Aplicativo, com atualização da data no topo desta página.</p>
 
-      <h2>9. Contato</h2>
+      <h2>10. Contato</h2>
       <p>Para dúvidas sobre esta Política de Privacidade, entre em contato: <a href="mailto:jacksondeandradee@gmail.com">jacksondeandradee@gmail.com</a>.</p>
     </div>
 
