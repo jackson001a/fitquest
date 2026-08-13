@@ -3,6 +3,7 @@ import { useUser } from '../context/UserContext';
 import AchievementUnlockModal from './AchievementUnlockModal';
 import LevelUpModal from './LevelUpModal';
 import LinkAccountModal from './LinkAccountModal';
+import ReviewRequestPrompt from './ReviewRequestPrompt';
 
 // Orquestra os popups de "conquista desbloqueada" e "subiu de nível" a partir
 // da fila unificada do UserContext — nunca mais de um por vez. Sem isso, duas
@@ -29,6 +30,10 @@ export default function CelebrationOverlay() {
       />
       <LinkAccountModal
         visible={current?.kind === 'linkAccount'}
+        onDismiss={advanceCelebration}
+      />
+      <ReviewRequestPrompt
+        active={current?.kind === 'reviewRequest'}
         onDismiss={advanceCelebration}
       />
     </>

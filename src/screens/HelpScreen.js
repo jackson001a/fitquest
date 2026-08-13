@@ -116,8 +116,8 @@ const styles = StyleSheet.create({
   faqQuestion: { flex: 1, color: COLORS.white, fontSize: 14, fontWeight: '700' },
   faqAnswer: { color: COLORS.gray, fontSize: 13, lineHeight: 19, marginTop: 10 },
 
-  contactCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)', marginTop: SPACING.md },
-  contactIcon: { width: 42, height: 42, borderRadius: RADIUS.md, backgroundColor: 'rgba(139,92,246,0.15)', alignItems: 'center', justifyContent: 'center' },
+  contactCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)', marginTop: SPACING.md },
+  contactIcon: { width: 42, height: 42, borderRadius: RADIUS.md, backgroundColor: 'rgba(168, 85, 247,0.15)', alignItems: 'center', justifyContent: 'center' },
   contactTitle: { color: COLORS.white, fontSize: 14, fontWeight: '700' },
   contactSub: { color: COLORS.gray, fontSize: 12, marginTop: 2 },
 });

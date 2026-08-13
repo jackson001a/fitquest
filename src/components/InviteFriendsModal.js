@@ -66,7 +66,7 @@ export default function InviteFriendsModal({ visible, onClose, squad, currentUse
                     {item.avatar_url ? (
                       <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
                     ) : (
-                      <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.avatar}>
+                      <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.avatar}>
                         <Text style={styles.avatarText}>{letter}</Text>
                       </LinearGradient>
                     )}
@@ -106,7 +106,7 @@ export default function InviteFriendsModal({ visible, onClose, squad, currentUse
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'flex-end' },
-  card: { backgroundColor: '#1A1A2E', borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: SPACING.lg, paddingBottom: 32, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  card: { backgroundColor: '#1A1A2E', borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: SPACING.lg, paddingBottom: 32, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   title: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
   sub: { color: COLORS.gray, fontSize: 12, lineHeight: 17, marginBottom: 16 },
@@ -118,6 +118,6 @@ const styles = StyleSheet.create({
   name: { flex: 1, color: COLORS.white, fontSize: 14, fontWeight: '700' },
   inviteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.purple, borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, minWidth: 96, justifyContent: 'center' },
   inviteBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  invitedBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(16,185,129,0.35)' },
+  invitedBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(16, 232, 140,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(16, 232, 140,0.35)' },
   invitedBadgeText: { color: COLORS.green, fontSize: 12, fontWeight: '700' },
 });

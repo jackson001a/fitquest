@@ -104,13 +104,13 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
           {targetUser.avatar_url ? (
             <Image source={{ uri: targetUser.avatar_url }} style={styles.avatar} />
           ) : (
-            <LinearGradient colors={['#8B5CF6', '#EC4899']} style={styles.avatar}>
+            <LinearGradient colors={['#A855F7', '#EC4899']} style={styles.avatar}>
               <Text style={styles.avatarText}>{letter}</Text>
             </LinearGradient>
           )}
 
           <Text style={styles.name}>{targetUser.name}</Text>
-          <View style={[styles.leagueBadge, { borderColor: league.color ? league.color + '55' : 'rgba(139,92,246,0.4)' }]}>
+          <View style={[styles.leagueBadge, { borderColor: league.color ? league.color + '55' : 'rgba(168, 85, 247,0.4)' }]}>
             <Text style={styles.leagueText}>{league.emoji} Liga {league.league}</Text>
           </View>
 
@@ -132,7 +132,7 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
 
           {status === 'none' && (
             <TouchableOpacity onPress={handleAdd} disabled={busy} activeOpacity={0.9} style={{ width: '100%', marginTop: 18 }}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.actionBtn}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.actionBtn}>
                 {busy ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <UserPlusIcon size={18} color="#fff" weight="fill" />
@@ -152,7 +152,7 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
 
           {status === 'pending_received' && (
             <TouchableOpacity onPress={handleAccept} disabled={busy} activeOpacity={0.9} style={{ width: '100%', marginTop: 18 }}>
-              <LinearGradient colors={['#10B981', '#047857']} style={styles.actionBtn}>
+              <LinearGradient colors={['#10E88C', '#047857']} style={styles.actionBtn}>
                 {busy ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <CheckCircleIcon size={18} color="#fff" weight="fill" />
@@ -164,7 +164,7 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
           )}
 
           {status === 'accepted' && (
-            <View style={[styles.pill, { marginTop: 18, backgroundColor: 'rgba(16,185,129,0.15)', borderColor: 'rgba(16,185,129,0.4)' }]}>
+            <View style={[styles.pill, { marginTop: 18, backgroundColor: 'rgba(16, 232, 140,0.15)', borderColor: 'rgba(16, 232, 140,0.4)' }]}>
               <CheckCircleIcon size={14} color={COLORS.green} weight="fill" />
               <Text style={[styles.pillText, { color: COLORS.green }]}>Vocês são amigos</Text>
             </View>
@@ -195,12 +195,12 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', padding: SPACING.lg },
-  card: { width: '100%', maxWidth: 340, backgroundColor: '#1A1A2E', borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
+  card: { width: '100%', maxWidth: 340, backgroundColor: '#1A1A2E', borderRadius: RADIUS.xl, padding: SPACING.lg, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)' },
   closeBtn: { position: 'absolute', top: 14, right: 14, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
   avatar: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   avatarText: { color: '#fff', fontSize: 30, fontWeight: '800' },
   name: { color: COLORS.white, fontSize: 18, fontWeight: '800', marginTop: 12 },
-  leagueBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8, backgroundColor: 'rgba(139,92,246,0.12)' },
+  leagueBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 5, marginTop: 8, backgroundColor: 'rgba(168, 85, 247,0.12)' },
   leagueText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   statsRow: { flexDirection: 'row', alignItems: 'center', width: '100%', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: RADIUS.md, padding: 14, marginTop: 16 },
   statBox: { flex: 1, alignItems: 'center', gap: 3 },

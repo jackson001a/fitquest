@@ -40,8 +40,8 @@ export function getCurrentProgress(achievement, user) {
 // então a UI usa uma cor fixa por categoria em vez de uma por conquista.
 export const CATEGORY_COLOR = {
   streak:   '#F97316', // laranja (chama)
-  treinos:  '#8B5CF6', // roxo (tema principal)
-  xp:       '#FCD34D', // dourado claro
+  treinos:  '#A855F7', // roxo (tema principal)
+  xp:       '#FDE047', // dourado claro
   especial: '#EC4899', // rosa (raras/lendárias)
 };
 
@@ -59,7 +59,7 @@ export async function fetchUserAchievements(userId) {
     const ua = map[def.id];
     return {
       ...def,
-      color:       CATEGORY_COLOR[def.category] ?? '#8B5CF6',
+      color:       CATEGORY_COLOR[def.category] ?? '#A855F7',
       unlocked:    ua?.unlocked   ?? false,
       progress:    ua?.progress   ?? 0,
       unlocked_at: ua?.unlocked_at ?? null,
@@ -98,7 +98,7 @@ export async function checkAndUnlockAchievements(userId, user) {
         progress:       def.condition_value,
         unlocked_at:    new Date().toISOString(),
       });
-      newlyUnlocked.push({ ...def, color: CATEGORY_COLOR[def.category] ?? '#8B5CF6' });
+      newlyUnlocked.push({ ...def, color: CATEGORY_COLOR[def.category] ?? '#A855F7' });
     } else {
       upserts.push({
         user_id:        userId,
@@ -168,7 +168,7 @@ export async function unlockManualAchievement(userId, achievementId, user) {
     });
   }
 
-  return { ...def, color: CATEGORY_COLOR[def.category] ?? '#8B5CF6' };
+  return { ...def, color: CATEGORY_COLOR[def.category] ?? '#A855F7' };
 }
 
 // IDs fixos das conquistas manuais — para disparar pelo nome

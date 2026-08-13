@@ -204,6 +204,7 @@ export async function processCheckin(userId, user) {
   const newXP    = (user.xp ?? 0) + xpGain;
   const newToday = (user.today_xp ?? 0) + xpGain;
   const { level, nextXP } = levelFromXP(newXP);
+  const newTotalCheckins = (user.total_checkins ?? 0) + 1;
 
   const fields = {
     last_gym_checkin_date: today,
@@ -221,6 +222,7 @@ export async function processCheckin(userId, user) {
     today_xp:              newToday,
     level,
     next_level_xp:         nextXP,
+    total_checkins:        newTotalCheckins,
   };
 
   await updateUser(userId, fields);

@@ -73,6 +73,8 @@ function normalizeUser(u) {
     longestStreak:    num(u.longest_streak, 0),
     streakGoal:       30,
     totalWorkouts:    num(u.total_workouts, 0),
+    totalCheckins:    num(u.total_checkins, 0),
+    hasRequestedReview: u.has_requested_review ?? false,
     weekWorkouts:     num(u.week_workouts, 0),
     totalChallengesCompleted: num(u.total_challenges_completed, 0),
     weekTrainingDays: u.week_training_days ?? [false,false,false,false,false,false,false],
@@ -155,6 +157,20 @@ export function UserProvider({ children }) {
   }, []);
   const setCelebrationsPaused = useCallback((paused) => {
     setCelebrationsPausedState(paused);
+  }, []);
+
+  // Marca has_requested_review no Supabase — chamado pelo ReviewRequestPrompt
+  // no exato momento em que o StoreReview.requestReview() é disparado, não
+  // antes (ver comentário em doCheckin).
+  const markReviewRequested = useCallback(async () => {
+    const current = userRef.current;
+    if (!current) return;
+    try {
+      await updateUser(current.id, { has_requested_review: true });
+    } catch (e) { console.warn('[markReviewRequested] falha ao persistir:', e.message); }
+    const updated = normalizeUser({ ...current, has_requested_review: true });
+    userRef.current = updated;
+    setUser(updated);
   }, []);
 
   // checkAndUnlockAchievements/unlockManualAchievement gravam o bônus de XP
@@ -495,6 +511,19 @@ export function UserProvider({ children }) {
           enqueueCelebration({ kind: 'linkAccount' });
         }
       } catch (e) { console.warn('[doCheckin] checagem de conta anônima falhou:', e.message); }
+    }
+
+    // Pedido de avaliação na loja — só a partir do 3º check-in confirmado e
+    // com pelo menos 2 dias de conta. A flag has_requested_review só é
+    // persistida quando o popup de fato aparece (ver ReviewRequestPrompt),
+    // não aqui — se o app fechar antes da fila desfilar, tentamos de novo
+    // no próximo check-in em vez de perder a chance silenciosamente.
+    if (!current.hasRequestedReview && (result.fields.total_checkins ?? 0) >= 3) {
+      const createdAtMs = current.created_at ? new Date(current.created_at).getTime() : null;
+      const daysSinceCreation = createdAtMs ? (Date.now() - createdAtMs) / 86400000 : 0;
+      if (daysSinceCreation >= 2) {
+        enqueueCelebration({ kind: 'reviewRequest' });
+      }
     }
 
     return result;
@@ -980,6 +1009,33 @@ export function UserProvider({ children }) {
     setNewAchievements(prev => prev.slice(1));
   }, []);
 
+  // ─── Re-sincroniza conquistas com o estado real do usuário ────────────────
+  // checkAndUnlockAchievements só roda depois de ações específicas (check-in,
+  // treino, desafio, addXP) — se alguma delas falhar silenciosamente ou o app
+  // fechar no meio, o progresso real do usuário passa a bater a condição mas
+  // o `unlocked` gravado no banco fica atrasado (achievement aparece em
+  // "Quase lá" com progresso >= total, sem nunca desbloquear). Chamado ao
+  // abrir a tela de Conquistas pra fechar essa lacuna e conceder o bônus
+  // retroativamente.
+  const syncAchievements = useCallback(async () => {
+    const current = userRef.current;
+    if (!current) return [];
+    try {
+      const unlocked = await checkAndUnlockAchievements(current.id, current);
+      const updated = applyAchievementBonus(current, unlocked);
+      if (unlocked.length > 0) {
+        setNewAchievements(prev => [...prev, ...unlocked]);
+        for (const ach of unlocked) {
+          await saveActivity(current.id, 'achievement', `Conquistou "${ach.name}"! ${ach.emoji}`, ach.emoji, ach.xp_reward ?? 0);
+        }
+      }
+      return updated;
+    } catch (e) {
+      console.warn('[syncAchievements] falhou:', e.message);
+      return current;
+    }
+  }, [applyAchievementBonus]);
+
   // ─── Limpa alertas ───────────────────────────────────────────────────────
   const clearAlerts = useCallback(() => setAlerts([]), []);
 
@@ -993,6 +1049,7 @@ export function UserProvider({ children }) {
       clearAlerts,
       newAchievements,
       dismissAchievement,
+      syncAchievements,
       completeOnboarding,
       doCheckin,
       completeWorkout,
@@ -1029,6 +1086,7 @@ export function UserProvider({ children }) {
       advanceCelebration,
       celebrationsPaused,
       setCelebrationsPaused,
+      markReviewRequested,
     }}>
       {children}
     </UserContext.Provider>

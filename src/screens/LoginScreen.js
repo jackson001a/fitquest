@@ -112,7 +112,7 @@ export default function LoginScreen({ navigation }) {
 
       <ScrollView contentContainerStyle={{ paddingHorizontal: SPACING.lg, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.heroIcon}>
+          <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.heroIcon}>
             <Text style={styles.heroEmoji}>🔥</Text>
           </LinearGradient>
           <Text style={styles.title}>Bem-vindo de volta</Text>
@@ -191,7 +191,7 @@ export default function LoginScreen({ navigation }) {
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handleLogin} disabled={loading} activeOpacity={0.9} style={{ marginTop: 20 }}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.loginBtn}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.loginBtn}>
                 {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginBtnText}>Entrar</Text>}
               </LinearGradient>
             </TouchableOpacity>

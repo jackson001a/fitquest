@@ -29,6 +29,7 @@ export default function LevelUpModal({ level, onDismiss }) {
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     sound.seekTo(0);
     sound.play();
     Animated.parallel([
@@ -62,7 +63,7 @@ export default function LevelUpModal({ level, onDismiss }) {
           transform: [{ rotate: rays.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
         }]}>
           <LinearGradient
-            colors={['rgba(139,92,246,0.35)', 'transparent']}
+            colors={['rgba(168, 85, 247,0.35)', 'transparent']}
             style={styles.ray}
           />
         </Animated.View>
@@ -74,7 +75,7 @@ export default function LevelUpModal({ level, onDismiss }) {
                 shadowOpacity: glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.95] }),
                 shadowRadius:  glowAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 28] }),
               }]}>
-                <LinearGradient colors={[COLORS.gold, '#F59E0B']} style={styles.badge}>
+                <LinearGradient colors={[COLORS.gold, '#FBBF24']} style={styles.badge}>
                   <TrendUpIcon size={36} color="#fff" weight="bold" />
                 </LinearGradient>
               </Animated.View>

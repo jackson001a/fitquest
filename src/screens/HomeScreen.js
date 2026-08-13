@@ -58,8 +58,8 @@ const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
 
 const BOOST_EVENTS = [
   { icon: FireIcon,      title: 'BOOST SECRETO!',   desc: '+50% XP por 1 hora',        color: '#F97316', gradient: ['#7C2D12', '#431407'] },
-  { icon: LightningIcon, title: 'XP DOBRADO!',       desc: 'XP dobrado neste treino!',  color: '#F59E0B', gradient: ['#78350F', '#3B1500'] },
-  { icon: ShieldIcon,    title: 'MISSÃO ESPECIAL!', desc: 'Nova missão desbloqueada!', color: '#8B5CF6', gradient: ['#4C1D95', '#2E1065'] },
+  { icon: LightningIcon, title: 'XP DOBRADO!',       desc: 'XP dobrado neste treino!',  color: '#FBBF24', gradient: ['#78350F', '#3B1500'] },
+  { icon: ShieldIcon,    title: 'MISSÃO ESPECIAL!', desc: 'Nova missão desbloqueada!', color: '#A855F7', gradient: ['#4C1D95', '#2E1065'] },
 ];
 
 const FLAVOR_EVENT_CHANCE = 0.30;
@@ -102,7 +102,7 @@ function CheckinCelebration({ visible, event, xpGain, onDismiss }) {
   const gain = xpGain ?? 30;
   const cfg = isBoost
     ? event
-    : { icon: CheckCircleIcon, title: 'Check-in Feito!', desc: `+${gain} XP conquistados!`, color: '#10B981', gradient: ['#065F46', '#022C22'] };
+    : { icon: CheckCircleIcon, title: 'Check-in Feito!', desc: `+${gain} XP conquistados!`, color: '#10E88C', gradient: ['#065F46', '#022C22'] };
   const pEmojis = isBoost ? ['🔥','⚡','💥','✨','🌟','🎉'] : ['✅','⚡','💪','🌟','✨','🎊'];
   const pX      = [SCREEN_W*0.08, SCREEN_W*0.22, SCREEN_W*0.38, SCREEN_W*0.54, SCREEN_W*0.70, SCREEN_W*0.84];
 
@@ -191,10 +191,10 @@ function VerificationModal({ visible, status, message, onDismiss }) {
         )}
         {status === 'success' && (
           <View style={s.verifyContent}>
-            <View style={[s.verifyRadarCenter, { backgroundColor: '#10B981', width: 80, height: 80, borderRadius: 40 }]}>
+            <View style={[s.verifyRadarCenter, { backgroundColor: '#10E88C', width: 80, height: 80, borderRadius: 40 }]}>
               <CheckIcon size={44} color="#fff"  weight="bold" />
             </View>
-            <Text style={[s.verifyTitle, { color: '#10B981', marginTop: 24 }]}>Academia Confirmada!</Text>
+            <Text style={[s.verifyTitle, { color: '#10E88C', marginTop: 24 }]}>Academia Confirmada!</Text>
             <Text style={s.verifySub}>Check-in validado com sucesso.</Text>
           </View>
         )}
@@ -256,7 +256,7 @@ function StreakHeroCard({ user, flameOn, fireScale, fireTranslateY, onProtect })
         <View style={s.streakLeft}>
           <Animated.View style={{ transform: [{ scale: fireScale }, { translateY: fireTranslateY }], alignItems: 'center', justifyContent: 'center' }}>
             {flameOn && (
-              <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#F59E0B', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
+              <View style={{ position: 'absolute', width: 44, height: 44, backgroundColor: '#F97316', borderRadius: 22, opacity: 0.35, shadowColor: '#FBBF24', shadowOpacity: 1, shadowRadius: 20, shadowOffset: {width:0, height:0} }} />
             )}
             <FireIcon size={56} color={flameColor}  weight="fill" />
           </Animated.View>
@@ -300,7 +300,7 @@ function StreakHeroCard({ user, flameOn, fireScale, fireTranslateY, onProtect })
           return (
             <View key={m} style={s.milestoneItem}>
               <LinearGradient
-                colors={done ? ['#F59E0B', '#EF4444'] : ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.06)']}
+                colors={done ? ['#FBBF24', '#EF4444'] : ['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.06)']}
                 style={[s.milestoneDot, done && s.milestoneDotDone]}
               >
                 {done
@@ -465,7 +465,7 @@ function WaterTracker({ userId, goalLiters = 2.0, onGoalReached }) {
   const liters   = (mlDrank / 1000).toFixed(2);
   const filled   = Math.round(pct / 12.5);
   const msg      = getWaterMsg(filled);
-  const goalColor = pct >= 100 ? '#10B981' : pct >= 75 ? '#38BDF8' : pct >= 50 ? '#3B82F6' : '#94A3B8';
+  const goalColor = pct >= 100 ? '#10E88C' : pct >= 75 ? '#38BDF8' : pct >= 50 ? '#3B82F6' : '#94A3B8';
 
   useEffect(() => {
     Animated.spring(fillAnim, { toValue: pct / 100, useNativeDriver: false, friction: 6 }).start();
@@ -649,7 +649,7 @@ export default function HomeScreen({ navigation }) {
       AS.setItem(`@capifit_boss_xp_${weekNum}`, 'true').catch(() => {});
       addXP?.(bossData.reward ?? 500);
       addGems?.(2);
-      setCelebEvent({ icon: SkullIcon, title: 'CHEFE DERROTADO!', desc: `+${bossData.reward ?? 500} XP e +2 gemas conquistadas!`, color: '#F59E0B', gradient: ['#78350F', '#3B1500'] });
+      setCelebEvent({ icon: SkullIcon, title: 'CHEFE DERROTADO!', desc: `+${bossData.reward ?? 500} XP e +2 gemas conquistadas!`, color: '#FBBF24', gradient: ['#78350F', '#3B1500'] });
       setCelebVisible(true);
     }
   }, [user.boss_kills_this_week, user.weekTrainingDays, weekCategories, grantsReady]);
@@ -663,9 +663,9 @@ export default function HomeScreen({ navigation }) {
 
   let goalCfg;
   if (user.goalType === 'emagrecer') {
-    goalCfg = { label: 'Emagrecer', icon: TrendDownIcon, color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'perdidos', msg: `Incrível! Você já perdeu ${weightChanged}kg — faltam só ${weightRemaining}kg para a meta! 🎯` };
+    goalCfg = { label: 'Emagrecer', icon: TrendDownIcon, color: '#10E88C', gradient: ['#052E16', '#0A0A18'], barColors: ['#10E88C', '#4ADE80'], changedLabel: 'perdidos', msg: `Incrível! Você já perdeu ${weightChanged}kg — faltam só ${weightRemaining}kg para a meta! 🎯` };
   } else if (user.goalType === 'engordar') {
-    goalCfg = { label: 'Ganhar Massa', icon: TrendUpIcon, color: '#10B981', gradient: ['#052E16', '#0A0A18'], barColors: ['#10B981', '#34D399'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
+    goalCfg = { label: 'Ganhar Massa', icon: TrendUpIcon, color: '#10E88C', gradient: ['#052E16', '#0A0A18'], barColors: ['#10E88C', '#4ADE80'], changedLabel: 'ganhos', msg: `Ótimo! Você ganhou ${weightChanged}kg — faltam ${weightRemaining}kg para bater a meta! 💪` };
   } else {
     goalCfg = { label: 'Manter Peso', icon: ArrowsDownUpIcon, color: '#3B82F6', gradient: ['#172554', '#0A0A18'], barColors: ['#3B82F6', '#60A5FA'], changedLabel: 'variação', msg: `Peso sob controle! Continue com a consistência! ✅` };
   }
@@ -721,8 +721,11 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const completeChallenge = useCallback((id) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    checkinSound.seekTo(0);
+    checkinSound.play();
     ctxCompleteChallenge(id);
-  }, [ctxCompleteChallenge]);
+  }, [ctxCompleteChallenge, checkinSound]);
 
   const handleCheckin = useCallback(async () => {
     if (checkinDone || verifyModalVisible) return;
@@ -800,6 +803,7 @@ export default function HomeScreen({ navigation }) {
             const success = await doCheckin();
             if (success) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               checkinSound.seekTo(0);
               checkinSound.play();
               const ev = Math.random() < FLAVOR_EVENT_CHANCE
@@ -837,7 +841,7 @@ export default function HomeScreen({ navigation }) {
             <View style={s.headerRow}>
               <View style={s.userRow}>
                 <TouchableOpacity onPress={() => navigation.navigate('Profile')} activeOpacity={0.8}>
-                  <LinearGradient colors={['#8B5CF6', '#EC4899']} style={s.avatar}>
+                  <LinearGradient colors={['#A855F7', '#EC4899']} style={s.avatar}>
                     {(avatarPhoto || user.avatarUrl)
                       ? <Image source={{ uri: avatarPhoto || user.avatarUrl }} style={s.avatarImg} />
                       : <Text style={s.avatarText}>{user.name[0]}</Text>}
@@ -911,10 +915,10 @@ export default function HomeScreen({ navigation }) {
               >
                 {/* Ícone */}
                 <View style={[s.checkinIconWrap, {
-                  backgroundColor: checkinDone ? 'rgba(16,185,129,0.25)' : 'rgba(255,255,255,0.18)'
+                  backgroundColor: checkinDone ? 'rgba(16, 232, 140,0.25)' : 'rgba(255,255,255,0.18)'
                 }]}>
                   {checkinDone
-                    ? <CheckCircleIcon size={24} color="#10B981"  weight="fill" />
+                    ? <CheckCircleIcon size={24} color="#10E88C"  weight="fill" />
                     : <CameraIcon size={24} color="#fff"  weight="fill" />
                   }
                 </View>
@@ -952,13 +956,13 @@ export default function HomeScreen({ navigation }) {
           {/* ── STATS RÁPIDAS ── */}
           <View style={s.miniStatsRow}>
             <LinearGradient colors={['#D97706', '#92400E']} style={s.miniStat}>
-              <LightningIcon size={20} color="#FCD34D" style={{shadowColor: '#FCD34D', shadowOpacity: 0.6, shadowRadius: 6}}  weight="fill" />
+              <LightningIcon size={20} color="#FDE047" style={{shadowColor: '#FDE047', shadowOpacity: 0.6, shadowRadius: 6}}  weight="fill" />
               <Text style={s.miniStatNum}>{user.todayXP}</Text>
               <Text style={s.miniStatLabel}>XP hoje</Text>
               <Text style={s.miniStatSub}>{user.todayXP} / {user.dailyGoal} meta</Text>
             </LinearGradient>
             <LinearGradient colors={['#047857', '#064E3B']} style={s.miniStat}>
-              <ChecksIcon size={20} color="#34D399" style={{shadowColor: '#34D399', shadowOpacity: 0.6, shadowRadius: 6}}  weight="bold" />
+              <ChecksIcon size={20} color="#4ADE80" style={{shadowColor: '#4ADE80', shadowOpacity: 0.6, shadowRadius: 6}}  weight="bold" />
               <Text style={s.miniStatNum}>{user.weekCheckinsCount}</Text>
               <Text style={s.miniStatLabel}>check-ins/semana</Text>
               <Text style={s.miniStatSub}>meta: {user.weeklyFrequency ?? 3} por semana</Text>
@@ -998,7 +1002,7 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
               {completedChallenges === challenges.length && (
-                <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={s.allDoneBanner}>
+                <LinearGradient colors={['#A855F7', '#7E22CE']} style={s.allDoneBanner}>
                   <Text style={s.allDoneText}>🎉  Missões completas! +70 XP bônus!</Text>
                 </LinearGradient>
               )}
@@ -1009,7 +1013,7 @@ export default function HomeScreen({ navigation }) {
           <View style={s.section}>
             <View style={s.sectionHeader}>
               <View style={s.iconLabelRow}>
-                <SkullIcon size={16} color="#F59E0B"  weight="fill" />
+                <SkullIcon size={16} color="#FBBF24"  weight="fill" />
                 <Text style={s.sectionTitle}>Chefe da Semana</Text>
               </View>
             </View>
@@ -1024,7 +1028,7 @@ export default function HomeScreen({ navigation }) {
                     <Text style={s.bossTimer}>{bossData.timeLeft} restantes</Text>
                   </View>
                 </View>
-                <LinearGradient colors={['#F59E0B', '#D97706']} style={s.bossReward}>
+                <LinearGradient colors={['#FBBF24', '#D97706']} style={s.bossReward}>
                   <Text style={s.bossRewardText}>+{bossData.reward}</Text>
                   <Text style={s.bossRewardLabel}>XP</Text>
                 </LinearGradient>
@@ -1042,7 +1046,7 @@ export default function HomeScreen({ navigation }) {
                     </View>
                     <View style={s.bossBarBg}>
                       <LinearGradient
-                        colors={['#8B5CF6', '#EC4899']}
+                        colors={['#A855F7', '#EC4899']}
                         start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                         style={[s.bossBarFill, { width: `${bossPct}%` }]}
                       />
@@ -1200,18 +1204,18 @@ export default function HomeScreen({ navigation }) {
                   // Meta é semanal, não diária — cada um bate no próprio ritmo.
                   const present = members.filter(m => (m.challenge_week_checkins ?? 0) >= weeklyGoal).length;
                   const allIn   = members.length > 0 && present === members.length;
-                  const sc      = allIn ? '#10B981' : '#F59E0B';
+                  const sc      = allIn ? '#10E88C' : '#FBBF24';
                   const isBattle = g.mode === 'battle';
                   return (
                     <TouchableOpacity key={g.id} activeOpacity={0.85}
                       onPress={() => navigation.navigate('Leaderboard', { initialTab: 'Grupos' })}>
                       <LinearGradient colors={['#7C3AED','#4C1D95']}
-                        style={[s.compChip, { borderColor: '#8B5CF680' }]}>
+                        style={[s.compChip, { borderColor: '#A855F780' }]}>
                         <View style={s.compChipRow}>
-                          <ShieldCheckeredIcon size={20} color="#A78BFA"  weight="fill" />
+                          <ShieldCheckeredIcon size={20} color="#C084FC"  weight="fill" />
                           <View style={[s.compChipDot, { backgroundColor: sc, shadowColor: sc }]} />
                         </View>
-                        <Text style={[s.compChipBig, { color: '#A78BFA' }]}>
+                        <Text style={[s.compChipBig, { color: '#C084FC' }]}>
                           {g.group_streak ?? 0}<Text style={s.compChipUnit}>d</Text>
                         </Text>
                         <Text style={s.compChipName} numberOfLines={1}>{g.name}</Text>
@@ -1238,13 +1242,13 @@ export default function HomeScreen({ navigation }) {
                 })}
                 {activeDuels.map(d => {
                   const winning = (d.myScore ?? 0) >= (d.theirScore ?? 0);
-                  const pc = winning ? '#10B981' : '#EF4444';
+                  const pc = winning ? '#10E88C' : '#EF4444';
                   const isCollab = d.mode === 'friends';
                   return (
                     <TouchableOpacity key={d.id} activeOpacity={0.85}
                       onPress={() => navigation.navigate('Leaderboard', { initialTab: 'Duplas' })}>
-                      <LinearGradient colors={['#6D28D9','#4C1D95']}
-                        style={[s.compChip, { borderColor: '#A78BFA80' }]}>
+                      <LinearGradient colors={['#7E22CE','#4C1D95']}
+                        style={[s.compChip, { borderColor: '#C084FC80' }]}>
                         <View style={s.compChipRow}>
                           <LightningIcon size={20} color="#F87171"  weight="regular" />
                           {winning
@@ -1252,7 +1256,7 @@ export default function HomeScreen({ navigation }) {
                             : <CircleIcon size={13} color="#EF4444" weight="fill" />}
                         </View>
                         <View style={s.compVsRow}>
-                          <Text style={[s.compChipBig, { color: winning ? '#10B981' : COLORS.white }]}>{d.myScore ?? 0}</Text>
+                          <Text style={[s.compChipBig, { color: winning ? '#10E88C' : COLORS.white }]}>{d.myScore ?? 0}</Text>
                           <Text style={s.compVsDivider}>–</Text>
                           <Text style={[s.compChipBig, { color: !winning ? '#EF4444' : COLORS.white }]}>{d.theirScore ?? 0}</Text>
                         </View>
@@ -1400,7 +1404,7 @@ const s = StyleSheet.create({
   xpCurrent: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   xpNext: { color: COLORS.gray, fontSize: 11 },
   xpBarBg: { height: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: RADIUS.full, overflow: 'hidden' },
-  xpBarFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: '#8B5CF6' },
+  xpBarFill: { height: '100%', borderRadius: RADIUS.full, backgroundColor: '#A855F7' },
 
   // Section layout
   section: { paddingHorizontal: SPACING.md, marginTop: SPACING.md },
@@ -1413,7 +1417,7 @@ const s = StyleSheet.create({
     borderRadius: RADIUS.xl,
     padding: SPACING.md,
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.4)',
+    borderColor: 'rgba(168, 85, 247,0.4)',
     gap: 12,
   },
   streakTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1424,10 +1428,10 @@ const s = StyleSheet.create({
   streakDaysTop: { color: COLORS.white, fontSize: 15, fontWeight: '800', lineHeight: 18 },
   streakDaysBot: { color: COLORS.gray, fontSize: 13, fontWeight: '600', lineHeight: 16 },
   streakRight: { gap: 8, alignItems: 'flex-end' },
-  streakRecordBox: { backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)', alignItems: 'center' },
+  streakRecordBox: { backgroundColor: 'rgba(251, 191, 36,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(251, 191, 36,0.3)', alignItems: 'center' },
   streakRecordLabel: { color: COLORS.gold, fontSize: 10, fontWeight: '700' },
   streakRecordNum: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
-  streakGoalBox: { backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)', alignItems: 'center' },
+  streakGoalBox: { backgroundColor: 'rgba(168, 85, 247,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)', alignItems: 'center' },
   streakGoalLabel: { color: COLORS.purpleLight, fontSize: 10, fontWeight: '700' },
   streakGoalNum: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
   // milestone dots (substituem a barra de meta)
@@ -1435,7 +1439,7 @@ const s = StyleSheet.create({
   milestoneLine: { position: 'absolute', left: 20, right: 20, height: 1, backgroundColor: 'rgba(255,255,255,0.07)', top: 16, zIndex: 0 },
   milestoneItem: { alignItems: 'center', gap: 5, zIndex: 1 },
   milestoneDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  milestoneDotDone: { borderColor: '#F59E0B' },
+  milestoneDotDone: { borderColor: '#FBBF24' },
   milestoneDotNum: { color: COLORS.grayDark, fontSize: 9, fontWeight: '700' },
   milestoneLabel: { color: COLORS.grayDark, fontSize: 10, fontWeight: '700' },
   milestoneLabelDone: { color: COLORS.gold },
@@ -1445,13 +1449,13 @@ const s = StyleSheet.create({
   streakDayName: { color: COLORS.gray, fontSize: 10, fontWeight: '700' },
   streakDayNameToday: { color: COLORS.purpleLight },
   streakDayDot: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' },
-  streakDayDotDone: { backgroundColor: '#7C3AED', borderColor: '#8B5CF6' },
+  streakDayDotDone: { backgroundColor: '#7C3AED', borderColor: '#A855F7' },
   streakDayDotToday: { borderColor: COLORS.purpleLight, borderWidth: 2 },
   streakDayDotFuture: { opacity: 0.35 },
   streakDayTodayEmoji: { color: COLORS.purpleLight, fontSize: 16, fontWeight: '900' },
   streakDayEmpty: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.15)' },
   streakTodayDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: COLORS.purple },
-  streakMsgRow: { backgroundColor: 'rgba(139,92,246,0.12)', borderRadius: RADIUS.md, padding: 10, alignItems: 'center' },
+  streakMsgRow: { backgroundColor: 'rgba(168, 85, 247,0.12)', borderRadius: RADIUS.md, padding: 10, alignItems: 'center' },
   streakMsg: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '600', textAlign: 'center' },
 
   // ── COMMITMENT STRIP ──
@@ -1529,7 +1533,7 @@ const s = StyleSheet.create({
   miniStatSub: { fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 2 },
 
   // ── CHECK-IN ──
-  checkinWrap: { marginHorizontal: SPACING.md, marginTop: SPACING.md, borderRadius: RADIUS.xl, overflow: 'hidden', shadowColor: '#10B981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
+  checkinWrap: { marginHorizontal: SPACING.md, marginTop: SPACING.md, borderRadius: RADIUS.xl, overflow: 'hidden', shadowColor: '#10E88C', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8 },
   checkinBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 14, gap: 12, borderRadius: RADIUS.xl },
   checkinIconWrap: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   checkinContent: { flex: 1 },
@@ -1537,7 +1541,7 @@ const s = StyleSheet.create({
   checkinTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800' },
   checkinSub: { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 3, lineHeight: 15 },
   checkinXPBadge: { backgroundColor: 'rgba(0,0,0,0.22)', borderRadius: RADIUS.md, paddingHorizontal: 10, paddingVertical: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  checkinXPText: { color: '#FCD34D', fontSize: 16, fontWeight: '900' },
+  checkinXPText: { color: '#FDE047', fontSize: 16, fontWeight: '900' },
   checkinXPLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 9, fontWeight: '700' },
   retryCheckinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8, paddingVertical: 8 },
   retryCheckinText: { color: COLORS.gray, fontSize: 13, fontWeight: '600' },
@@ -1555,15 +1559,15 @@ const s = StyleSheet.create({
   challengeName: { color: COLORS.white, fontSize: 14, fontWeight: '600' },
   challengeNameDone: { textDecorationLine: 'line-through', color: COLORS.gray },
   challengeDesc: { color: COLORS.gray, fontSize: 11, marginTop: 1 },
-  xpChip: { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
-  xpChipDone: { backgroundColor: 'rgba(16,185,129,0.2)', borderColor: 'rgba(16,185,129,0.4)' },
+  xpChip: { backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
+  xpChipDone: { backgroundColor: 'rgba(16, 232, 140,0.2)', borderColor: 'rgba(16, 232, 140,0.4)' },
   xpChipText: { color: COLORS.purpleLight, fontSize: 11, fontWeight: '700' },
   xpChipTextDone: { color: COLORS.green },
   allDoneBanner: { marginTop: 10, borderRadius: RADIUS.md, padding: 10, alignItems: 'center' },
   allDoneText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
   // ── BOSS ──
-  bossCard: { borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  bossCard: { borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   bossTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: SPACING.md },
   bossEmoji: { fontSize: 44 },
   bossInfo: { flex: 1 },
@@ -1630,7 +1634,7 @@ const s = StyleSheet.create({
   compEmptyEmoji: { fontSize: 36, marginBottom: 10 },
   compEmptyTitle: { fontSize: 16, fontWeight: '800', color: COLORS.white, marginBottom: 6 },
   compEmptySub:   { fontSize: 13, color: COLORS.gray, textAlign: 'center', lineHeight: 18, marginBottom: 16 },
-  compEmptyBtn:   { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: 99, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  compEmptyBtn:   { backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: 99, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
   compEmptyBtnText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
   compHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   compTitle: { color: COLORS.white, fontSize: 15, fontWeight: '800' },

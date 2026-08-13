@@ -43,6 +43,7 @@ export default function AchievementUnlockModal({ achievement, onDismiss }) {
     }
 
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     sound.seekTo(0);
     sound.play();
     Animated.parallel([

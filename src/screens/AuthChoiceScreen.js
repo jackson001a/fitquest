@@ -34,7 +34,7 @@ export default function AuthChoiceScreen({ navigation }) {
 
       <View style={styles.actions}>
         <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.9}>
-          <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.primaryBtn}>
+          <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.primaryBtn}>
             <SignInIcon size={18} color="#fff" weight="fill" />
             <Text style={styles.primaryBtnText}>Já tenho conta</Text>
           </LinearGradient>

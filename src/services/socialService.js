@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 import { toDateString, getMondayOf, isNewWeek as isNewWeekVs } from './userService';
 
 const APP_SCHEME = 'capifit';
-const APP_STORE_URL = 'https://capifit.app'; // atualizar quando publicar
+const APP_STORE_URL = 'https://apps.apple.com/br/app/capifit-motiva%C3%A7%C3%A3o-academia/id6792953935';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DEEP LINKS

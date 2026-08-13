@@ -75,7 +75,7 @@ export default function BlockedUsersScreen({ navigation }) {
               {item.avatar_url ? (
                 <Image source={{ uri: item.avatar_url }} style={styles.avatar} />
               ) : (
-                <LinearGradient colors={['#8B5CF6', '#EC4899']} style={styles.avatar}>
+                <LinearGradient colors={['#A855F7', '#EC4899']} style={styles.avatar}>
                   <Text style={styles.avatarText}>{item.name?.[0]?.toUpperCase() ?? '?'}</Text>
                 </LinearGradient>
               )}
@@ -114,6 +114,6 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#fff', fontSize: 15, fontWeight: '800' },
   rowName: { flex: 1, color: COLORS.white, fontSize: 14, fontWeight: '700' },
-  unblockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.12)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 7 },
+  unblockBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(168, 85, 247,0.12)', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 7 },
   unblockText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
 });

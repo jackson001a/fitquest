@@ -7,11 +7,11 @@ import {
 import TouchableOpacity from '../components/TouchableOpacity';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import { ArrowLeftIcon, ArrowsClockwiseIcon, BarbellIcon, BellIcon, BrainIcon, CalendarIcon, CheckCircleIcon, CheckIcon, CircleIcon, ClockIcon, CloudSunIcon, DropIcon, FireIcon, ForkKnifeIcon, LeafIcon, LightningIcon, LockOpenIcon, MedalIcon, MoonIcon, PersonIcon, RocketIcon, ScalesIcon, ShieldCheckIcon, StarIcon, SunIcon, SwordIcon, TrendUpIcon, TrophyIcon, WavesIcon } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COLORS } from '../theme';
 import Svg, { Circle } from 'react-native-svg';
-import * as StoreReview from 'expo-store-review';
 import { useUser } from '../context/UserContext';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -327,6 +327,8 @@ function NameInputScreen({ value, onChange, onNext, disabled }) {
 
 export default function OnboardingScreen({ navigation }) {
   const { completeOnboarding, enableNotifications } = useUser();
+  const welcomeSound  = useAudioPlayer(require('../../assets/sounds/checkin-success.wav'));
+  const planReadySound = useAudioPlayer(require('../../assets/sounds/achievement-unlock.wav'));
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({ workoutDays: [], height: '170', weight: '70', age: '25' });
 
@@ -349,9 +351,17 @@ export default function OnboardingScreen({ navigation }) {
   const rewardScale   = useRef(new Animated.Value(0)).current;
   const barAnim       = useRef(new Animated.Value(0)).current;
 
+  // Som + vibração de boas-vindas no exato momento em que a pessoa abre o
+  // app pela primeira vez, antes de qualquer resposta sua.
+  useEffect(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    welcomeSound.seekTo(0);
+    welcomeSound.play();
+  }, []);
+
   // ── Transition ──
   const transition = useCallback((dir, fn) => {
-    if (dir === 1) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (dir === 1) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.parallel([
       Animated.timing(fadeAnim,  { toValue: 0, duration: 150, useNativeDriver: true }),
       Animated.timing(slideAnim, { toValue: dir * -20, duration: 200, useNativeDriver: true }),
@@ -402,16 +412,6 @@ export default function OnboardingScreen({ navigation }) {
     try { await enableNotifications(); } catch (e) { console.warn('[onboarding] falha ao ativar notificações:', e.message); }
     goNext();
   }, [enableNotifications, goNext]);
-
-  // Pede a avaliação nativa da loja logo depois da prova social — o próprio
-  // iOS decide se mostra (limite de vezes por ano definido pela Apple), então
-  // só chamamos e seguimos, sem tentar saber o resultado.
-  const handleRequestReview = useCallback(async () => {
-    try {
-      if (await StoreReview.isAvailableAsync()) await StoreReview.requestReview();
-    } catch (e) { console.warn('[onboarding] falha ao pedir avaliação:', e.message); }
-    goNext();
-  }, [goNext]);
 
   const toggleDay = (id) => {
     setAnswers(prev => {
@@ -473,12 +473,15 @@ export default function OnboardingScreen({ navigation }) {
         lastBucket = bucket;
         if (pct >= 100) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          planReadySound.seekTo(0);
+          planReadySound.play();
         } else if (pct >= 70) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         } else if (pct >= 35) {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         } else {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         }
       }
     });
@@ -659,7 +662,7 @@ export default function OnboardingScreen({ navigation }) {
               </View>
               <View style={{ height: 12, backgroundColor: '#0A0A18', borderRadius: 99, overflow: 'hidden', position: 'relative' }}>
                 <LinearGradient
-                  colors={['#8B5CF6', '#D8B4FE']}
+                  colors={['#A855F7', '#D8B4FE']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={{ width: '71%', height: '100%', borderRadius: 99 }}
                 />
@@ -842,11 +845,11 @@ export default function OnboardingScreen({ navigation }) {
   // Tela 10: Vamos ajudar (Interlúdio)
   const Step9 = () => {
     const bars = [
-      { label: 'Sem 1', pct: 0.28, color: '#6D28D9' },
+      { label: 'Sem 1', pct: 0.28, color: '#7E22CE' },
       { label: 'Sem 2', pct: 0.44, color: '#7C3AED' },
-      { label: 'Sem 3', pct: 0.60, color: '#8B5CF6' },
+      { label: 'Sem 3', pct: 0.60, color: '#A855F7' },
       { label: 'Sem 4', pct: 0.74, color: '#9F67FF' },
-      { label: 'Sem 5', pct: 0.88, color: '#A78BFA' },
+      { label: 'Sem 5', pct: 0.88, color: '#C084FC' },
       { label: 'Sem 6', pct: 1.00, color: COLORS.gold },
     ];
 
@@ -874,7 +877,7 @@ export default function OnboardingScreen({ navigation }) {
           {/* Bar chart */}
           <LinearGradient
             colors={['#1C1C38', '#13132A']}
-            style={{ borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)', marginBottom: 14 }}
+            style={{ borderRadius: 20, padding: 18, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.25)', marginBottom: 14 }}
           >
             <Text style={{ color: COLORS.gray, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 14 }}>
               CONSISTÊNCIA MÉDIA POR SEMANA
@@ -902,17 +905,17 @@ export default function OnboardingScreen({ navigation }) {
           {/* Testimonial */}
           <LinearGradient
             colors={['#1C1C38', '#13132A']}
-            style={{ borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(139,92,246,0.22)' }}
+            style={{ borderRadius: 16, padding: 16, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.22)' }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                 <Text style={{ color: COLORS.white, fontWeight: '800', fontSize: 15 }}>R</Text>
               </LinearGradient>
               <View>
                 <Text style={{ color: COLORS.white, fontWeight: '700', fontSize: 13 }}>Ricardo T.</Text>
                 <Text style={{ color: COLORS.gold, fontSize: 12, letterSpacing: 1 }}>★★★★★</Text>
               </View>
-              <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+              <View style={{ marginLeft: 'auto', backgroundColor: 'rgba(16, 232, 140,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
                 <Text style={{ color: COLORS.green, fontSize: 10, fontWeight: '700' }}>✓ Verificado</Text>
               </View>
             </View>
@@ -1065,9 +1068,9 @@ export default function OnboardingScreen({ navigation }) {
           
           <View style={{ marginBottom: -15, zIndex: 10 }}>
             <LinearGradient
-              colors={['#FFD700', '#F59E0B']}
+              colors={['#FFD700', '#FBBF24']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 99, shadowColor: '#F59E0B', shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: {width: 0, height: 4} }}
+              style={{ paddingHorizontal: 16, paddingVertical: 6, borderRadius: 99, shadowColor: '#FBBF24', shadowOpacity: 0.5, shadowRadius: 8, shadowOffset: {width: 0, height: 4} }}
             >
               <Text style={{ color: '#000', fontWeight: '900', fontSize: 11, letterSpacing: 1.5 }}>✦ JORNADA INICIADA ✦</Text>
             </LinearGradient>
@@ -1078,9 +1081,9 @@ export default function OnboardingScreen({ navigation }) {
             style={{ borderRadius: 28, padding: 24, paddingBottom: 28, width: '100%', borderWidth: 1, borderColor: '#3A3A5A', shadowColor: COLORS.purpleLight, shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.25, shadowRadius: 30, elevation: 15 }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 24 }}>
-              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(139, 92, 246, 0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(168, 85, 247, 0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 16 }}>
                 <LinearGradient
-                  colors={['#8B5CF6', '#6D28D9']}
+                  colors={['#A855F7', '#7E22CE']}
                   style={{ width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' }}
                 >
                   <RocketIcon size={24} color="#fff" weight="fill" />
@@ -1099,7 +1102,7 @@ export default function OnboardingScreen({ navigation }) {
               </View>
               <View style={{ height: 10, backgroundColor: '#1A1A2E', borderRadius: 99, overflow: 'hidden' }}>
                 <LinearGradient
-                  colors={['#8B5CF6', '#C084FC']}
+                  colors={['#A855F7', '#C084FC']}
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={{ width: `${Math.round((xpCount / 1000) * 100)}%`, height: '100%', borderRadius: 99 }}
                 />
@@ -1107,7 +1110,7 @@ export default function OnboardingScreen({ navigation }) {
             </View>
 
             <LinearGradient
-              colors={['rgba(139,92,246,0.25)', 'rgba(109,40,217,0.15)']}
+              colors={['rgba(168, 85, 247,0.25)', 'rgba(126, 34, 206,0.15)']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={{ borderRadius: 20, paddingVertical: 20, alignItems: 'center', borderWidth: 1.5, borderColor: COLORS.purpleLight }}
             >
@@ -1626,7 +1629,7 @@ export default function OnboardingScreen({ navigation }) {
         </View>
         <View style={{height: 24}}/>
       </ScrollView>
-      <Btn onPress={handleRequestReview} />
+      <Btn onPress={goNext} />
     </>
   );
 

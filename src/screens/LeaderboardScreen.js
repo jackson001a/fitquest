@@ -25,7 +25,7 @@ import { shareExternal, buildShareText } from '../services/socialService';
 import UserProfileModal from '../components/UserProfileModal';
 import InviteFriendsModal from '../components/InviteFriendsModal';
 
-function AvatarCircle({ photo, letter, size = 40, gradientColors = ['#8B5CF6','#6D28D9'], style }) {
+function AvatarCircle({ photo, letter, size = 40, gradientColors = ['#A855F7','#7E22CE'], style }) {
   if (photo) {
     return <Image source={{ uri: photo }} style={[{ width: size, height: size, borderRadius: size / 2 }, style]} />;
   }
@@ -115,7 +115,7 @@ function JoinModal({ visible, title, subtitle, onJoin, onClose }) {
 
 // Modo: 'friends' = Juntos (foguinho compartilhado) | 'battle' = Rival (foguinho individual)
 const SQUAD_MODE = {
-  friends: { label: 'Juntos', Icon: UsersIcon, color: '#10B981', sharedFlame: true  },
+  friends: { label: 'Juntos', Icon: UsersIcon, color: '#10E88C', sharedFlame: true  },
   battle:  { label: 'Rival',  Icon: SwordIcon, color: '#EF4444', sharedFlame: false },
 };
 
@@ -174,7 +174,7 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
         : squad.gradient}
       style={[styles.groupCard, {
         borderColor: status === 'completed'
-          ? (result?.type === 'won' || result?.type === 'champion' ? '#10B98140' : '#EF444440')
+          ? (result?.type === 'won' || result?.type === 'champion' ? '#10E88C40' : '#EF444440')
           : squad.color + '50'
       }]}
     >
@@ -218,11 +218,11 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
         <View style={styles.gcResultBlock}>
           <result.Icon
             size={36}
-            color={(result.type === 'won' || result.type === 'champion') ? '#10B981' : '#EF4444'}
+            color={(result.type === 'won' || result.type === 'champion') ? '#10E88C' : '#EF4444'}
             weight="fill"
             style={styles.gcResultIcon}
           />
-          <Text style={[styles.gcResultTitle, { color: (result.type === 'won' || result.type === 'champion') ? '#10B981' : '#EF4444' }]}>
+          <Text style={[styles.gcResultTitle, { color: (result.type === 'won' || result.type === 'champion') ? '#10E88C' : '#EF4444' }]}>
             {result.title}
           </Text>
           <Text style={styles.gcResultSub}>{result.sub}</Text>
@@ -240,7 +240,7 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
                   <View style={[styles.gcRivalRing, { borderColor: i === 0 ? '#FFD700' : COLORS.grayDark }]}>
                     {resolveAvatar(m, m.isUser, avatarPhoto)
                       ? <Image source={{ uri: resolveAvatar(m, m.isUser, avatarPhoto) }} style={styles.gcRivalAvatar} />
-                      : <LinearGradient colors={m.isUser ? ['#8B5CF6','#6D28D9'] : ['#1E1B3A','#2A2A4A']} style={styles.gcRivalAvatar}>
+                      : <LinearGradient colors={m.isUser ? ['#A855F7','#7E22CE'] : ['#1E1B3A','#2A2A4A']} style={styles.gcRivalAvatar}>
                           <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{m.avatar}</Text>
                         </LinearGradient>}
                   </View>
@@ -284,14 +284,14 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
           <View style={styles.groupMembersRow}>
             {members.map((m, i) => (
               <TouchableOpacity key={i} activeOpacity={m.isUser ? 1 : 0.7} onPress={() => openMember(m)} style={styles.groupMemberItem}>
-                <View style={[styles.groupMemberRing, { borderColor: '#8B5CF6' }]}>
+                <View style={[styles.groupMemberRing, { borderColor: '#A855F7' }]}>
                   {resolveAvatar(m, m.isUser, avatarPhoto)
                     ? <Image source={{ uri: resolveAvatar(m, m.isUser, avatarPhoto) }} style={styles.groupMemberAvatar} />
-                    : <LinearGradient colors={m.isUser ? ['#8B5CF6','#6D28D9'] : ['#1E1B3A','#2A2A4A']} style={styles.groupMemberAvatar}>
+                    : <LinearGradient colors={m.isUser ? ['#A855F7','#7E22CE'] : ['#1E1B3A','#2A2A4A']} style={styles.groupMemberAvatar}>
                         <Text style={styles.groupMemberText}>{m.avatar}</Text>
                       </LinearGradient>}
                   <View style={styles.lobbyReadyBadge}>
-                    <CheckCircleIcon size={10} color="#10B981" weight="fill" />
+                    <CheckCircleIcon size={10} color="#10E88C" weight="fill" />
                   </View>
                 </View>
                 <Text style={styles.groupMemberName} numberOfLines={1}>{m.isUser ? 'Você' : m.name.split(' ')[0]}</Text>
@@ -300,8 +300,8 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
             ))}
             {emptySlotsArray.map((_, i) => (
               <TouchableOpacity key={`empty-${i}`} style={styles.groupMemberItem} activeOpacity={0.7} onPress={() => setInviteModal(true)}>
-                <View style={[styles.groupMemberRing, { borderColor: 'rgba(139,92,246,0.25)', borderStyle: 'dashed', borderWidth: 1.5 }]}>
-                  <View style={[styles.groupMemberAvatar, { backgroundColor: 'rgba(139,92,246,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
+                <View style={[styles.groupMemberRing, { borderColor: 'rgba(168, 85, 247,0.25)', borderStyle: 'dashed', borderWidth: 1.5 }]}>
+                  <View style={[styles.groupMemberAvatar, { backgroundColor: 'rgba(168, 85, 247,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
                     <PlusIcon size={15} color={COLORS.purpleLight} weight="bold" />
                   </View>
                 </View>
@@ -313,7 +313,7 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
 
           {canStart && (
             <TouchableOpacity style={styles.gcStartBtn} onPress={onStart} activeOpacity={0.85}>
-              <LinearGradient colors={['#10B981','#047857']} style={styles.gcStartBtnInner}>
+              <LinearGradient colors={['#10E88C','#047857']} style={styles.gcStartBtnInner}>
                 <PlayCircleIcon size={18} color="#fff"  weight="fill" />
                 <Text style={styles.gcStartBtnText}>Iniciar Desafio</Text>
               </LinearGradient>
@@ -353,10 +353,10 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
                 const done = metGoal(m);
                 return (
                 <TouchableOpacity key={i} activeOpacity={m.isUser ? 1 : 0.7} onPress={() => openMember(m)} style={styles.groupMemberItem}>
-                  <View style={[styles.groupMemberRing, { borderColor: done ? '#10B981' : '#F59E0B' }]}>
+                  <View style={[styles.groupMemberRing, { borderColor: done ? '#10E88C' : '#FBBF24' }]}>
                     {resolveAvatar(m, m.isUser, avatarPhoto)
                       ? <Image source={{ uri: resolveAvatar(m, m.isUser, avatarPhoto) }} style={styles.groupMemberAvatar} />
-                      : <LinearGradient colors={m.isUser ? ['#8B5CF6','#6D28D9'] : done ? ['#047857','#065F46'] : ['#1E1B3A','#12122A']} style={styles.groupMemberAvatar}>
+                      : <LinearGradient colors={m.isUser ? ['#A855F7','#7E22CE'] : done ? ['#047857','#065F46'] : ['#1E1B3A','#12122A']} style={styles.groupMemberAvatar}>
                           <Text style={styles.groupMemberText}>{m.avatar}</Text>
                         </LinearGradient>}
                     {done && (
@@ -366,8 +366,8 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
                     )}
                   </View>
                   <Text style={styles.groupMemberName} numberOfLines={1}>{m.isUser ? 'Você' : m.name.split(' ')[0]}</Text>
-                  <View style={[styles.memberProgressPill, { backgroundColor: done ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)' }]}>
-                    <Text style={[styles.memberProgressText, { color: done ? '#10B981' : '#F59E0B' }]}>
+                  <View style={[styles.memberProgressPill, { backgroundColor: done ? 'rgba(16, 232, 140,0.15)' : 'rgba(251, 191, 36,0.15)' }]}>
+                    <Text style={[styles.memberProgressText, { color: done ? '#10E88C' : '#FBBF24' }]}>
                       {Math.min(m.weekCheckins ?? 0, weeklyGoal)}/{weeklyGoal}
                     </Text>
                   </View>
@@ -376,8 +376,8 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
               })}
               {members.length < (squad.maxMembers ?? 4) && (
                 <TouchableOpacity style={styles.groupMemberItem} activeOpacity={0.7} onPress={() => setInviteModal(true)}>
-                  <View style={[styles.groupMemberRing, { borderColor: 'rgba(139,92,246,0.3)', borderStyle: 'dashed', borderWidth: 2 }]}>
-                    <View style={[styles.groupMemberAvatar, { backgroundColor: 'rgba(139,92,246,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
+                  <View style={[styles.groupMemberRing, { borderColor: 'rgba(168, 85, 247,0.3)', borderStyle: 'dashed', borderWidth: 2 }]}>
+                    <View style={[styles.groupMemberAvatar, { backgroundColor: 'rgba(168, 85, 247,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
                       <PlusIcon size={16} color={COLORS.purpleLight} weight="bold" />
                     </View>
                   </View>
@@ -411,10 +411,10 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
                         ? <CrownIcon size={18} color="#FFD700" weight="fill" />
                         : <Text style={[styles.gcRivalPos, { color: COLORS.gray }]}>#{i + 1}</Text>}
                     </View>
-                    <View style={[styles.gcRivalRing, { borderColor: isLeader ? '#FFD700' : (m.checkedInToday ? '#10B981' : '#F59E0B') }]}>
+                    <View style={[styles.gcRivalRing, { borderColor: isLeader ? '#FFD700' : (m.checkedInToday ? '#10E88C' : '#FBBF24') }]}>
                       {resolveAvatar(m, m.isUser, avatarPhoto)
                         ? <Image source={{ uri: resolveAvatar(m, m.isUser, avatarPhoto) }} style={styles.gcRivalAvatar} />
-                        : <LinearGradient colors={m.isUser ? ['#8B5CF6','#6D28D9'] : ['#1E1B3A','#2A2A4A']} style={styles.gcRivalAvatar}>
+                        : <LinearGradient colors={m.isUser ? ['#A855F7','#7E22CE'] : ['#1E1B3A','#2A2A4A']} style={styles.gcRivalAvatar}>
                             <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{m.avatar}</Text>
                           </LinearGradient>}
                     </View>
@@ -429,7 +429,7 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
                       </View>
                       <View style={styles.gcRankBarBg}>
                         <LinearGradient
-                          colors={isLeader ? ['#FFD700', '#F59E0B'] : ['#8B5CF6', '#6D28D9']}
+                          colors={isLeader ? ['#FFD700', '#FBBF24'] : ['#A855F7', '#7E22CE']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={[styles.gcRankBarFill, { width: `${progress * 100}%` }]}
@@ -452,10 +452,10 @@ function GroupCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDel
 
           {isJuntos && (
             <LinearGradient
-              colors={allIn ? ['rgba(16,185,129,0.15)','rgba(16,185,129,0.05)'] : ['rgba(245,158,11,0.15)','rgba(245,158,11,0.05)']}
-              style={[styles.groupStatusBar, { borderColor: allIn ? '#10B98140' : '#F59E0B40' }]}
+              colors={allIn ? ['rgba(16, 232, 140,0.15)','rgba(16, 232, 140,0.05)'] : ['rgba(251, 191, 36,0.15)','rgba(251, 191, 36,0.05)']}
+              style={[styles.groupStatusBar, { borderColor: allIn ? '#10E88C40' : '#FBBF2440' }]}
             >
-              <Text style={[styles.groupStatusText, { color: allIn ? '#10B981' : '#F59E0B' }]}>
+              <Text style={[styles.groupStatusText, { color: allIn ? '#10E88C' : '#FBBF24' }]}>
                 {allIn
                   ? `🔥 Meta da semana batida por todos! Foguinho de ${squad.groupStreak} dias!`
                   : `⚡ ${missing} membro${missing > 1 ? 's' : ''} ainda não bateu a meta da semana (${weeklyGoal}×)`}
@@ -553,7 +553,7 @@ function PendingSquadInvites({ currentUserId, isDuo, onAccepted }) {
         const maxMembers = inv.squads?.max_members ?? (isDuo ? 2 : 4);
         const memberCount = inv.squads?.squad_members?.length ?? 0;
         return (
-          <LinearGradient key={inv.id} colors={['rgba(139,92,246,0.2)', 'rgba(139,92,246,0.06)']} style={styles.pendingInviteCard}>
+          <LinearGradient key={inv.id} colors={['rgba(168, 85, 247,0.2)', 'rgba(168, 85, 247,0.06)']} style={styles.pendingInviteCard}>
             <Text style={styles.pendingInviteEmoji}>{inv.squads?.emoji ?? '🛡️'}</Text>
             <View style={{ flex: 1 }}>
               <Text style={styles.pendingInviteTitle} numberOfLines={2}>
@@ -635,7 +635,7 @@ function GruposView() {
     result: squad.result, groupStreak: squad.group_streak ?? 0,
     daysPerWeek: squad.min_weekly_checkins ?? 3, maxMembers: squad.max_members ?? 4,
     inviteCode: squad.invite_code, endDate: squad.end_date,
-    color: squad.mode === 'battle' ? '#EF4444' : '#10B981',
+    color: squad.mode === 'battle' ? '#EF4444' : '#10E88C',
     gradient: squad.mode === 'battle' ? ['#9A1F1F','#7C2D12','#1E1B4B'] : ['#065F46','#0F766E','#1E1B4B'],
     members: (squad.squad_members ?? []).map(m => ({
       id: m.user_id,
@@ -744,7 +744,7 @@ function DuelCard({ duel, avatarPhoto, currentUser }) {
     ])).start();
   }, []);
 
-  const borderCol = tied ? '#A78BFA' : winning ? '#10B981' : '#EF4444';
+  const borderCol = tied ? '#C084FC' : winning ? '#10E88C' : '#EF4444';
   const [showOpponent, setShowOpponent] = useState(false);
 
   return (
@@ -786,11 +786,11 @@ function DuelCard({ duel, avatarPhoto, currentUser }) {
         <View style={styles.duelArena}>
           <View style={styles.duelFighter}>
             <AvatarCircle photo={resolveAvatar(currentUser, true, avatarPhoto)} letter={currentUser?.name?.[0] ?? 'V'} size={56}
-              gradientColors={['#8B5CF6','#6D28D9']}
-              style={winning && diff > 0 ? { borderWidth: 3, borderColor: '#10B981' } : undefined}
+              gradientColors={['#A855F7','#7E22CE']}
+              style={winning && diff > 0 ? { borderWidth: 3, borderColor: '#10E88C' } : undefined}
             />
             <Text style={styles.duelFighterLabel}>Você</Text>
-            <Text style={[styles.duelScore, { color: winning ? '#10B981' : tied ? COLORS.white : '#EF4444' }]}>{myScore}</Text>
+            <Text style={[styles.duelScore, { color: winning ? '#10E88C' : tied ? COLORS.white : '#EF4444' }]}>{myScore}</Text>
             <Text style={styles.duelScoreUnit}>treinos</Text>
           </View>
           <LinearGradient colors={['rgba(255,255,255,0.12)','rgba(255,255,255,0.04)']} style={styles.duelVSCircle}>
@@ -800,11 +800,11 @@ function DuelCard({ duel, avatarPhoto, currentUser }) {
             <TouchableOpacity activeOpacity={0.7} onPress={() => setShowOpponent(true)}>
               <AvatarCircle photo={duel.opponent?.avatar_url} letter={opponentName[0]} size={56}
                 gradientColors={['#F97316CC','#C2410C88']}
-                style={[styles.duelRivalAvatar, !winning && diff > 0 ? { borderWidth: 3, borderColor: '#10B981' } : undefined]}
+                style={[styles.duelRivalAvatar, !winning && diff > 0 ? { borderWidth: 3, borderColor: '#10E88C' } : undefined]}
               />
             </TouchableOpacity>
             <Text style={styles.duelFighterLabel}>{opponentName.split(' ')[0]}</Text>
-            <Text style={[styles.duelScore, { color: !winning && !tied ? '#10B981' : tied ? COLORS.white : '#EF4444' }]}>{theirScore}</Text>
+            <Text style={[styles.duelScore, { color: !winning && !tied ? '#10E88C' : tied ? COLORS.white : '#EF4444' }]}>{theirScore}</Text>
             <Text style={styles.duelScoreUnit}>treinos</Text>
           </View>
         </View>
@@ -814,7 +814,7 @@ function DuelCard({ duel, avatarPhoto, currentUser }) {
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={styles.duelBarLabel}>Você</Text>
             <View style={styles.duelBarTrack}>
-              <View style={[styles.duelBarFill, { width: `${(myScore/barMax)*100}%`, backgroundColor: winning ? '#10B981' : '#8B5CF6' }]} />
+              <View style={[styles.duelBarFill, { width: `${(myScore/barMax)*100}%`, backgroundColor: winning ? '#10E88C' : '#A855F7' }]} />
             </View>
           </View>
           <View style={{ flex: 1, gap: 3 }}>
@@ -859,7 +859,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
   const theirStreak = partner?.challengeStreak ?? 0;
   const myWinning  = myStreak > theirStreak;
   const tied       = myStreak === theirStreak;
-  const borderCol  = isBattle ? (myWinning ? '#10B981' : tied ? '#A78BFA' : '#EF4444') : '#10B981';
+  const borderCol  = isBattle ? (myWinning ? '#10E88C' : tied ? '#C084FC' : '#EF4444') : '#10E88C';
   const weeklyGoal = squad.daysPerWeek ?? 3;
   const myProgress    = Math.min(1, (me?.weekCheckins ?? 0) / weeklyGoal);
   const theirProgress = Math.min(1, (partner?.weekCheckins ?? 0) / weeklyGoal);
@@ -868,14 +868,14 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
   const partnerGoalMet = (partner?.weekCheckins ?? 0) >= weeklyGoal;
   const [showPartner, setShowPartner] = useState(false);
   const [inviteModal, setInviteModal] = useState(false);
-  const duoModeColor = isBattle ? '#EF4444' : '#10B981';
+  const duoModeColor = isBattle ? '#EF4444' : '#10E88C';
 
   const duoGradient = status === 'completed'
     ? (result?.type === 'won' || result?.type === 'champion' ? ['#064E3B','#022C22','#0A0A18'] : ['#450A0A','#1A0000','#0A0A18'])
     : (isBattle ? ['#9A1F1F','#7C2D12','#1E1B4B'] : ['#065F46','#0F766E','#1E1B4B']);
   const duoBorder = status === 'completed'
-    ? (result?.type === 'won' || result?.type === 'champion' ? '#10B98140' : '#EF444440')
-    : (isBattle ? '#EF444450' : '#10B98150');
+    ? (result?.type === 'won' || result?.type === 'champion' ? '#10E88C40' : '#EF444440')
+    : (isBattle ? '#EF444450' : '#10E88C50');
 
   return (
     <>
@@ -905,13 +905,13 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {status !== 'completed' && (
             <View style={[styles.duoModeBadge, styles.iconLabelRow, {
-              backgroundColor: isBattle ? '#EF444418' : '#10B98118',
-              borderColor:     isBattle ? '#EF444440' : '#10B98140',
+              backgroundColor: isBattle ? '#EF444418' : '#10E88C18',
+              borderColor:     isBattle ? '#EF444440' : '#10E88C40',
             }]}>
               {isBattle
                 ? <SwordIcon size={11} color="#EF4444" weight="fill" />
-                : <UsersIcon size={11} color="#10B981" weight="fill" />}
-              <Text style={[styles.duoModeText, { color: isBattle ? '#EF4444' : '#10B981' }]}>
+                : <UsersIcon size={11} color="#10E88C" weight="fill" />}
+              <Text style={[styles.duoModeText, { color: isBattle ? '#EF4444' : '#10E88C' }]}>
                 {isBattle ? 'Rival' : 'Juntos'}
               </Text>
             </View>
@@ -927,11 +927,11 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
         <View style={styles.gcResultBlock}>
           <result.Icon
             size={36}
-            color={(result.type === 'won' || result.type === 'champion') ? '#10B981' : '#EF4444'}
+            color={(result.type === 'won' || result.type === 'champion') ? '#10E88C' : '#EF4444'}
             weight="fill"
             style={styles.gcResultIcon}
           />
-          <Text style={[styles.gcResultTitle, { color: (result.type === 'won' || result.type === 'champion') ? '#10B981' : '#EF4444' }]}>
+          <Text style={[styles.gcResultTitle, { color: (result.type === 'won' || result.type === 'champion') ? '#10E88C' : '#EF4444' }]}>
             {result.title}
           </Text>
           <Text style={styles.gcResultSub}>{result.sub}</Text>
@@ -943,7 +943,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                   <View style={[styles.gcRivalRing, { borderColor: i === 0 ? '#FFD700' : COLORS.grayDark }]}>
                     {resolveAvatar(m, m?.isUser, avatarPhoto)
                       ? <Image source={{ uri: resolveAvatar(m, m?.isUser, avatarPhoto) }} style={styles.gcRivalAvatar} />
-                      : <LinearGradient colors={m?.isUser ? ['#8B5CF6','#6D28D9'] : ['#F97316','#C2410C']} style={styles.gcRivalAvatar}>
+                      : <LinearGradient colors={m?.isUser ? ['#A855F7','#7E22CE'] : ['#F97316','#C2410C']} style={styles.gcRivalAvatar}>
                           <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>{m?.avatar}</Text>
                         </LinearGradient>}
                   </View>
@@ -993,14 +993,14 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
           <View style={styles.duoArena}>
             {/* Você */}
             <View style={styles.duoFighter}>
-              <View style={[styles.duoFighterRing, { borderColor: '#8B5CF6' }]}>
+              <View style={[styles.duoFighterRing, { borderColor: '#A855F7' }]}>
                 {resolveAvatar(currentUser, true, avatarPhoto)
                   ? <Image source={{ uri: resolveAvatar(currentUser, true, avatarPhoto) }} style={styles.duoFighterAvatar} />
-                  : <LinearGradient colors={['#8B5CF6','#6D28D9']} style={styles.duoFighterAvatar}>
+                  : <LinearGradient colors={['#A855F7','#7E22CE']} style={styles.duoFighterAvatar}>
                       <Text style={styles.duoFighterAvatarText}>{currentUser?.name?.[0] ?? 'V'}</Text>
                     </LinearGradient>}
                 <View style={styles.duoReadyIconBadge}>
-                  <CheckCircleIcon size={10} color="#10B981" weight="fill" />
+                  <CheckCircleIcon size={10} color="#10E88C" weight="fill" />
                 </View>
               </View>
               <Text style={styles.duoFighterName}>Você</Text>
@@ -1010,7 +1010,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
             {/* VS Emblem */}
             <View style={styles.duoVSBlock}>
               <LinearGradient
-                colors={isBattle ? ['#EF4444', '#991B1B'] : ['#10B981', '#065F46']}
+                colors={isBattle ? ['#EF4444', '#991B1B'] : ['#10E88C', '#065F46']}
                 style={styles.duoVSEmblem}
               >
                 {isBattle ? (
@@ -1025,14 +1025,14 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
             <View style={styles.duoFighter}>
               {partner ? (
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setShowPartner(true)}>
-                  <View style={[styles.duoFighterRing, { borderColor: '#8B5CF6' }]}>
+                  <View style={[styles.duoFighterRing, { borderColor: '#A855F7' }]}>
                     {partner.avatar_url
                       ? <Image source={{ uri: partner.avatar_url }} style={styles.duoFighterAvatar} />
                       : <LinearGradient colors={['#F97316','#C2410C']} style={styles.duoFighterAvatar}>
                           <Text style={styles.duoFighterAvatarText}>{partner.avatar}</Text>
                         </LinearGradient>}
                     <View style={styles.duoReadyIconBadge}>
-                      <CheckCircleIcon size={10} color="#10B981" weight="fill" />
+                      <CheckCircleIcon size={10} color="#10E88C" weight="fill" />
                     </View>
                   </View>
                   <Text style={styles.duoFighterName}>{partner.name?.split(' ')[0]}</Text>
@@ -1040,8 +1040,8 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setInviteModal(true)}>
-                  <View style={[styles.duoFighterRing, { borderColor: 'rgba(139,92,246,0.25)', borderStyle: 'dashed', borderWidth: 1.5 }]}>
-                    <View style={[styles.duoFighterAvatar, { backgroundColor: 'rgba(139,92,246,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
+                  <View style={[styles.duoFighterRing, { borderColor: 'rgba(168, 85, 247,0.25)', borderStyle: 'dashed', borderWidth: 1.5 }]}>
+                    <View style={[styles.duoFighterAvatar, { backgroundColor: 'rgba(168, 85, 247,0.05)', alignItems: 'center', justifyContent: 'center' }]}>
                       <UserPlusIcon size={18} color={COLORS.purpleLight}  weight="fill" />
                     </View>
                   </View>
@@ -1054,7 +1054,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
 
           {canStart && (
             <TouchableOpacity style={styles.gcStartBtn} onPress={onStart} activeOpacity={0.85}>
-              <LinearGradient colors={['#10B981','#047857']} style={styles.gcStartBtnInner}>
+              <LinearGradient colors={['#10E88C','#047857']} style={styles.gcStartBtnInner}>
                 <PlayCircleIcon size={18} color="#fff"  weight="fill" />
                 <Text style={styles.gcStartBtnText}>Iniciar Desafio</Text>
               </LinearGradient>
@@ -1090,10 +1090,10 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
           <View style={styles.duoArena}>
             <View style={styles.duoFighter}>
               {isBattle && myWinning && !tied && <CrownIcon size={16} color="#FFD700" weight="fill" style={{ marginBottom: 2 }} />}
-              <View style={[styles.duoFighterRing, { borderColor: myWinning && isBattle && !tied ? '#FFD700' : myGoalMet ? '#10B981' : '#F59E0B' }]}>
+              <View style={[styles.duoFighterRing, { borderColor: myWinning && isBattle && !tied ? '#FFD700' : myGoalMet ? '#10E88C' : '#FBBF24' }]}>
                 {resolveAvatar(currentUser, true, avatarPhoto)
                   ? <Image source={{ uri: resolveAvatar(currentUser, true, avatarPhoto) }} style={styles.duoFighterAvatar} />
-                  : <LinearGradient colors={['#8B5CF6','#6D28D9']} style={styles.duoFighterAvatar}>
+                  : <LinearGradient colors={['#A855F7','#7E22CE']} style={styles.duoFighterAvatar}>
                       <Text style={styles.duoFighterAvatarText}>{currentUser?.name?.[0] ?? 'V'}</Text>
                     </LinearGradient>}
                 {myGoalMet && !isBattle && (
@@ -1111,7 +1111,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                   </View>
                   <View style={styles.duoProgressBarBg}>
                     <LinearGradient
-                      colors={myWinning ? ['#FFD700', '#F59E0B'] : ['#8B5CF6', '#6D28D9']}
+                      colors={myWinning ? ['#FFD700', '#FBBF24'] : ['#A855F7', '#7E22CE']}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={[styles.duoProgressBarFill, { width: `${myProgress * 100}%` }]}
@@ -1120,8 +1120,8 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                 </>
               )}
               {!isBattle && (
-                <View style={[styles.memberProgressPill, { backgroundColor: myGoalMet ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', marginTop: 4 }]}>
-                  <Text style={[styles.memberProgressText, { color: myGoalMet ? '#10B981' : '#F59E0B' }]}>
+                <View style={[styles.memberProgressPill, { backgroundColor: myGoalMet ? 'rgba(16, 232, 140,0.15)' : 'rgba(251, 191, 36,0.15)', marginTop: 4 }]}>
+                  <Text style={[styles.memberProgressText, { color: myGoalMet ? '#10E88C' : '#FBBF24' }]}>
                     {Math.min(me?.weekCheckins ?? 0, weeklyGoal)}/{weeklyGoal} sem.
                   </Text>
                 </View>
@@ -1143,7 +1143,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
               {partner ? (
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setShowPartner(true)}>
                   {isBattle && !myWinning && !tied && <CrownIcon size={16} color="#FFD700" weight="fill" style={{ marginBottom: 2, alignSelf: 'center' }} />}
-                  <View style={[styles.duoFighterRing, { borderColor: !myWinning && isBattle && !tied ? '#FFD700' : partnerGoalMet ? '#10B981' : '#F59E0B' }]}>
+                  <View style={[styles.duoFighterRing, { borderColor: !myWinning && isBattle && !tied ? '#FFD700' : partnerGoalMet ? '#10E88C' : '#FBBF24' }]}>
                     {partner.avatar_url
                       ? <Image source={{ uri: partner.avatar_url }} style={styles.duoFighterAvatar} />
                       : <LinearGradient colors={['#F97316','#C2410C']} style={styles.duoFighterAvatar}>
@@ -1164,7 +1164,7 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                       </View>
                       <View style={styles.duoProgressBarBg}>
                         <LinearGradient
-                          colors={!myWinning ? ['#FFD700', '#F59E0B'] : ['#F97316', '#C2410C']}
+                          colors={!myWinning ? ['#FFD700', '#FBBF24'] : ['#F97316', '#C2410C']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 0 }}
                           style={[styles.duoProgressBarFill, { width: `${theirProgress * 100}%` }]}
@@ -1173,8 +1173,8 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                     </>
                   )}
                   {!isBattle && (
-                    <View style={[styles.memberProgressPill, { backgroundColor: partnerGoalMet ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)', marginTop: 4 }]}>
-                      <Text style={[styles.memberProgressText, { color: partnerGoalMet ? '#10B981' : '#F59E0B' }]}>
+                    <View style={[styles.memberProgressPill, { backgroundColor: partnerGoalMet ? 'rgba(16, 232, 140,0.15)' : 'rgba(251, 191, 36,0.15)', marginTop: 4 }]}>
+                      <Text style={[styles.memberProgressText, { color: partnerGoalMet ? '#10E88C' : '#FBBF24' }]}>
                         {Math.min(partner?.weekCheckins ?? 0, weeklyGoal)}/{weeklyGoal} sem.
                       </Text>
                     </View>
@@ -1182,8 +1182,8 @@ function DuoCard({ squad, currentUser, avatarPhoto, onCopyCode, onStart, onDelet
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity activeOpacity={0.7} onPress={() => setInviteModal(true)}>
-                  <View style={[styles.duoFighterRing, { borderColor: 'rgba(139,92,246,0.4)' }]}>
-                    <View style={[styles.duoFighterAvatar, { backgroundColor: 'rgba(139,92,246,0.12)', alignItems: 'center', justifyContent: 'center' }]}>
+                  <View style={[styles.duoFighterRing, { borderColor: 'rgba(168, 85, 247,0.4)' }]}>
+                    <View style={[styles.duoFighterAvatar, { backgroundColor: 'rgba(168, 85, 247,0.12)', alignItems: 'center', justifyContent: 'center' }]}>
                       <UserPlusIcon size={20} color={COLORS.purpleLight}  weight="fill" />
                     </View>
                   </View>
@@ -1402,15 +1402,15 @@ function DuplasView() {
 
 // ─── FEED ────────────────────────────────────────────────────────────────────
 const FEED_TYPE_COLOR = {
-  record:      '#F59E0B',
-  achievement: '#8B5CF6',
+  record:      '#FBBF24',
+  achievement: '#A855F7',
   water:       '#0EA5E9',
-  workout:     '#10B981',
+  workout:     '#10E88C',
   streak:      '#EF4444',
 };
 
 const REACTIONS = [
-  { key: 'party', Icon: ConfettiIcon, activeColor: '#F59E0B' },
+  { key: 'party', Icon: ConfettiIcon, activeColor: '#FBBF24' },
   { key: 'fire',  Icon: FireIcon,     activeColor: '#EF4444' },
   { key: 'heart', Icon: HeartIcon,    activeColor: '#EC4899' },
 ];
@@ -1625,7 +1625,7 @@ function PodiumItem({ user, position, avatarPhoto, onPress }) {
           />
         ) : (
           <LinearGradient
-            colors={position === 1 ? ['#F59E0B', '#D97706'] : ['#8B5CF6', '#6D28D9']}
+            colors={position === 1 ? ['#FBBF24', '#D97706'] : ['#A855F7', '#7E22CE']}
             style={[styles.podiumAvatarCircle, user.isUser && styles.podiumAvatarUser]}
           >
             <Text style={styles.podiumAvatarText}>{user.avatar}</Text>
@@ -1722,7 +1722,7 @@ export default function LeaderboardScreen({ navigation, route }) {
                 <Text style={styles.headerTitle}>Ranking</Text>
               </View>
               <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: 99, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' }}
                 onPress={() => navigation.navigate('Friends')}
                 activeOpacity={0.8}>
                 <UsersIcon size={14} color={COLORS.purpleLight} weight="fill" />
@@ -1833,7 +1833,7 @@ export default function LeaderboardScreen({ navigation, route }) {
                   >
                     {user.isUser && (
                       <LinearGradient
-                        colors={['rgba(139,92,246,0.15)', 'rgba(139,92,246,0.05)']}
+                        colors={['rgba(168, 85, 247,0.15)', 'rgba(168, 85, 247,0.05)']}
                         style={StyleSheet.absoluteFill}
                       />
                     )}
@@ -1842,7 +1842,7 @@ export default function LeaderboardScreen({ navigation, route }) {
                       <Image source={{ uri: resolveAvatar(user, user.isUser, avatarPhoto) }} style={styles.listAvatar} />
                     ) : (
                       <LinearGradient
-                        colors={user.isUser ? ['#8B5CF6', '#6D28D9'] : ['#2A2A4A', '#1A1A3E']}
+                        colors={user.isUser ? ['#A855F7', '#7E22CE'] : ['#2A2A4A', '#1A1A3E']}
                         style={styles.listAvatar}
                       >
                         <Text style={styles.listAvatarText}>{user.avatar}</Text>
@@ -1999,7 +1999,7 @@ const styles = StyleSheet.create({
   scopeChipText: { color: COLORS.gray, fontSize: 13, fontWeight: '700' },
   scopeChipTextActive: { color: COLORS.white },
 
-  locationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: SPACING.md, marginTop: SPACING.lg, padding: 12, borderRadius: RADIUS.md, backgroundColor: 'rgba(139,92,246,0.1)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  locationBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: SPACING.md, marginTop: SPACING.lg, padding: 12, borderRadius: RADIUS.md, backgroundColor: 'rgba(168, 85, 247,0.1)', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   locationBannerText: { flex: 1, color: COLORS.purpleLight, fontSize: 12.5, fontWeight: '700' },
 
   fewUsersBanner: { marginHorizontal: SPACING.md, marginTop: SPACING.sm, padding: 12, borderRadius: RADIUS.md, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border },
@@ -2022,7 +2022,7 @@ const styles = StyleSheet.create({
   // Geral — List
   listSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.md, gap: 8 },
   listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: RADIUS.md, padding: 12, gap: 10, borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden', marginBottom: 8 },
-  listItemUser: { borderColor: 'rgba(139,92,246,0.5)' },
+  listItemUser: { borderColor: 'rgba(168, 85, 247,0.5)' },
   rankNum: { color: COLORS.gray, fontSize: 14, fontWeight: '700', width: 28, textAlign: 'center' },
   listAvatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   listAvatarText: { color: '#fff', fontSize: 16, fontWeight: '800' },
@@ -2064,7 +2064,7 @@ const styles = StyleSheet.create({
   socialHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: SPACING.md, gap: 12 },
   socialTitle: { color: COLORS.white, fontSize: 22, fontWeight: '900' },
   socialSub: { color: COLORS.gray, fontSize: 13, marginTop: 3, lineHeight: 18 },
-  createBtn: { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', marginTop: 4 },
+  createBtn: { backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)', marginTop: 4 },
   emptyState: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: 24 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: COLORS.white, marginBottom: 8 },
@@ -2102,11 +2102,11 @@ const styles = StyleSheet.create({
   groupCodeText: { fontSize: 13, fontWeight: '900', letterSpacing: 2 },
 
   // Enter code button (grupos & rivais)
-  enterCodeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(139,92,246,0.1)', borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)', marginBottom: SPACING.md },
+  enterCodeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(168, 85, 247,0.1)', borderRadius: RADIUS.md, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.25)', marginBottom: SPACING.md },
   enterCodeBtnText: { flex: 1, color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
 
   // Convites pendentes de grupo/dupla
-  pendingInviteCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.lg, padding: 12, borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
+  pendingInviteCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: RADIUS.lg, padding: 12, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)' },
   pendingInviteEmoji: { fontSize: 28 },
   pendingInviteTitle: { color: COLORS.white, fontSize: 13, fontWeight: '600', lineHeight: 18 },
   pendingInviteSub: { color: COLORS.gray, fontSize: 11, marginTop: 3 },
@@ -2137,11 +2137,11 @@ const styles = StyleSheet.create({
   gcModeBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   gcModeText: { fontSize: 11, fontWeight: '800' },
   gcSharedFlame: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 14, paddingVertical: 8 },
-  gcFlameNum: { color: '#FCD34D', fontSize: 36, fontWeight: '900', lineHeight: 40 },
+  gcFlameNum: { color: '#FDE047', fontSize: 36, fontWeight: '900', lineHeight: 40 },
   gcFlameSub: { color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '600' },
   gcRivalList: { gap: 8 },
   gcRivalRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: RADIUS.md, padding: 10 },
-  gcRivalRowMe: { backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  gcRivalRowMe: { backgroundColor: 'rgba(168, 85, 247,0.15)', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   gcRivalPos: { color: COLORS.gray, fontSize: 13, fontWeight: '900', width: 22, textAlign: 'center' },
   gcRankRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: RADIUS.md, padding: 10, marginBottom: 6 },
   gcRankRowLeader: { backgroundColor: 'rgba(255,215,0,0.08)', borderWidth: 1, borderColor: 'rgba(255,215,0,0.35)' },
@@ -2153,18 +2153,18 @@ const styles = StyleSheet.create({
   gcRivalAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   gcRivalName: { flex: 1, color: COLORS.white, fontSize: 13, fontWeight: '700' },
   gcRivalFlame: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  gcRivalFlameNum: { color: '#FCD34D', fontSize: 14, fontWeight: '900' },
+  gcRivalFlameNum: { color: '#FDE047', fontSize: 14, fontWeight: '900' },
   gcRivalFlameSub: { color: COLORS.grayDark, fontSize: 10 },
-  gcDoneTag: { backgroundColor: '#10B98120', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#10B98140' },
-  gcDoneText: { color: '#10B981', fontSize: 10, fontWeight: '800' },
-  gcPendTag: { backgroundColor: '#F59E0B18', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#F59E0B35' },
-  gcPendText: { color: '#F59E0B', fontSize: 10, fontWeight: '800' },
+  gcDoneTag: { backgroundColor: '#10E88C20', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#10E88C40' },
+  gcDoneText: { color: '#10E88C', fontSize: 10, fontWeight: '800' },
+  gcPendTag: { backgroundColor: '#FBBF2418', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#FBBF2435' },
+  gcPendText: { color: '#FBBF24', fontSize: 10, fontWeight: '800' },
   gcResultBlock: { alignItems: 'center', gap: 8, paddingVertical: 12 },
   gcResultIcon: { fontSize: 48 },
   gcResultTitle: { fontSize: 20, fontWeight: '900', textAlign: 'center' },
   gcResultSub: { color: COLORS.gray, fontSize: 13, textAlign: 'center' },
   gcResultFlame: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  gcResultFlameNum: { color: '#FCD34D', fontSize: 28, fontWeight: '900' },
+  gcResultFlameNum: { color: '#FDE047', fontSize: 28, fontWeight: '900' },
   gcResultFlameSub: { color: COLORS.gray, fontSize: 12 },
   gcWaitBlock: { alignItems: 'center', gap: 6, paddingVertical: 8 },
   gcWaitEmoji: { fontSize: 32 },
@@ -2177,7 +2177,7 @@ const styles = StyleSheet.create({
   // Duel Card
   duelWrapper: { position: 'relative', marginBottom: SPACING.md },
   duelPulse: { ...StyleSheet.absoluteFillObject, borderRadius: RADIUS.xl + 1, borderWidth: 2, zIndex: 2 },
-  duelCard: { borderRadius: RADIUS.xl, padding: SPACING.md, gap: 12, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)' },
+  duelCard: { borderRadius: RADIUS.xl, padding: SPACING.md, gap: 12, elevation: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(192, 132, 252,0.25)' },
   duelHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
   duelTitle: { color: COLORS.white, fontSize: 15, fontWeight: '900' },
   duelSubtitle: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 },
@@ -2185,7 +2185,7 @@ const styles = StyleSheet.create({
   duelTimeText: { fontSize: 11, fontWeight: '700' },
   duelFlameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: RADIUS.lg, paddingVertical: 10 },
   duelFlameItem: { alignItems: 'center', gap: 2 },
-  duelFlameNum: { color: '#FCD34D', fontSize: 22, fontWeight: '900', lineHeight: 26 },
+  duelFlameNum: { color: '#FDE047', fontSize: 22, fontWeight: '900', lineHeight: 26 },
   duelFlameName: { color: COLORS.gray, fontSize: 10, fontWeight: '600' },
   duelFlameSep: { color: 'rgba(255,255,255,0.25)', fontSize: 10, fontWeight: '600', textAlign: 'center' },
   duelStatusBadge: { borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8 },
@@ -2214,7 +2214,7 @@ const styles = StyleSheet.create({
   duoModeBadge: { borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 4 },
   duoModeText: { fontSize: 11, fontWeight: '800' },
   duoSharedFlame: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: 'rgba(255,180,0,0.08)', borderRadius: RADIUS.lg, paddingVertical: 12, borderWidth: 1, borderColor: 'rgba(255,180,0,0.2)' },
-  duoSharedFlameNum: { color: '#FCD34D', fontSize: 32, fontWeight: '900', lineHeight: 36 },
+  duoSharedFlameNum: { color: '#FDE047', fontSize: 32, fontWeight: '900', lineHeight: 36 },
   duoSharedFlameSub: { color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600' },
   duoArena: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: RADIUS.lg, paddingVertical: 16, paddingHorizontal: 8 },
   duoFighter: { alignItems: 'center', gap: 4, flex: 1 },
@@ -2224,27 +2224,27 @@ const styles = StyleSheet.create({
   duoFighterName: { color: COLORS.gray, fontSize: 11, fontWeight: '700' },
   duoFighterScore: { fontSize: 13, fontWeight: '800' },
   duoIndFlame: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  duoIndFlameNum: { color: '#FCD34D', fontSize: 14, fontWeight: '900' },
+  duoIndFlameNum: { color: '#FDE047', fontSize: 14, fontWeight: '900' },
   duoProgressBarBg: { width: 56, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginTop: 4 },
   duoProgressBarFill: { height: '100%', borderRadius: 2 },
   duoVSBlock: { alignItems: 'center', gap: 6 },
   duoVSLabel: { fontSize: 18, fontWeight: '900' },
   duoLeadBadge: { borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
   duoLeadText: { fontSize: 12, fontWeight: '900' },
-  duoCheckinDone: { color: '#10B981', fontSize: 10, fontWeight: '800' },
-  duoCheckinPend: { color: '#F59E0B', fontSize: 10, fontWeight: '700' },
+  duoCheckinDone: { color: '#10E88C', fontSize: 10, fontWeight: '800' },
+  duoCheckinPend: { color: '#FBBF24', fontSize: 10, fontWeight: '700' },
   duoStatusBar: { borderRadius: RADIUS.md, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
   duoStatusText: { fontSize: 13, fontWeight: '800', textAlign: 'center' },
-  duoCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.08)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(139,92,246,0.2)', paddingHorizontal: 12, paddingVertical: 10 },
+  duoCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(168, 85, 247,0.08)', borderRadius: RADIUS.md, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.2)', paddingHorizontal: 12, paddingVertical: 10 },
   duoCodeLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '600', flex: 1 },
-  duoCodePill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
+  duoCodePill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(168, 85, 247,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 4 },
   duoCodeText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '900', letterSpacing: 2 },
 
   // Feed
   feedSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg, paddingBottom: 4 },
   feedHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
   feedTitle: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
-  shareBtn: { backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  shareBtn: { backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
   shareBtnText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   feedCard: { backgroundColor: COLORS.card, borderRadius: RADIUS.xl, borderWidth: 1, padding: SPACING.md, marginBottom: SPACING.sm, gap: 12 },
   feedCardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -2286,10 +2286,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     padding: 1,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: '#10E88C',
   },
   lobbyReadyText: {
-    color: '#10B981',
+    color: '#10E88C',
     fontSize: 9,
     fontWeight: '800',
     marginTop: 2,
@@ -2316,7 +2316,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -3,
     right: -3,
-    backgroundColor: '#10B981',
+    backgroundColor: '#10E88C',
     borderRadius: RADIUS.full,
     padding: 2,
     borderWidth: 1.5,
@@ -2345,10 +2345,10 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
     padding: 1.5,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: '#10E88C',
   },
   duoReadyLabel: {
-    color: '#10B981',
+    color: '#10E88C',
     fontSize: 9,
     fontWeight: '800',
     marginTop: 2,
@@ -2378,7 +2378,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -3,
     right: -3,
-    backgroundColor: '#10B981',
+    backgroundColor: '#10E88C',
     borderRadius: RADIUS.full,
     padding: 2,
     borderWidth: 1.5,

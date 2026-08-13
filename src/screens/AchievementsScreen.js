@@ -209,7 +209,7 @@ function NextCard({ a, onInfo }) {
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 export default function AchievementsScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
-  const { user, newAchievements } = useUser();
+  const { user, newAchievements, syncAchievements } = useUser();
   const [activeCat,    setActiveCat]    = useState('todos');
   const [viewMode,     setViewMode]     = useState('locked'); // 'locked' | 'unlocked'
   const [achievements, setAchievements] = useState([]);
@@ -220,6 +220,11 @@ export default function AchievementsScreen({ navigation, route }) {
   const fireScale  = useRef(new Animated.Value(1)).current;
   const headerAnim = useRef(new Animated.Value(0)).current;
   const headerY    = useRef(new Animated.Value(-20)).current;
+
+  useEffect(() => {
+    if (!user?.id) return;
+    syncAchievements();
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -420,7 +425,7 @@ export default function AchievementsScreen({ navigation, route }) {
             <View style={s.section}>
               <View style={s.sectionHeader}>
                 <View style={s.iconLabelRow}>
-                  <LightningIcon size={16} color="#FCD34D" weight="fill" />
+                  <LightningIcon size={16} color="#FDE047" weight="fill" />
                   <Text style={s.sectionTitle}>Quase lá...</Text>
                 </View>
                 <Text style={s.sectionSub}>{nextTargets.length} próximas</Text>

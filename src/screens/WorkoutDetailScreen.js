@@ -9,6 +9,8 @@ import { ArrowClockwiseIcon, ArrowLeftIcon, CheckCircleIcon, CheckIcon, CircleIc
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
 import { savePersonalRecord } from '../services/achievementService';
@@ -71,7 +73,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const rawWorkout = route.params.workout ?? {};
   const workout = {
-    gradient:  ['#8B5CF6', '#6D28D9'],
+    gradient:  ['#A855F7', '#7E22CE'],
     muscles:   [],
     calories:  0,
     duration:  0,
@@ -85,6 +87,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
   };
   const { isUserCreated, isHistory } = route.params;
   const { user, completeWorkout, addXP, applyPersonalRecord, setCelebrationsPaused } = useUser();
+  const finishSound = useAudioPlayer(require('../../assets/sounds/checkin-success.wav'));
 
   // Sincroniza cache local com PRs reais do usuário (sem valores padrão)
   useEffect(() => {
@@ -305,6 +308,10 @@ export default function WorkoutDetailScreen({ navigation, route }) {
     setRestJustEnded(false);
     setCompleted(true);
     setShowXPModal(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    finishSound.seekTo(0);
+    finishSound.play();
     // Segura a fila de comemorações (conquista/level up) enquanto o resumo do
     // treino estiver na tela — evita dois popups competindo pelo mesmo instante.
     setCelebrationsPaused?.(true);
@@ -536,14 +543,14 @@ export default function WorkoutDetailScreen({ navigation, route }) {
               </TouchableOpacity>
               <View style={styles.heroBadgeRow}>
                 {isHistory && (
-                  <View style={[styles.myCreatedBadge, { backgroundColor: 'rgba(16,185,129,0.25)' }]}>
-                    <CheckCircleIcon size={11} color="#34D399"  weight="fill" />
-                    <Text style={[styles.myCreatedText, { color: '#34D399' }]}>Treino concluído</Text>
+                  <View style={[styles.myCreatedBadge, { backgroundColor: 'rgba(16, 232, 140,0.25)' }]}>
+                    <CheckCircleIcon size={11} color="#4ADE80"  weight="fill" />
+                    <Text style={[styles.myCreatedText, { color: '#4ADE80' }]}>Treino concluído</Text>
                   </View>
                 )}
                 {isUserCreated && !isHistory && (
                   <View style={styles.myCreatedBadge}>
-                    <StarIcon size={11} color="#FCD34D"  weight="fill" />
+                    <StarIcon size={11} color="#FDE047"  weight="fill" />
                     <Text style={styles.myCreatedText}>Meu treino</Text>
                   </View>
                 )}
@@ -879,7 +886,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
           opacity: prAlertAnim,
           transform: [{ translateY: prAlertAnim.interpolate({ inputRange: [0, 1], outputRange: [-30, 0] }) }],
         }]}>
-          <LinearGradient colors={['#F59E0B', '#D97706']} style={styles.prAlertInner}>
+          <LinearGradient colors={['#FBBF24', '#D97706']} style={styles.prAlertInner}>
             <TrophyIcon size={28} color="#fff" weight="fill" style={styles.prAlertEmoji} />
             <View style={{ flex: 1 }}>
               <Text style={styles.prAlertTitle}>{prAlert.isFirst ? 'RECORDE REGISTRADO!' : 'NOVO RECORDE PESSOAL!'}</Text>
@@ -920,7 +927,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
             </TouchableOpacity>
           ) : (
             <TouchableOpacity onPress={finishWorkout} activeOpacity={0.9}>
-              <LinearGradient colors={['#10B981', '#047857']} style={styles.startBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={['#10E88C', '#047857']} style={styles.startBtn} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 <TrophyIcon size={24} color="#fff"  weight="fill" />
                 <Text style={styles.startBtnText}>Concluir Treino</Text>
               </LinearGradient>
@@ -1012,7 +1019,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
               </View>
 
               <TouchableOpacity onPress={addCustomExercise} activeOpacity={0.9}>
-                <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.addModalBtn}>
+                <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.addModalBtn}>
                   <Text style={styles.addModalBtnText}>Adicionar ao Treino</Text>
                 </LinearGradient>
               </TouchableOpacity>
@@ -1028,7 +1035,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
             <Text style={styles.modalConfetti}>🎉</Text>
             <Text style={styles.modalTitle}>Treino Concluído!</Text>
             <Text style={styles.modalSub}>Você arrasou hoje!</Text>
-            <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.modalXP}>
+            <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.modalXP}>
               <Text style={styles.modalXPText}>+{workout.xp} XP</Text>
             </LinearGradient>
             <View style={styles.modalStats}>
@@ -1084,7 +1091,7 @@ export default function WorkoutDetailScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={dismissModal} style={styles.modalBtn}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.modalBtnGrad}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.modalBtnGrad}>
                 <Text style={styles.modalBtnText}>Continuar  →</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -1104,7 +1111,7 @@ const styles = StyleSheet.create({
   backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center' },
   heroBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   myCreatedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
-  myCreatedText: { color: '#FCD34D', fontSize: 12, fontWeight: '700' },
+  myCreatedText: { color: '#FDE047', fontSize: 12, fontWeight: '700' },
   resetBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5 },
   resetBtnText: { color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: '600' },
   heroEmoji: { fontSize: 52 },
@@ -1121,7 +1128,7 @@ const styles = StyleSheet.create({
   muscleTagText: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' },
 
   // Timer card
-  timerCard: { margin: SPACING.md, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)', gap: 12 },
+  timerCard: { margin: SPACING.md, borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)', gap: 12 },
   timerRow: { flexDirection: 'row', alignItems: 'center' },
   timerBlock: { flex: 1, alignItems: 'center', gap: 2 },
   timerDivider: { width: 1, height: 40, backgroundColor: COLORS.border },
@@ -1135,13 +1142,13 @@ const styles = StyleSheet.create({
   sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.md },
   sectionTitle: { color: COLORS.white, fontSize: 17, fontWeight: '800' },
   iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
+  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(168, 85, 247,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)' },
   addExBtnText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '700' },
   noExState: { alignItems: 'center', paddingVertical: 32 },
   noExText: { color: COLORS.gray, fontSize: 14 },
 
   exerciseItem: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
-  exerciseItemDone: { backgroundColor: 'rgba(16,185,129,0.07)', borderColor: 'rgba(16,185,129,0.3)' },
+  exerciseItemDone: { backgroundColor: 'rgba(16, 232, 140,0.07)', borderColor: 'rgba(16, 232, 140,0.3)' },
   exerciseHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   exerciseLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   exNumCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
@@ -1152,10 +1159,10 @@ const styles = StyleSheet.create({
   exNameDone: { textDecorationLine: 'line-through', color: COLORS.gray },
   exDetail: { color: COLORS.gray, fontSize: 12, marginTop: 2 },
   exRightCol: { alignItems: 'flex-end', gap: 5 },
-  lastPRBadge: { backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)' },
-  lastPRText: { color: '#F59E0B', fontSize: 10, fontWeight: '700' },
+  lastPRBadge: { backgroundColor: 'rgba(251, 191, 36,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(251, 191, 36,0.35)' },
+  lastPRText: { color: '#FBBF24', fontSize: 10, fontWeight: '700' },
   restBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: COLORS.bgSecondary, borderRadius: RADIUS.sm, paddingHorizontal: 7, paddingVertical: 4 },
-  restBadgeActive: { backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  restBadgeActive: { backgroundColor: 'rgba(168, 85, 247,0.15)', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
   restText: { color: COLORS.gray, fontSize: 11 },
 
   // Rest picker
@@ -1179,10 +1186,10 @@ const styles = StyleSheet.create({
   setColCheck: { width: 40, flexShrink: 0 },
   setColDel: { width: 28, flexShrink: 0 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4, borderRadius: RADIUS.sm },
-  setRowDone: { backgroundColor: 'rgba(16,185,129,0.07)' },
+  setRowDone: { backgroundColor: 'rgba(16, 232, 140,0.07)' },
   setNum: { width: 44, flexShrink: 0, textAlign: 'center', color: COLORS.gray, fontSize: 13, fontWeight: '700' },
   setInput: { flex: 1, minWidth: 0, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: RADIUS.sm, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 8, paddingVertical: 7, color: COLORS.white, fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  setInputDone: { backgroundColor: 'rgba(16,185,129,0.10)', borderColor: 'rgba(16,185,129,0.25)', color: COLORS.green },
+  setInputDone: { backgroundColor: 'rgba(16, 232, 140,0.10)', borderColor: 'rgba(16, 232, 140,0.25)', color: COLORS.green },
   setDoneBtn: { width: 40, flexShrink: 0, alignItems: 'center' },
   setDelBtn: { width: 28, flexShrink: 0, alignItems: 'center' },
   setActionsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 },
@@ -1203,9 +1210,9 @@ const styles = StyleSheet.create({
 
   // Rest timer bar
   restTimerBar: { position: 'absolute', left: SPACING.md, right: SPACING.md, zIndex: 10 },
-  restTimerInner: { borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', gap: 10 },
+  restTimerInner: { borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)', gap: 10 },
   restTimerTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  restPauseBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(139,92,246,0.15)', alignItems: 'center', justifyContent: 'center' },
+  restPauseBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(168, 85, 247,0.15)', alignItems: 'center', justifyContent: 'center' },
   restTimerEmoji: { fontSize: 20 },
   restTimerLabel: { color: COLORS.gray, fontSize: 11, fontWeight: '600', marginBottom: 4 },
   restBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, overflow: 'hidden' },
@@ -1216,7 +1223,7 @@ const styles = StyleSheet.create({
   restAdjustText: { color: COLORS.purpleLight, fontSize: 11, fontWeight: '700' },
   skipRestBtn: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
   skipRestText: { color: COLORS.gray, fontSize: 12, fontWeight: '700' },
-  restEndedInner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: RADIUS.lg, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(16,185,129,0.4)' },
+  restEndedInner: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: RADIUS.lg, paddingHorizontal: 16, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(16, 232, 140,0.4)' },
   restEndedText: { color: COLORS.white, fontSize: 13, fontWeight: '700', flex: 1 },
 
   // PR alert
@@ -1233,12 +1240,12 @@ const styles = StyleSheet.create({
   startBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: RADIUS.lg, paddingVertical: 16, gap: 10 },
   startBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
   startXPBadge: { backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3 },
-  startXPText: { color: '#FCD34D', fontSize: 12, fontWeight: '700' },
+  startXPText: { color: '#FDE047', fontSize: 12, fontWeight: '700' },
 
   // Add exercise modal
   addModalOverlay: { flex: 1 },
   addModalSheet: { backgroundColor: 'transparent' },
-  addModalContent: { borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: SPACING.lg, gap: 16, borderTopWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  addModalContent: { borderTopLeftRadius: RADIUS.xl, borderTopRightRadius: RADIUS.xl, padding: SPACING.lg, gap: 16, borderTopWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   addModalHandle: { width: 40, height: 4, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 2, alignSelf: 'center', marginBottom: 4 },
   addModalTitle: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
   addModalField: { gap: 6 },
@@ -1256,7 +1263,7 @@ const styles = StyleSheet.create({
 
   // XP Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', alignItems: 'center', justifyContent: 'center' },
-  modalContent: { backgroundColor: '#1A1A2E', borderRadius: RADIUS.xl, padding: SPACING.xl, width: width * 0.88, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)', gap: 12 },
+  modalContent: { backgroundColor: '#1A1A2E', borderRadius: RADIUS.xl, padding: SPACING.xl, width: width * 0.88, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)', gap: 12 },
   modalConfetti: { fontSize: 56 },
   modalTitle: { color: COLORS.white, fontSize: 24, fontWeight: '800' },
   modalSub: { color: COLORS.gray, fontSize: 14 },
@@ -1269,7 +1276,7 @@ const styles = StyleSheet.create({
   modalStatDivider: { width: 1, height: 30, backgroundColor: COLORS.border },
   modalBonus: { backgroundColor: 'rgba(239,68,68,0.15)', borderRadius: RADIUS.md, paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
   modalBonusText: { color: '#F87171', fontSize: 13, fontWeight: '600' },
-  modalShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 18, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)' },
+  modalShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(168, 85, 247,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 18, paddingVertical: 9, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)' },
   modalShareText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
   modalBtn: { width: '100%', borderRadius: RADIUS.lg, overflow: 'hidden', marginTop: 4 },
   modalBtnGrad: { paddingVertical: 14, alignItems: 'center', borderRadius: RADIUS.lg },

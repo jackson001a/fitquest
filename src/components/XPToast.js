@@ -39,8 +39,8 @@ export default function XPToast() {
   return (
     <View pointerEvents="none" style={[styles.wrap, { top: insets.top + 8 }]}>
       <Animated.View style={{ opacity, transform: [{ translateY }] }}>
-        <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.card}>
-          <LightningIcon size={18} color="#FCD34D" weight="fill" />
+        <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.card}>
+          <LightningIcon size={18} color="#FDE047" weight="fill" />
           <View>
             <Text style={styles.amount}>+{xpToast.amount} XP</Text>
             {xpToast.source ? <Text style={styles.source}>{xpToast.source}</Text> : null}

@@ -32,7 +32,7 @@ export async function registerForPushNotifications(userId) {
       name:       'CapiFit',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#8B5CF6',
+      lightColor: '#A855F7',
     });
   }
 

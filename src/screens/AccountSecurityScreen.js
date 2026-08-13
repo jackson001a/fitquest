@@ -253,14 +253,14 @@ export default function AccountSecurityScreen({ navigation }) {
             </View>
 
             <TouchableOpacity onPress={handleChangePassword} disabled={saving} activeOpacity={0.9} style={{ marginTop: 20 }}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.saveBtn}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.saveBtn}>
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar nova senha</Text>}
               </LinearGradient>
             </TouchableOpacity>
           </>
         ) : isPending ? (
           <>
-            <View style={[styles.statusCard, { borderColor: 'rgba(245,158,11,0.35)' }]}>
+            <View style={[styles.statusCard, { borderColor: 'rgba(251, 191, 36,0.35)' }]}>
               <ClockIcon size={20} color={COLORS.gold} weight="fill" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.statusTitle}>Confirmação pendente</Text>
@@ -376,7 +376,7 @@ export default function AccountSecurityScreen({ navigation }) {
             </View>
 
             <TouchableOpacity onPress={handleCreateLogin} disabled={saving} activeOpacity={0.9} style={{ marginTop: 20 }}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.saveBtn}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.saveBtn}>
                 {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Criar login e senha</Text>}
               </LinearGradient>
             </TouchableOpacity>
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   inputWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: COLORS.card, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: 14, paddingVertical: 4 },
   input: { flex: 1, color: COLORS.white, fontSize: 15, fontWeight: '600', paddingVertical: 12 },
 
-  outlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: RADIUS.lg, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(139,92,246,0.35)', backgroundColor: 'rgba(139,92,246,0.08)' },
+  outlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: RADIUS.lg, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.35)', backgroundColor: 'rgba(168, 85, 247,0.08)' },
   outlineBtnText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
 
   saveBtn: { borderRadius: RADIUS.lg, paddingVertical: 16, alignItems: 'center' },

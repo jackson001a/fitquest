@@ -122,7 +122,7 @@ export default function FriendsScreen({ navigation }) {
         {u.avatar_url ? (
           <Image source={{ uri: u.avatar_url }} style={styles.avatar} />
         ) : (
-          <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.avatar}>
+          <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.avatar}>
             <Text style={styles.avatarText}>{avatar}</Text>
           </LinearGradient>
         )}
@@ -293,11 +293,11 @@ const styles = StyleSheet.create({
   header:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: SPACING.md, paddingVertical: 12 },
   backBtn:     { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   title:       { fontSize: 20, fontWeight: '800', color: COLORS.white },
-  codeCard:    { marginHorizontal: SPACING.md, borderRadius: RADIUS.lg, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  codeCard:    { marginHorizontal: SPACING.md, borderRadius: RADIUS.lg, padding: 16, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   codeRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   codeLabel:   { color: COLORS.gray, fontSize: 12, fontWeight: '600', marginBottom: 4 },
   codeValue:   { color: COLORS.white, fontSize: 28, fontWeight: '900', letterSpacing: 4 },
-  shareCodeBtn:{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  shareCodeBtn:{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
   shareCodeText:{ color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
   tabs:        { flexDirection: 'row', marginHorizontal: SPACING.md, marginVertical: 8, backgroundColor: COLORS.bgSecondary, borderRadius: RADIUS.lg, padding: 4 },
   tab:         { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: RADIUS.md },

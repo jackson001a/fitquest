@@ -13,7 +13,7 @@ import { getExerciseImages, getExerciseMeta } from '../services/exerciseService'
 const { width: SW } = Dimensions.get('window');
 const IMG_H = SW * 0.65;
 
-const LEVEL_COLOR = { 'Iniciante': '#10B981', 'Intermediário': '#F59E0B', 'Avançado': '#EF4444' };
+const LEVEL_COLOR = { 'Iniciante': '#10E88C', 'Intermediário': '#FBBF24', 'Avançado': '#EF4444' };
 const LEVEL_ICON = { 'Iniciante': LeafIcon, 'Intermediário': BarbellIcon, 'Avançado': FireIcon };
 
 export default function ExerciseDetailScreen({ navigation, route }) {
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   playBtnText:  { color: COLORS.white, fontSize: 12, fontWeight: '600' },
   posIndicator: { position: 'absolute', bottom: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 6 },
   posIndicatorText: { color: COLORS.white, fontSize: 11, fontWeight: '600' },
-  sessionCard:  { marginHorizontal: SPACING.md, marginTop: 16, borderRadius: RADIUS.xl, padding: 16, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  sessionCard:  { marginHorizontal: SPACING.md, marginTop: 16, borderRadius: RADIUS.xl, padding: 16, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   sessionTitle: { color: COLORS.gray, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
   sessionRow:   { flexDirection: 'row', justifyContent: 'space-around' },
   sessionStat:  { alignItems: 'center' },
@@ -234,9 +234,9 @@ const styles = StyleSheet.create({
   iconLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
   musclesList:  { gap: 8 },
   muscleTag:    { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: COLORS.border },
-  musclePrimary:{ borderColor: COLORS.purple + '60', backgroundColor: 'rgba(139,92,246,0.08)' },
+  musclePrimary:{ borderColor: COLORS.purple + '60', backgroundColor: 'rgba(168, 85, 247,0.08)' },
   muscleTagText:{ color: COLORS.gray, fontSize: 13, flex: 1 },
-  primaryLabel: { color: COLORS.purple, fontSize: 10, fontWeight: '700', backgroundColor: 'rgba(139,92,246,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  primaryLabel: { color: COLORS.purple, fontSize: 10, fontWeight: '700', backgroundColor: 'rgba(168, 85, 247,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   tipRow:       { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 10 },
   tipNum:       { width: 24, height: 24, borderRadius: 12, backgroundColor: COLORS.purple, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
   tipNumText:   { color: COLORS.white, fontSize: 11, fontWeight: '900' },

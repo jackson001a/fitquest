@@ -200,7 +200,7 @@ export default function EditGoalScreen({ navigation }) {
       {!isLocked && (
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <TouchableOpacity onPress={save} disabled={saving} activeOpacity={0.9}>
-          <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.saveBtn}>
+          <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.saveBtn}>
             <TargetIcon size={18} color="#fff" weight="fill" />
             <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : 'Salvar meta'}</Text>
           </LinearGradient>
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   headerSub: { color: COLORS.gray, fontSize: 13, lineHeight: 19, marginBottom: SPACING.lg },
 
   lockedWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: SPACING.xl },
-  lockedIconCircle: { width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(139,92,246,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(139,92,246,0.25)' },
+  lockedIconCircle: { width: 84, height: 84, borderRadius: 42, backgroundColor: 'rgba(168, 85, 247,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: SPACING.lg, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.25)' },
   lockedTitle: { color: COLORS.white, fontSize: 20, fontWeight: '800', marginBottom: 10 },
   lockedText: { color: COLORS.gray, fontSize: 14, lineHeight: 21, textAlign: 'center' },
   lockedDays: { color: COLORS.purpleLight, fontWeight: '800' },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   sectionTitle: { color: COLORS.white, fontSize: 14, fontWeight: '800', marginBottom: 10 },
 
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: COLORS.border },
-  cardSel: { borderColor: COLORS.purple, backgroundColor: 'rgba(139,92,246,0.1)' },
+  cardSel: { borderColor: COLORS.purple, backgroundColor: 'rgba(168, 85, 247,0.1)' },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.grayDark, alignItems: 'center', justifyContent: 'center' },
   radioSel: { borderColor: COLORS.purple },
   radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.purple },

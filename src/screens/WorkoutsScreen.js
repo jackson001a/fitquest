@@ -24,9 +24,9 @@ const ALL_MUSCLES = [
 ];
 
 const MUSCLE_COLORS = {
-  Peito: '#8B5CF6', Costas: '#3B82F6', Ombros: '#06B6D4', Bíceps: '#10B981',
+  Peito: '#A855F7', Costas: '#3B82F6', Ombros: '#06B6D4', Bíceps: '#10E88C',
   Tríceps: '#F97316', Antebraço: '#84CC16', Pernas: '#EF4444', Glúteos: '#EC4899',
-  Panturrilha: '#F59E0B', Core: '#F97316', Lombar: '#A78BFA', Cardio: '#EF4444', 'Full Body': '#8B5CF6',
+  Panturrilha: '#FBBF24', Core: '#F97316', Lombar: '#C084FC', Cardio: '#EF4444', 'Full Body': '#A855F7',
 };
 
 const EXERCISE_BANK = {
@@ -46,14 +46,14 @@ const EXERCISE_BANK = {
 };
 
 const DIFFICULTY_OPTIONS = [
-  { label: 'FÁCIL',  color: '#10B981' },
-  { label: 'MÉDIO',  color: '#F59E0B' },
+  { label: 'FÁCIL',  color: '#10E88C' },
+  { label: 'MÉDIO',  color: '#FBBF24' },
   { label: 'DIFÍCIL', color: '#EF4444' },
 ];
 
 const GRADIENTS_BY_DIFF = {
-  'FÁCIL':  ['#10B981', '#047857'],
-  'MÉDIO':  ['#8B5CF6', '#6D28D9'],
+  'FÁCIL':  ['#10E88C', '#047857'],
+  'MÉDIO':  ['#A855F7', '#7E22CE'],
   'DIFÍCIL': ['#EF4444', '#991B1B'],
 };
 
@@ -101,7 +101,7 @@ function WorkoutCard({ workout, onPress, onMenu }) {
             </View>
           </View>
           <View style={[s.cardXP, s.iconLabelRow]}>
-            <LightningIcon size={11} color="#FCD34D" weight="fill" />
+            <LightningIcon size={11} color="#FDE047" weight="fill" />
             <Text style={s.cardXPText}>+{workout.xp} XP</Text>
           </View>
         </LinearGradient>
@@ -196,7 +196,7 @@ export default function WorkoutsScreen({ navigation }) {
       emoji: nw.emoji,
       difficulty: nw.difficulty,
       difficultyColor: diff.color,
-      gradient: GRADIENTS_BY_DIFF[nw.difficulty] || ['#8B5CF6', '#6D28D9'],
+      gradient: GRADIENTS_BY_DIFF[nw.difficulty] || ['#A855F7', '#7E22CE'],
       category: nw.muscles[0] || 'Custom',
       muscles: nw.muscles.length > 0 ? nw.muscles : ['Custom'],
       calories: Math.round(totalSets * 12),
@@ -283,7 +283,7 @@ export default function WorkoutsScreen({ navigation }) {
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowCreate(true)} activeOpacity={0.85}>
-              <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={s.createBtn}>
+              <LinearGradient colors={['#A855F7', '#7E22CE']} style={s.createBtn}>
                 <PlusIcon size={16} color="#fff"  weight="fill" />
                 <Text style={s.createBtnText}>Criar Treino</Text>
               </LinearGradient>
@@ -357,7 +357,7 @@ export default function WorkoutsScreen({ navigation }) {
                   <Text style={s.sectionTitle}>Desafio da Semana</Text>
                 </View>
                 {weeklyChallengeDone
-                  ? <View style={[s.hotBadge, { backgroundColor: '#10B981' }]}><Text style={s.hotBadgeText}>✓ CONCLUÍDO</Text></View>
+                  ? <View style={[s.hotBadge, { backgroundColor: '#10E88C' }]}><Text style={s.hotBadgeText}>✓ CONCLUÍDO</Text></View>
                   : <View style={s.hotBadge}><Text style={s.hotBadgeText}>{weeklyChallenge.daysLeft}d restantes</Text></View>}
               </View>
               <TouchableOpacity
@@ -367,7 +367,7 @@ export default function WorkoutsScreen({ navigation }) {
                 <LinearGradient colors={weeklyChallengeDone ? ['#064E3B','#022C22'] : weeklyChallenge.gradient} style={s.featCard}>
                   <View style={s.featContent}>
                     {weeklyChallengeDone
-                      ? <TrophyIcon size={44} color="#FCD34D" weight="fill" style={s.featEmoji} />
+                      ? <TrophyIcon size={44} color="#FDE047" weight="fill" style={s.featEmoji} />
                       : <Text style={s.featEmoji}>{weeklyChallenge.emoji}</Text>}
                     <View style={s.featInfo}>
                       <View style={[s.diffBadge, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
@@ -454,7 +454,7 @@ export default function WorkoutsScreen({ navigation }) {
                 emoji:     h.workout_emoji ?? wdata?.emoji ?? '💪',
                 xp:        h.xp_earned     ?? wdata?.xp    ?? 0,
                 exercises: wdata?.exercises?.length ? wdata.exercises : (original?.exercises ?? []),
-                gradient:  wdata?.gradient  ?? original?.gradient ?? ['#8B5CF6','#6D28D9'],
+                gradient:  wdata?.gradient  ?? original?.gradient ?? ['#A855F7','#7E22CE'],
                 muscles:   wdata?.muscles   ?? original?.muscles  ?? [],
               };
               return (
@@ -729,7 +729,7 @@ export default function WorkoutsScreen({ navigation }) {
               {/* SAVE */}
               <TouchableOpacity onPress={saveWorkout} activeOpacity={0.9} style={{ marginBottom: 40 }}>
                 <LinearGradient
-                  colors={canSave ? ['#8B5CF6', '#6D28D9'] : ['#2A2A4A', '#1E1E38']}
+                  colors={canSave ? ['#A855F7', '#7E22CE'] : ['#2A2A4A', '#1E1E38']}
                   style={s.saveBigBtn}
                 >
                   <FloppyDiskIcon size={20} color="#fff"  weight="regular" />
@@ -756,7 +756,7 @@ const s = StyleSheet.create({
   headerTitle: { color: COLORS.white, fontSize: 22, fontWeight: '800' },
   headerSub: { color: COLORS.gray, fontSize: 13, marginTop: 2 },
   createBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 9 },
-  histBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)', alignItems: 'center', justifyContent: 'center' },
+  histBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(168, 85, 247,0.15)', borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)', alignItems: 'center', justifyContent: 'center' },
   histBtnBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: COLORS.purple, borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   histBtnBadgeText: { color: '#fff', fontSize: 9, fontWeight: '900' },
   createBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
@@ -795,7 +795,7 @@ const s = StyleSheet.create({
   cardEmoji: { fontSize: 30 },
   diffBadge: { alignSelf: 'flex-start', borderRadius: RADIUS.full, paddingHorizontal: 8, paddingVertical: 3 },
   diffText: { fontSize: 10, fontWeight: '800' },
-  myPill: { backgroundColor: 'rgba(139,92,246,0.4)', borderRadius: RADIUS.full, paddingHorizontal: 6, paddingVertical: 2 },
+  myPill: { backgroundColor: 'rgba(168, 85, 247,0.4)', borderRadius: RADIUS.full, paddingHorizontal: 6, paddingVertical: 2 },
   myPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   cardName: { color: '#fff', fontSize: 13, fontWeight: '800', lineHeight: 17 },
   cardCat: { color: 'rgba(255,255,255,0.55)', fontSize: 11 },
@@ -803,7 +803,7 @@ const s = StyleSheet.create({
   cardStat: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cardStatText: { color: 'rgba(255,255,255,0.6)', fontSize: 11 },
   cardXP: { marginTop: 'auto', backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: RADIUS.sm, padding: 5, alignSelf: 'flex-start' },
-  cardXPText: { color: '#FCD34D', fontSize: 11, fontWeight: '700' },
+  cardXPText: { color: '#FDE047', fontSize: 11, fontWeight: '700' },
 
   // Featured
   featCard: { borderRadius: RADIUS.xl, padding: SPACING.md, overflow: 'hidden' },
@@ -823,7 +823,7 @@ const s = StyleSheet.create({
   histEmoji:   { fontSize: 22, width: 32, textAlign: 'center' },
   histName:    { color: COLORS.white, fontSize: 14, fontWeight: '700' },
   histMeta:    { color: COLORS.gray, fontSize: 12, marginTop: 2 },
-  histXPBadge: { backgroundColor: 'rgba(16,185,129,0.15)', borderRadius: RADIUS.full, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
+  histXPBadge: { backgroundColor: 'rgba(16, 232, 140,0.15)', borderRadius: RADIUS.full, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(16, 232, 140,0.3)' },
   histXPText:  { color: COLORS.green, fontSize: 12, fontWeight: '800' },
 
   // Empty
@@ -850,7 +850,7 @@ const s = StyleSheet.create({
   // Emoji
   emojiRow: { gap: 8, paddingBottom: 4 },
   emojiOpt: { width: 46, height: 46, borderRadius: RADIUS.md, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center' },
-  emojiOptActive: { borderColor: COLORS.purple, backgroundColor: 'rgba(139,92,246,0.2)' },
+  emojiOptActive: { borderColor: COLORS.purple, backgroundColor: 'rgba(168, 85, 247,0.2)' },
   emojiOptText: { fontSize: 24 },
 
   // Difficulty
@@ -864,13 +864,13 @@ const s = StyleSheet.create({
   muscleChipText: { color: COLORS.gray, fontSize: 13, fontWeight: '600' },
 
   // Bank
-  bankToggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(139,92,246,0.12)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  bankToggleBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(168, 85, 247,0.12)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   bankToggleText: { color: COLORS.purpleLight, fontSize: 11, fontWeight: '700' },
   bankWrap: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: COLORS.border },
   bankLabel: { color: COLORS.gray, fontSize: 12, fontWeight: '700', marginBottom: 10 },
   bankGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   bankChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: RADIUS.full, backgroundColor: COLORS.bgSecondary, borderWidth: 1, borderColor: COLORS.border },
-  bankChipAdded: { backgroundColor: 'rgba(16,185,129,0.1)', borderColor: 'rgba(16,185,129,0.4)' },
+  bankChipAdded: { backgroundColor: 'rgba(16, 232, 140,0.1)', borderColor: 'rgba(16, 232, 140,0.4)' },
   bankChipText: { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
 
   // Exercise item in create modal
@@ -890,7 +890,7 @@ const s = StyleSheet.create({
   restMiniActiveText: { color: '#fff' },
 
   // Custom exercise form
-  customExWrap: { backgroundColor: 'rgba(139,92,246,0.06)', borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: 'rgba(139,92,246,0.2)', gap: 10, marginTop: 4 },
+  customExWrap: { backgroundColor: 'rgba(168, 85, 247,0.06)', borderRadius: RADIUS.lg, padding: 14, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.2)', gap: 10, marginTop: 4 },
   customExTitle: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
   customExRow: { flexDirection: 'row', gap: 10 },
   restRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
@@ -898,7 +898,7 @@ const s = StyleSheet.create({
   restOptActive: { backgroundColor: COLORS.purple, borderColor: COLORS.purple },
   restOptText: { color: COLORS.gray, fontSize: 11, fontWeight: '700' },
   restOptActiveText: { color: '#fff' },
-  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: 'rgba(139,92,246,0.12)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  addExBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', backgroundColor: 'rgba(168, 85, 247,0.12)', borderRadius: RADIUS.full, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   addExBtnText: { color: COLORS.purpleLight, fontSize: 13, fontWeight: '700' },
 
   // Save

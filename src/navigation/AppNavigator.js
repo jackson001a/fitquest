@@ -103,7 +103,7 @@ export default function AppNavigator() {
     return (
       <View style={{ flex: 1, backgroundColor: '#0A0A18', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontSize: 48 }}>🔥</Text>
-        <Text style={{ color: '#8B5CF6', fontSize: 28, fontWeight: '900', marginTop: 12, letterSpacing: -1 }}>CapiFit</Text>
+        <Text style={{ color: '#A855F7', fontSize: 28, fontWeight: '900', marginTop: 12, letterSpacing: -1 }}>CapiFit</Text>
         <Text style={{ color: '#475569', fontSize: 13, marginTop: 8 }}>Carregando seu plano...</Text>
       </View>
     );
@@ -144,7 +144,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   tabBar:         { flexDirection: 'row', backgroundColor: '#12122A', borderTopWidth: 1, borderTopColor: '#2A2A4A', paddingBottom: 20, paddingTop: 10, paddingHorizontal: 8 },
   tabItem:        { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, position: 'relative' },
-  tabIndicator:   { position: 'absolute', top: -10, width: 32, height: 3, backgroundColor: '#8B5CF6', borderRadius: 2 },
+  tabIndicator:   { position: 'absolute', top: -10, width: 32, height: 3, backgroundColor: '#A855F7', borderRadius: 2 },
   tabLabel:       { fontSize: 10, color: '#475569', fontWeight: '600' },
-  tabLabelActive: { color: '#8B5CF6' },
+  tabLabelActive: { color: '#A855F7' },
 });

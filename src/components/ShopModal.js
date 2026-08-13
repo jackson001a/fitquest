@@ -292,7 +292,7 @@ const st = StyleSheet.create({
   cancelText:     { color: COLORS.gray, fontSize: 13, fontWeight: '700', textAlign: 'center', letterSpacing: 0.5 },
 
   buyTitle:      { color: COLORS.white, fontSize: 18, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
-  insuffBanner:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: RADIUS.md, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  insuffBanner:  { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(251, 191, 36,0.1)', borderRadius: RADIUS.md, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(251, 191, 36,0.3)' },
   insuffText:    { color: COLORS.gold, fontSize: 12, flex: 1 },
   pkgCard:       { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: COLORS.border },
   pkgCardSelected: { borderColor: '#60A5FA', backgroundColor: 'rgba(96,165,250,0.08)' },

@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' },
   card: { borderRadius: RADIUS.xl, padding: 26, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   iconWrap: {
-    width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(139,92,246,0.15)',
+    width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(168, 85, 247,0.15)',
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   title: { color: COLORS.white, fontSize: 20, fontWeight: '800', textAlign: 'center', letterSpacing: -0.3 },

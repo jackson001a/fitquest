@@ -190,7 +190,7 @@ function StepCreated({ createdSquad, isDuo, mode, emoji, currentUserId, onDone }
       </Text>
 
       <TouchableOpacity style={styles.inviteFriendsBtn} onPress={() => setInviteModal(true)} activeOpacity={0.85}>
-        <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.inviteFriendsBtnInner}>
+        <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.inviteFriendsBtnInner}>
           <UserPlusIcon size={20} color="#fff" weight="fill" />
           <Text style={styles.inviteFriendsBtnText}>Convidar amigos direto</Text>
         </LinearGradient>
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
   sectionLabel: { color: COLORS.gray, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 16 },
   duoToggle:    { flexDirection: 'row', gap: 10, marginBottom: 16 },
   duoBtn:       { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.card, borderRadius: RADIUS.lg, paddingVertical: 12, borderWidth: 1, borderColor: COLORS.border },
-  duoBtnActive: { backgroundColor: 'rgba(139,92,246,0.2)', borderColor: COLORS.purple },
+  duoBtnActive: { backgroundColor: 'rgba(168, 85, 247,0.2)', borderColor: COLORS.purple },
   duoBtnEmoji:  { fontSize: 20 },
   duoBtnText:   { color: COLORS.gray, fontWeight: '600', fontSize: 13 },
   duoBtnTextActive: { color: COLORS.white },
@@ -334,11 +334,11 @@ const styles = StyleSheet.create({
   nameInput:    { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, paddingHorizontal: 16, paddingVertical: 14, color: COLORS.white, fontSize: 16, borderWidth: 1, borderColor: COLORS.border },
   emojiRow:     { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   emojiBtn:     { width: 48, height: 48, borderRadius: RADIUS.md, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border },
-  emojiBtnActive:{ borderColor: COLORS.purple, backgroundColor: 'rgba(139,92,246,0.2)' },
+  emojiBtnActive:{ borderColor: COLORS.purple, backgroundColor: 'rgba(168, 85, 247,0.2)' },
   emojiText:    { fontSize: 24 },
   optionsRow:   { flexDirection: 'row', gap: 8 },
   optionBtn:    { flex: 1, paddingVertical: 10, borderRadius: RADIUS.lg, backgroundColor: COLORS.card, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  optionBtnActive:{ backgroundColor: 'rgba(139,92,246,0.2)', borderColor: COLORS.purple },
+  optionBtnActive:{ backgroundColor: 'rgba(168, 85, 247,0.2)', borderColor: COLORS.purple },
   optionText:   { color: COLORS.gray, fontWeight: '600', fontSize: 13 },
   optionTextActive:{ color: COLORS.white, fontWeight: '700' },
   summary:      { borderRadius: RADIUS.lg, padding: 16, marginTop: 20, borderWidth: 1, borderColor: COLORS.border },
@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   orDivider:    { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', marginBottom: 18 },
   orLine:       { flex: 1, height: 1, backgroundColor: COLORS.border },
   orText:       { color: COLORS.grayDark, fontSize: 11, fontWeight: '600' },
-  inviteBox:    { borderRadius: RADIUS.xl, padding: 24, alignItems: 'center', width: '100%', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' },
+  inviteBox:    { borderRadius: RADIUS.xl, padding: 24, alignItems: 'center', width: '100%', marginBottom: 20, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' },
   inviteLabel:  { color: COLORS.gray, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
   inviteCode:   { color: COLORS.white, fontSize: 36, fontWeight: '900', letterSpacing: 6 },
   shareSquadBtn:{ flexDirection: 'row', gap: 10, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border, borderRadius: RADIUS.full, paddingHorizontal: 28, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },

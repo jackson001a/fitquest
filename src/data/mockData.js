@@ -116,8 +116,8 @@ const ALL_WEEKLY_CHALLENGES = [
   { id: 'wc2', name: 'Cardio Extremo',    emoji: '🔥', gradient: ['#EF4444','#991B1B'], xp: 180, description: 'Complete um treino de cardio ou full body', targetWorkoutCategory: 'Cardio',        difficulty: 'MÉDIO' },
   { id: 'wc3', name: 'Pernas de Aço',    emoji: '🦵', gradient: ['#2563EB','#1E40AF'], xp: 220, description: 'Complete um treino de pernas ou glúteos', targetWorkoutCategory: 'Parte Inferior', difficulty: 'DIFÍCIL' },
   { id: 'wc4', name: 'Core de Guerreiro',emoji: '⚔️', gradient: ['#059669','#047857'], xp: 160, description: 'Complete um treino de core ou funcional',  targetWorkoutCategory: 'Core',          difficulty: 'MÉDIO' },
-  { id: 'wc5', name: 'Full Body Épico',  emoji: '⚡', gradient: ['#F59E0B','#D97706'], xp: 250, description: 'Complete um treino full body completo',    targetWorkoutCategory: 'Full Body',     difficulty: 'DIFÍCIL' },
-  { id: 'wc6', name: 'PPL Power',        emoji: '💪', gradient: ['#8B5CF6','#7C3AED'], xp: 190, description: 'Complete qualquer treino do programa PPL',  targetWorkoutCategory: 'PPL',           difficulty: 'MÉDIO' },
+  { id: 'wc5', name: 'Full Body Épico',  emoji: '⚡', gradient: ['#FBBF24','#D97706'], xp: 250, description: 'Complete um treino full body completo',    targetWorkoutCategory: 'Full Body',     difficulty: 'DIFÍCIL' },
+  { id: 'wc6', name: 'PPL Power',        emoji: '💪', gradient: ['#A855F7','#7C3AED'], xp: 190, description: 'Complete qualquer treino do programa PPL',  targetWorkoutCategory: 'PPL',           difficulty: 'MÉDIO' },
   { id: 'wc7', name: 'Hiit Explosivo',   emoji: '💥', gradient: ['#EC4899','#BE185D'], xp: 210, description: 'Complete um treino HIIT ou funcional',     targetWorkoutCategory: 'Funcional',     difficulty: 'DIFÍCIL' },
   { id: 'wc8', name: 'Mobilidade Total', emoji: '🧘', gradient: ['#06B6D4','#0284C7'], xp: 140, description: 'Complete um treino de mobilidade ou recuperação', targetWorkoutCategory: 'Mobilidade', difficulty: 'FÁCIL' },
 ];
@@ -139,8 +139,8 @@ export const recommendedWorkouts = [
     duration: 45,
     xp: 120,
     difficulty: 'MÉDIO',
-    difficultyColor: '#F59E0B',
-    gradient: ['#6D28D9', '#4C1D95'],
+    difficultyColor: '#FBBF24',
+    gradient: ['#7E22CE', '#4C1D95'],
     category: 'Parte Superior',
     muscles: ['Peito', 'Tríceps', 'Ombro'],
     calories: 280,
@@ -180,7 +180,7 @@ export const recommendedWorkouts = [
     duration: 30,
     xp: 80,
     difficulty: 'MÉDIO',
-    difficultyColor: '#F59E0B',
+    difficultyColor: '#FBBF24',
     gradient: ['#F97316', '#C2410C'],
     category: 'Core',
     muscles: ['Abdômen', 'Oblíquos', 'Lombar'],
@@ -225,7 +225,7 @@ export const allWorkouts = [
     duration: 50,
     xp: 130,
     difficulty: 'MÉDIO',
-    difficultyColor: '#F59E0B',
+    difficultyColor: '#FBBF24',
     gradient: ['#2563EB', '#1E40AF'],
     category: 'Parte Superior',
     muscles: ['Costas', 'Bíceps', 'Trapézio'],
@@ -245,7 +245,7 @@ export const allWorkouts = [
     duration: 40,
     xp: 100,
     difficulty: 'MÉDIO',
-    difficultyColor: '#F59E0B',
+    difficultyColor: '#FBBF24',
     gradient: ['#7C3AED', '#5B21B6'],
     category: 'Parte Superior',
     muscles: ['Ombros', 'Trapézio'],
@@ -264,8 +264,8 @@ export const allWorkouts = [
     duration: 30,
     xp: 60,
     difficulty: 'FÁCIL',
-    difficultyColor: '#10B981',
-    gradient: ['#10B981', '#047857'],
+    difficultyColor: '#10E88C',
+    gradient: ['#10E88C', '#047857'],
     category: 'Full Body',
     muscles: ['Full Body'],
     calories: 150,
@@ -283,7 +283,7 @@ export const allWorkouts = [
     duration: 35,
     xp: 85,
     difficulty: 'MÉDIO',
-    difficultyColor: '#F59E0B',
+    difficultyColor: '#FBBF24',
     gradient: ['#EC4899', '#BE185D'],
     category: 'Cardio',
     muscles: ['Cardio', 'Pernas'],
@@ -303,7 +303,7 @@ export const allWorkouts = [
   // ── PPL: PUSH (Peito + Ombro + Tríceps) ──────────────────────────────────
   {
     id: 9, name: 'PPL — Empurrar A', emoji: '🚀', duration: 50, xp: 120,
-    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    difficulty: 'MÉDIO', difficultyColor: '#FBBF24',
     gradient: ['#7C3AED','#5B21B6'],
     category: 'PPL', muscles: ['Peito', 'Ombro', 'Tríceps'], calories: 310,
     exercises: [
@@ -318,7 +318,7 @@ export const allWorkouts = [
   // ── PPL: PULL (Costas + Bíceps) ───────────────────────────────────────────
   {
     id: 10, name: 'PPL — Puxar A', emoji: '🦅', duration: 50, xp: 120,
-    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    difficulty: 'MÉDIO', difficultyColor: '#FBBF24',
     gradient: ['#1D4ED8','#1E40AF'],
     category: 'PPL', muscles: ['Costas', 'Bíceps', 'Trapézio'], calories: 290,
     exercises: [
@@ -349,7 +349,7 @@ export const allWorkouts = [
   // ── INICIANTE ─────────────────────────────────────────────────────────────
   {
     id: 12, name: 'Iniciante: Upper Body', emoji: '⭐', duration: 35, xp: 65,
-    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    difficulty: 'FÁCIL', difficultyColor: '#10E88C',
     gradient: ['#047857','#065F46'],
     category: 'Iniciante', muscles: ['Peito', 'Costas', 'Ombro'], calories: 170,
     exercises: [
@@ -362,7 +362,7 @@ export const allWorkouts = [
   },
   {
     id: 13, name: 'Iniciante: Lower Body', emoji: '🌱', duration: 35, xp: 65,
-    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    difficulty: 'FÁCIL', difficultyColor: '#10E88C',
     gradient: ['#065F46','#064E3B'],
     category: 'Iniciante', muscles: ['Pernas', 'Glúteos', 'Core'], calories: 180,
     exercises: [
@@ -375,7 +375,7 @@ export const allWorkouts = [
   },
   {
     id: 14, name: 'Iniciante: Full Body', emoji: '🌟', duration: 40, xp: 70,
-    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    difficulty: 'FÁCIL', difficultyColor: '#10E88C',
     gradient: ['#0D9488','#0F766E'],
     category: 'Iniciante', muscles: ['Full Body'], calories: 200,
     exercises: [
@@ -418,7 +418,7 @@ export const allWorkouts = [
   },
   {
     id: 17, name: 'Glúteos & Posterior', emoji: '🍑', duration: 55, xp: 140,
-    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    difficulty: 'MÉDIO', difficultyColor: '#FBBF24',
     gradient: ['#9D174D','#7C3AED'],
     category: 'Parte Inferior', muscles: ['Glúteos', 'Isquiotibiais', 'Abdutores'], calories: 360,
     exercises: [
@@ -432,7 +432,7 @@ export const allWorkouts = [
   },
   {
     id: 18, name: 'Abdômen Completo', emoji: '🎯', duration: 30, xp: 75,
-    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    difficulty: 'MÉDIO', difficultyColor: '#FBBF24',
     gradient: ['#D97706','#B45309'],
     category: 'Core', muscles: ['Abdômen', 'Core', 'Oblíquos'], calories: 160,
     exercises: [
@@ -461,7 +461,7 @@ export const allWorkouts = [
   },
   {
     id: 20, name: 'Peso Corporal Total', emoji: '🤸', duration: 35, xp: 85,
-    difficulty: 'MÉDIO', difficultyColor: '#F59E0B',
+    difficulty: 'MÉDIO', difficultyColor: '#FBBF24',
     gradient: ['#0891B2','#0E7490'],
     category: 'Funcional', muscles: ['Full Body'], calories: 280,
     exercises: [
@@ -477,7 +477,7 @@ export const allWorkouts = [
   // ── MOBILIDADE E RECUPERAÇÃO ──────────────────────────────────────────────
   {
     id: 21, name: 'Mobilidade Completa', emoji: '🧘', duration: 30, xp: 50,
-    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    difficulty: 'FÁCIL', difficultyColor: '#10E88C',
     gradient: ['#4338CA','#3730A3'],
     category: 'Mobilidade', muscles: ['Full Body', 'Flexibilidade'], calories: 80,
     exercises: [
@@ -489,7 +489,7 @@ export const allWorkouts = [
   },
   {
     id: 22, name: 'Recuperação Ativa', emoji: '🌊', duration: 25, xp: 40,
-    difficulty: 'FÁCIL', difficultyColor: '#10B981',
+    difficulty: 'FÁCIL', difficultyColor: '#10E88C',
     gradient: ['#0369A1','#075985'],
     category: 'Mobilidade', muscles: ['Recuperação'], calories: 60,
     exercises: [
@@ -525,8 +525,8 @@ export const flameTiers = [
   { min: 0,   label: 'Faísca',    color: '#9CA3AF', gradient: ['#374151', '#1F2937'] },
   { min: 10,  label: 'Aquecendo', color: '#F97316', gradient: ['#7C2D12', '#1C0A04'] },
   { min: 21,  label: 'Em Chamas', color: '#EF4444', gradient: ['#7F1D1D', '#1C0505'] },
-  { min: 35,  label: 'Inferno',   color: '#8B5CF6', gradient: ['#4C1D95', '#1C0A3E'] },
-  { min: 60,  label: 'Lendário',  color: '#F59E0B', gradient: ['#78350F', '#1C0A00'] },
+  { min: 35,  label: 'Inferno',   color: '#A855F7', gradient: ['#4C1D95', '#1C0A3E'] },
+  { min: 60,  label: 'Lendário',  color: '#FBBF24', gradient: ['#78350F', '#1C0A00'] },
   { min: 100, label: 'Imortal',   color: '#06B6D4', gradient: ['#164E63', '#051020'] },
 ];
 
@@ -535,11 +535,11 @@ export const flameTiers = [
 export const identityTitles = [
   { title: 'Fantasma da Academia',  color: '#6B7280', icon: SkullIcon,            min: 0,   req: 'Ponto de partida' },
   { title: 'Atleta Dedicado',       color: '#3B82F6', icon: BarbellIcon,          min: 5,   req: '5 treinos concluídos' },
-  { title: 'Rei do Cardio',         color: '#10B981', icon: PersonSimpleWalkIcon, min: 15,  req: '15 treinos concluídos' },
+  { title: 'Rei do Cardio',         color: '#10E88C', icon: PersonSimpleWalkIcon, min: 15,  req: '15 treinos concluídos' },
   { title: 'Guerreiro Consistente', color: '#EF4444', icon: ShieldIcon,           min: 30,  req: '30 treinos concluídos' },
-  { title: 'Veterano do Ferro',     color: '#8B5CF6', icon: TrophyIcon,           min: 60,  req: '60 treinos concluídos' },
+  { title: 'Veterano do Ferro',     color: '#A855F7', icon: TrophyIcon,           min: 60,  req: '60 treinos concluídos' },
   { title: 'Monstro do Ferro',      color: '#F97316', icon: PawPrintIcon,         min: 100, req: '100 treinos concluídos' },
-  { title: 'Lenda Viva',            color: '#F59E0B', icon: StarIcon,             min: 200, req: '200 treinos concluídos' },
+  { title: 'Lenda Viva',            color: '#FBBF24', icon: StarIcon,             min: 200, req: '200 treinos concluídos' },
   { title: 'Imortal',               color: '#06B6D4', icon: LightningIcon,       min: 350, req: '350 treinos concluídos' },
 ];
 
@@ -558,7 +558,7 @@ export const groupsData = [
     emoji: '🛡️',
     groupStreak: 18,
     daysPerWeek: 5,
-    color: '#8B5CF6',
+    color: '#A855F7',
     gradient: ['#7C3AED', '#5B21B6', '#1E1B4B'],
     members: [
       { name: 'Lucas',  avatar: 'L', checkedInToday: true,  isUser: true  },
@@ -589,7 +589,7 @@ export const rivalsData = [
     userLastWorkout: 'há 1 dia',
     userHasMomentum: true,
     userLast7Days: [true, false, true, true, true, false, true],
-    color: '#A78BFA',
+    color: '#C084FC',
     gradient: ['#7C3AED', '#5B21B6', '#2E1065'],
   },
   {
@@ -612,7 +612,7 @@ export const rivalsData = [
     userHasMomentum: false,
     userLast7Days: [false, true, true, false, false, true, false],
     color: '#C084FC',
-    gradient: ['#6D28D9', '#4C1D95', '#1E1B4B'],
+    gradient: ['#7E22CE', '#4C1D95', '#1E1B4B'],
   },
 ];
 

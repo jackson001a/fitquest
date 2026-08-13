@@ -18,6 +18,7 @@ import {
 const EXIT_OFFERING_ID = 'exit_offer';
 const EXIT_PACKAGE_ID  = 'rc_annual';
 const EXIT_PRICE_FALLBACK = 'R$ 99,00';
+const EXIT_MONTHLY_EQUIVALENT_FALLBACK = 'R$ 8,32';
 
 // Usados só como placeholder enquanto as ofertas reais do RevenueCat carregam,
 // ou como fallback no Expo Go (onde o SDK nativo não existe).
@@ -73,7 +74,7 @@ const MONTHLY_BENEFITS = [
 ];
 
 export default function PaywallScreen({ navigation }) {
-  const { user, activatePremium } = useUser();
+  const { user, activatePremium, setCelebrationsPaused } = useUser();
   const [selectedPlan, setSelectedPlan] = useState('annual');
   const [purchasing, setPurchasing] = useState(false);
   const [offering, setOffering] = useState(null);
@@ -96,6 +97,15 @@ export default function PaywallScreen({ navigation }) {
       setExitOffering(null);
       setExitPurchasing(false);
     }, [])
+  );
+
+  // Pausa a fila de comemorações (conquista/level up/pedido de avaliação)
+  // enquanto o paywall estiver na tela — nenhum popup pode competir com ele.
+  useFocusEffect(
+    useCallback(() => {
+      setCelebrationsPaused?.(true);
+      return () => setCelebrationsPaused?.(false);
+    }, [setCelebrationsPaused])
   );
 
   // Busca a offering atual do RevenueCat (App Store Connect / Google Play já cadastrados lá)
@@ -221,6 +231,15 @@ export default function PaywallScreen({ navigation }) {
     ?? exitOffering?.availablePackages?.[0]
     ?? null;
   const exitPriceString = exitPkg?.product?.priceString ?? EXIT_PRICE_FALLBACK;
+  const exitMonthlyEquivalent = exitPkg?.product
+    ? formatMoney(exitPkg.product.price / 12, exitPkg.product.currencyCode)
+    : EXIT_MONTHLY_EQUIVALENT_FALLBACK;
+  // Desconto comparado ao plano anual normal (não ao mensal) — a oferta de
+  // saída é uma versão promocional do plano ANUAL, então a base de comparação
+  // justa é o preço anual cheio, não os 12 meses do plano mensal.
+  const exitDiscountPct = (exitPkg?.product?.price && annualPkg?.product?.price)
+    ? Math.round((1 - exitPkg.product.price / annualPkg.product.price) * 100)
+    : Math.round((1 - 99 / 149.9) * 100);
 
   const handleAcceptExitOffer = useCallback(async () => {
     if (exitPurchasing) return;
@@ -282,7 +301,7 @@ export default function PaywallScreen({ navigation }) {
       <View style={s.trialBanner}>
         <GiftIcon size={18} color={COLORS.orange} weight="fill" />
         <Text style={s.trialBannerText}>
-          <Text style={{ fontWeight: '800', color: COLORS.white }}>{trialDays} dias grátis</Text> no plano anual, depois {annualPriceString}. Cancele quando quiser, sem burocracia.
+          <Text style={{ fontWeight: '800', color: COLORS.white }}>{trialDays} dias grátis</Text>, depois {annualPriceString} com renovação automática. Cancele quando quiser, sem burocracia.
         </Text>
       </View>
     </>
@@ -326,10 +345,12 @@ export default function PaywallScreen({ navigation }) {
           <Text style={s.subtitle}>Só dessa vez: acesso Premium anual completo por um preço exclusivo</Text>
 
           <View style={s.exitOfferCard}>
-            <View style={s.planBadge}><Text style={s.planBadgeText}>oferta exclusiva</Text></View>
+            <View style={s.planBadge}><Text style={s.planBadgeText}>oferta exclusiva · {exitDiscountPct}% off</Text></View>
             <Text style={s.exitOfferLabel}>Anual Promocional</Text>
             <Text style={s.exitOfferPrice}>{exitPriceString}</Text>
+            <Text style={s.exitOfferSub}>equivale a {exitMonthlyEquivalent}/mês</Text>
             <Text style={s.exitOfferSub}>por ano — acesso completo ao CapiFit</Text>
+            <Text style={s.exitOfferSub}>renovação automática · cancele quando quiser</Text>
           </View>
 
           <View style={s.ctaWrap}>
@@ -343,6 +364,16 @@ export default function PaywallScreen({ navigation }) {
 
             <TouchableOpacity onPress={leavePaywall} disabled={exitPurchasing} style={{ marginTop: 16 }}>
               <Text style={s.declineText}>Não, obrigado</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={s.footerLinks}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://jackson001a.github.io/fitquest/termos.html')}>
+              <Text style={s.footerLink}>Termos</Text>
+            </TouchableOpacity>
+            <Text style={s.footerDot}>·</Text>
+            <TouchableOpacity onPress={() => Linking.openURL('https://jackson001a.github.io/fitquest/privacidade.html')}>
+              <Text style={s.footerLink}>Privacidade</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -391,7 +422,12 @@ export default function PaywallScreen({ navigation }) {
             <Text style={s.planLabel}>Mensal</Text>
             {loadingOfferings
               ? <ActivityIndicator size="small" color={COLORS.gray} style={{ marginTop: 4 }} />
-              : <Text style={s.planPrice}>{monthlyPriceString}</Text>}
+              : (
+                <>
+                  <Text style={s.planPrice}>{monthlyPriceString}</Text>
+                  <Text style={s.planPriceSub}>renovação automática</Text>
+                </>
+              )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -399,15 +435,15 @@ export default function PaywallScreen({ navigation }) {
             style={[s.planCard, isAnnual && s.planCardActive]}
             activeOpacity={0.9}
           >
-            <View style={s.planBadge}><Text style={s.planBadgeText}>{trialDays} dias grátis</Text></View>
+            <View style={s.trialBadge}><Text style={s.trialBadgeText}>{trialDays} dias grátis</Text></View>
             <View style={[s.radio, isAnnual && s.radioActive]}>{isAnnual && <View style={s.radioDot} />}</View>
             <Text style={s.planLabel}>Anual</Text>
             {loadingOfferings
               ? <ActivityIndicator size="small" color={COLORS.gray} style={{ marginTop: 4 }} />
               : (
                 <>
-                  <Text style={[s.planPrice, s.planPriceEmphasis]}>{annualMonthlyEquivalent}/mês</Text>
-                  <Text style={s.planPriceSub}>cobrado {annualPriceString}</Text>
+                  <Text style={s.planPrice}>{annualMonthlyEquivalent}/mês</Text>
+                  <Text style={s.planPriceSub}>{annualPriceString} cobrado uma vez por ano</Text>
                 </>
               )}
           </TouchableOpacity>
@@ -461,7 +497,7 @@ const s = StyleSheet.create({
   bodyPad: { paddingHorizontal: SPACING.lg, paddingBottom: 16 },
 
   hiddenClose: {
-    position: 'absolute', top: 24, right: 16, zIndex: 10,
+    position: 'absolute', top: 56, right: 16, zIndex: 10,
     width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
@@ -514,14 +550,17 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full,
   },
   planBadgeText: { fontSize: 9.5, fontWeight: '800', color: COLORS.white, letterSpacing: 0.3 },
+  trialBadge: {
+    position: 'absolute', top: -11, left: 14, backgroundColor: COLORS.card, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full,
+  },
+  trialBadgeText: { fontSize: 9.5, fontWeight: '600', color: COLORS.gray, letterSpacing: 0.3 },
   radio:       { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: COLORS.grayDark, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   radioActive: { borderColor: COLORS.orange },
   radioDot:    { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.orange },
   planLabel:      { fontSize: 14, fontWeight: '700', color: COLORS.gray, marginBottom: 4 },
   planPrice:      { fontSize: 18, fontWeight: '800', color: COLORS.white },
-  planPriceUnit:  { fontSize: 12, fontWeight: '600', color: COLORS.gray },
   planPriceSub:   { fontSize: 10.5, color: COLORS.gray, fontWeight: '600', marginTop: 4 },
-  planPriceEmphasis: { color: COLORS.orange, fontSize: 20 },
 
   ctaWrap: { marginTop: SPACING.lg, alignItems: 'center' },
   ctaBtn:  { width: '100%', borderRadius: RADIUS.full, paddingVertical: 17, alignItems: 'center', justifyContent: 'center' },

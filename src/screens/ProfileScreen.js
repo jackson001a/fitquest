@@ -5,13 +5,14 @@ import {
 import TouchableOpacity from '../components/TouchableOpacity';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BarbellIcon, BellIcon, CalendarIcon, CameraIcon, CaretLeftIcon, CaretRightIcon, ChartBarIcon, CheckIcon, CrownIcon, FireIcon, GearIcon, LightningIcon, LockSimpleIcon, MapPinIcon, MedalIcon, ProhibitIcon, QuestionIcon, ScalesIcon, ShareNetworkIcon, SignOutIcon, TargetIcon, TrophyIcon, UsersIcon, XIcon } from 'phosphor-react-native';
+import { BarbellIcon, BellIcon, CalendarIcon, CameraIcon, CaretLeftIcon, CaretRightIcon, ChartBarIcon, CheckIcon, CrownIcon, FireIcon, GearIcon, LightningIcon, LockSimpleIcon, MapPinIcon, MedalIcon, ProhibitIcon, QuestionIcon, ScalesIcon, ShareNetworkIcon, SignOutIcon, StarIcon, TargetIcon, TrophyIcon, UsersIcon, XIcon } from 'phosphor-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS, SPACING, RADIUS } from '../theme';
 import { useUser } from '../context/UserContext';
 import { fetchUserAchievements, fetchRecentActivity } from '../services/achievementService';
 import { supabase } from '../services/supabase';
 import { identityTitles, getUserTitle } from '../data/mockData';
+import { getAppStoreReviewUrl } from '../config/appStore';
 
 const { width } = Dimensions.get('window');
 
@@ -42,6 +43,7 @@ function buildSettings(friendsCount, dailyGoalXP, notificationsEnabled, isPremiu
     { icon: LockSimpleIcon,   label: 'Conta e Segurança', sub: 'Google, Apple, login e senha' },
     { icon: ProhibitIcon,     label: 'Usuários bloqueados', sub: 'Gerenciar bloqueios' },
     { icon: ShareNetworkIcon, label: 'Compartilhar',  sub: 'Mostre seu progresso' },
+    { icon: StarIcon,         label: 'Avaliar o CapiFit', sub: 'Deixe sua avaliação na App Store' },
     { icon: QuestionIcon,     label: 'Ajuda',         sub: 'FAQ e suporte' },
   ];
 }
@@ -199,7 +201,7 @@ export default function ProfileScreen({ navigation }) {
           <LinearGradient colors={['#1A1A3E', '#12122A']} style={[styles.profileHeader, { paddingTop: insets.top + 12 }]}>
             <View style={styles.avatarSection}>
               <TouchableOpacity onPress={pickAvatar} activeOpacity={0.85} style={styles.avatarOuter}>
-                <LinearGradient colors={['#8B5CF6', '#EC4899']} style={styles.avatarCircle}>
+                <LinearGradient colors={['#A855F7', '#EC4899']} style={styles.avatarCircle}>
                   {(avatarPhoto || user.avatarUrl)
                     ? <Image source={{ uri: avatarPhoto || user.avatarUrl }} style={styles.avatarPhoto} />
                     : <Text style={styles.avatarText}>{user.name[0]}</Text>}
@@ -239,7 +241,7 @@ export default function ProfileScreen({ navigation }) {
                   <Text style={{ color: COLORS.white, fontSize: 16, fontWeight: '900', letterSpacing: 3 }}>{user.user_code ?? '------'}</Text>
                 </View>
                 <TouchableOpacity
-                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(139,92,246,0.2)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(139,92,246,0.4)' }}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: 'rgba(168, 85, 247,0.2)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.4)' }}
                   onPress={() => navigation.navigate('Friends')}
                   activeOpacity={0.8}>
                   <UsersIcon size={16} color={COLORS.purpleLight} weight="fill" />
@@ -336,7 +338,7 @@ export default function ProfileScreen({ navigation }) {
                 return (
                   <View key={d} style={styles.calCell}>
                     {isTrained ? (
-                      <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.calDayTrained}>
+                      <LinearGradient colors={['#A855F7', '#7E22CE']} style={styles.calDayTrained}>
                         <Text style={styles.calDayTrainedNum}>{d}</Text>
                       </LinearGradient>
                     ) : (
@@ -371,8 +373,8 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.emptyCardText}>Nenhum recorde ainda.{'\n'}Complete treinos para registrar seus pesos máximos!</Text>
             </View>
           ) : personalRecords.map((pr, i) => (
-            <View key={i} style={[styles.prItem, pr.isNew && { borderColor: '#F59E0B55' }]}>
-              <View style={[styles.prIconWrap, { backgroundColor: 'rgba(139,92,246,0.12)' }]}>
+            <View key={i} style={[styles.prItem, pr.isNew && { borderColor: '#FBBF2455' }]}>
+              <View style={[styles.prIconWrap, { backgroundColor: 'rgba(168, 85, 247,0.12)' }]}>
                 <TargetIcon size={20} color={COLORS.purpleLight} weight="fill" />
               </View>
               <View style={styles.prInfo}>
@@ -472,6 +474,11 @@ export default function ProfileScreen({ navigation }) {
                 else if (item.label === 'Compartilhar') {
                   const { shareExternal, buildShareText } = require('../services/socialService');
                   shareExternal(buildShareText(user, 'default', ''));
+                }
+                else if (item.label === 'Avaliar o CapiFit') {
+                  const url = getAppStoreReviewUrl();
+                  if (url) Linking.openURL(url);
+                  else Alert.alert('Ainda não disponível', 'O CapiFit ainda não está publicado na App Store.');
                 }
               }}>
               <View style={styles.settingIcon}>
@@ -635,11 +642,11 @@ const styles = StyleSheet.create({
   avatarPhoto: { width: 80, height: 80, borderRadius: 40 },
   levelBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: COLORS.gold, borderRadius: RADIUS.full, width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.bgSecondary },
   levelBadgeText: { color: '#000', fontSize: 11, fontWeight: '800' },
-  cameraBtn: { position: 'absolute', bottom: 18, left: -4, backgroundColor: '#8B5CF6', borderRadius: RADIUS.full, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.bgSecondary },
+  cameraBtn: { position: 'absolute', bottom: 18, left: -4, backgroundColor: '#A855F7', borderRadius: RADIUS.full, width: 22, height: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: COLORS.bgSecondary },
   profileName: { color: COLORS.white, fontSize: 22, fontWeight: '800' },
   profileTitleBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: RADIUS.full, borderWidth: 1, paddingHorizontal: 14, paddingVertical: 6 },
   profileTitleText: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 },
-  profileLeague: { backgroundColor: 'rgba(139,92,246,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(139,92,246,0.3)' },
+  profileLeague: { backgroundColor: 'rgba(168, 85, 247,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(168, 85, 247,0.3)' },
   profileLeagueText: { color: COLORS.purpleLight, fontSize: 12, fontWeight: '600' },
   xpSection: { gap: 6 },
   xpRow: { flexDirection: 'row', justifyContent: 'space-between' },
@@ -665,7 +672,7 @@ const styles = StyleSheet.create({
   // Calendar
   calCard: { backgroundColor: COLORS.card, borderRadius: RADIUS.lg, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.sm, gap: 8 },
   calNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4 },
-  calNavBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(139,92,246,0.1)', alignItems: 'center', justifyContent: 'center' },
+  calNavBtn: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(168, 85, 247,0.1)', alignItems: 'center', justifyContent: 'center' },
   calNavBtnDisabled: { backgroundColor: 'rgba(255,255,255,0.03)' },
   calNavCenter: { alignItems: 'center' },
   calMonthText: { color: COLORS.white, fontSize: 14, fontWeight: '800' },
@@ -693,14 +700,14 @@ const styles = StyleSheet.create({
   prDate: { color: COLORS.gray, fontSize: 11, marginTop: 2 },
   prRight: { alignItems: 'flex-end', gap: 4 },
   prKg: { fontSize: 18, fontWeight: '900' },
-  prNewBadge: { backgroundColor: '#F59E0B22', borderRadius: RADIUS.full, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: '#F59E0B44' },
-  prNewBadgeText: { color: '#F59E0B', fontSize: 9, fontWeight: '800' },
+  prNewBadge: { backgroundColor: '#FBBF2422', borderRadius: RADIUS.full, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: '#FBBF2444' },
+  prNewBadgeText: { color: '#FBBF24', fontSize: 9, fontWeight: '800' },
 
   // Seals
   sealsSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: SPACING.sm },
-  sealCountBadge: { backgroundColor: 'rgba(245,158,11,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(245,158,11,0.35)' },
-  sealCountText: { color: '#F59E0B', fontSize: 12, fontWeight: '700' },
+  sealCountBadge: { backgroundColor: 'rgba(251, 191, 36,0.15)', borderRadius: RADIUS.full, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(251, 191, 36,0.35)' },
+  sealCountText: { color: '#FBBF24', fontSize: 12, fontWeight: '700' },
   sealsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 4 },
   sealItem: { width: (width - SPACING.md * 2 - 36) / 4, alignItems: 'center', gap: 5 },
   sealBadge: { width: 56, height: 56, borderRadius: 18, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.5, shadowRadius: 6, elevation: 6 },
@@ -712,7 +719,7 @@ const styles = StyleSheet.create({
   // Settings
   settingsSection: { paddingHorizontal: SPACING.md, marginTop: SPACING.lg },
   settingItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card, borderRadius: RADIUS.md, padding: 14, marginBottom: 8, gap: 12, borderWidth: 1, borderColor: COLORS.border },
-  settingIcon: { width: 36, height: 36, borderRadius: RADIUS.sm, backgroundColor: 'rgba(139,92,246,0.15)', alignItems: 'center', justifyContent: 'center' },
+  settingIcon: { width: 36, height: 36, borderRadius: RADIUS.sm, backgroundColor: 'rgba(168, 85, 247,0.15)', alignItems: 'center', justifyContent: 'center' },
   settingInfo: { flex: 1 },
   settingLabel: { color: COLORS.white, fontSize: 14, fontWeight: '600' },
   settingSub: { color: COLORS.gray, fontSize: 11, marginTop: 1 },
