@@ -2,6 +2,7 @@ import { Share } from 'react-native';
 import * as Linking from 'expo-linking';
 import { supabase } from './supabase';
 import { toDateString, getMondayOf, isNewWeek as isNewWeekVs } from './userService';
+import { sendSocialPush } from './notificationService';
 
 const APP_SCHEME = 'capifit';
 const APP_STORE_URL = 'https://apps.apple.com/br/app/capifit-motiva%C3%A7%C3%A3o-academia/id6792953935';
@@ -103,16 +104,52 @@ export async function sendFriendRequest(fromUserId, toUserId) {
     .single();
 
   if (error) throw error;
+
+  // 🔔 Notifica o destinatário do pedido de amizade
+  const { data: sender } = await supabase
+    .from('users')
+    .select('name')
+    .eq('id', fromUserId)
+    .single();
+  sendSocialPush(
+    toUserId,
+    '👥 Novo pedido de amizade',
+    `${sender?.name ?? 'Alguém'} quer ser seu amigo no CapiFit!`,
+    { type: 'friend_request', fromUserId }
+  );
+
   return { data, already: false };
 }
 
 // Aceita pedido de amizade
-export async function acceptFriendRequest(friendshipId) {
+export async function acceptFriendRequest(friendshipId, acceptorUserId) {
+  // Busca quem enviou o pedido antes de atualizar
+  const { data: friendship } = await supabase
+    .from('friendships')
+    .select('user_id')
+    .eq('id', friendshipId)
+    .single();
+
   const { error } = await supabase
     .from('friendships')
     .update({ status: 'accepted' })
     .eq('id', friendshipId);
   if (error) throw error;
+
+  // 🔔 Notifica quem enviou o pedido que foi aceito
+  if (friendship?.user_id && acceptorUserId) {
+    const { data: acceptor } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', acceptorUserId)
+      .single();
+    sendSocialPush(
+      friendship.user_id,
+      '✅ Pedido de amizade aceito!',
+      `${acceptor?.name ?? 'Seu amigo'} aceitou sua amizade no CapiFit! 🎉`,
+      { type: 'friend_accepted', byUserId: acceptorUserId }
+    );
+  }
 }
 
 // Recusa pedido de amizade
@@ -295,6 +332,20 @@ export async function inviteFriendToSquad(squadId, inviterId, inviteeId) {
     .single();
 
   if (error) throw error;
+
+  // 🔔 Notifica o convidado
+  const [{ data: inviter }, { data: squad }] = await Promise.all([
+    supabase.from('users').select('name').eq('id', inviterId).single(),
+    supabase.from('squads').select('name, is_duo').eq('id', squadId).single(),
+  ]);
+  const tipo = squad?.is_duo ? 'dupla' : 'grupo';
+  sendSocialPush(
+    inviteeId,
+    `🛡️ Convite para ${tipo}!`,
+    `${inviter?.name ?? 'Alguém'} te convidou para o ${tipo} "${squad?.name ?? '...'}" no CapiFit!`,
+    { type: 'squad_invite', squadId, inviterId }
+  );
+
   return { data, already: false };
 }
 
@@ -314,7 +365,7 @@ export async function getPendingSquadInvites(userId) {
 
 // Aceita convite de squad — entra no squad e marca o convite como aceito
 export async function acceptSquadInvite(inviteId, squadId, userId) {
-  const { data: squad } = await supabase.from('squads').select('max_members, status').eq('id', squadId).single();
+  const { data: squad } = await supabase.from('squads').select('max_members, status, name, is_duo').eq('id', squadId).single();
   if (!squad || squad.status === 'completed') throw new Error('Esse desafio já foi encerrado.');
 
   const { count } = await supabase
@@ -329,7 +380,30 @@ export async function acceptSquadInvite(inviteId, squadId, userId) {
       { onConflict: 'squad_id,user_id', ignoreDuplicates: true });
   if (joinError) throw joinError;
 
+  // Busca o inviter_id antes de marcar como aceito
+  const { data: invite } = await supabase
+    .from('squad_invites')
+    .select('inviter_id')
+    .eq('id', inviteId)
+    .single();
+
   await supabase.from('squad_invites').update({ status: 'accepted' }).eq('id', inviteId);
+
+  // 🔔 Notifica quem convidou que o convite foi aceito
+  if (invite?.inviter_id && invite.inviter_id !== userId) {
+    const { data: acceptor } = await supabase
+      .from('users')
+      .select('name')
+      .eq('id', userId)
+      .single();
+    const tipo = squad?.is_duo ? 'dupla' : 'grupo';
+    sendSocialPush(
+      invite.inviter_id,
+      '🎉 Convite aceito!',
+      `${acceptor?.name ?? 'Alguém'} entrou no seu ${tipo} "${squad?.name ?? '...'}"!`,
+      { type: 'squad_invite_accepted', squadId, byUserId: userId }
+    );
+  }
 }
 
 // Recusa convite de squad

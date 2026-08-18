@@ -95,7 +95,7 @@ export default function FriendsScreen({ navigation }) {
 
   async function handleAccept(id) {
     try {
-      await acceptFriendRequest(id);
+      await acceptFriendRequest(id, user?.id);
       await loadData();
     } catch (_) {}
   }

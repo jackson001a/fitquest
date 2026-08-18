@@ -2,6 +2,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { savePushToken } from './userService';
+import { supabase } from './supabase';
 
 // ─── Configuração de como as notificações aparecem quando o app está aberto ──
 Notifications.setNotificationHandler({
@@ -117,6 +118,30 @@ export async function sendStreakRiskAlert(daysLeft, checkinsNeeded) {
     },
     trigger: null,
   });
+}
+
+// ─── Envia push social para outro usuário (amizade / squad) ──────────────────
+// Busca o token do destinatário no banco e envia via Expo Push API.
+// Erros são silenciados — notificação é "best effort", não deve travar o fluxo.
+export async function sendSocialPush(recipientUserId, title, body, data = {}) {
+  try {
+    const { data: recipient } = await supabase
+      .from('users')
+      .select('expo_push_token')
+      .eq('id', recipientUserId)
+      .single();
+
+    const token = recipient?.expo_push_token;
+    if (!token || !token.startsWith('ExponentPushToken')) return;
+
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: token, title, body, data, sound: 'default' }),
+    });
+  } catch (_) {
+    // Notificação falhou silenciosamente — não interrompe o fluxo principal
+  }
 }
 
 // ─── Ouve notificações recebidas (app aberto) ─────────────────────────────────

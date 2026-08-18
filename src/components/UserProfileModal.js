@@ -52,7 +52,7 @@ export default function UserProfileModal({ visible, targetUser, currentUserId, o
     if (!requestId) return;
     setBusy(true);
     try {
-      await acceptFriendRequest(requestId);
+      await acceptFriendRequest(requestId, currentUserId);
       setStatus('accepted');
     } catch (_) {
       Alert.alert('Erro', 'Não foi possível aceitar o pedido agora.');
