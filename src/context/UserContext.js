@@ -109,6 +109,7 @@ function normalizeUser(u) {
 // Chave de foto de perfil é isolada POR USUÁRIO — evita que a foto de uma conta
 // "vaze" para outra conta criada no mesmo aparelho após logout/nova conta.
 const avatarKeyFor      = (userId) => `@capifit_avatar_photo_${userId}`;
+const paywallSeenKeyFor = (userId) => `@capifit_paywall_seen_${userId}`;
 const LOGGED_OUT_KEY    = '@capifit_logged_out';
 const NOTIFICATIONS_KEY = '@capifit_notifications_enabled';
 
@@ -123,6 +124,7 @@ export function UserProvider({ children }) {
   const [loggedOut,         setLoggedOut]         = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [blockedIds, setBlockedIds] = useState([]);
+  const [paywallSeen, setPaywallSeenState] = useState(false);
   const [xpToast, setXpToast] = useState(null);
   const xpToastIdRef = useRef(0);
 
@@ -273,6 +275,15 @@ export function UserProvider({ children }) {
         userRef.current = dbUser;
         setUser(dbUser);
         setOnboardingDone(dbUser.onboarding_done ?? false);
+
+        // Precisa terminar ANTES de liberar a tela (setLoading(false) abaixo) —
+        // senão o AppNavigator decide se navega pro paywall com o valor
+        // default (false) antes do valor real chegar do AsyncStorage, e a
+        // tela reaparece sozinha a cada abertura do app mesmo pra quem já viu.
+        try {
+          const seen = await AsyncStorage.getItem(paywallSeenKeyFor(dbUser.id));
+          if (mountedRef.current) setPaywallSeenState(seen === '1');
+        } catch (e) { console.warn('[boot] flag de paywall falhou:', e.message); }
 
         // 4. Desafios, checagens e foto de perfil em paralelo (não bloqueiam a UI)
         const AS = require('@react-native-async-storage/async-storage').default;
@@ -874,6 +885,7 @@ export function UserProvider({ children }) {
     try { await AsyncStorage.removeItem(LOGGED_OUT_KEY); } catch (e) { console.warn('[hydrateSession] falha ao limpar flag local:', e.message); }
     setAvatarPhoto(null);
     AsyncStorage.getItem(avatarKeyFor(dbUser.id)).then(uri => { if (uri) setAvatarPhoto(uri); }).catch(e => console.warn('[hydrateSession] avatar cache falhou:', e.message));
+    AsyncStorage.getItem(paywallSeenKeyFor(dbUser.id)).then(v => setPaywallSeenState(v === '1')).catch(e => console.warn('[hydrateSession] flag de paywall falhou:', e.message));
     loadChallenges(dbUser.id).catch(e => console.warn('[hydrateSession] falha ao carregar desafios:', e.message));
     runForegroundChecks(dbUser).catch(e => console.warn('[hydrateSession] checagens falharam:', e.message));
     getBlockedUserIds(dbUser.id).then(setBlockedIds).catch(e => console.warn('[hydrateSession] falha ao carregar bloqueios:', e.message));
@@ -1039,6 +1051,18 @@ export function UserProvider({ children }) {
   // ─── Limpa alertas ───────────────────────────────────────────────────────
   const clearAlerts = useCallback(() => setAlerts([]), []);
 
+  // Marca que o paywall já foi mostrado — evita que ele volte a aparecer
+  // sozinho toda vez que o app abre; quem não assinou continua usando
+  // o app normalmente e só vê a tela de novo se entrar por conta própria
+  // (ex: menu do Perfil).
+  const markPaywallSeen = useCallback(() => {
+    setPaywallSeenState(true);
+    const current = userRef.current;
+    if (current?.id) {
+      AsyncStorage.setItem(paywallSeenKeyFor(current.id), '1').catch(e => console.warn('[markPaywallSeen] falha ao salvar flag:', e.message));
+    }
+  }, []);
+
   return (
     <UserContext.Provider value={{
       user,
@@ -1080,6 +1104,8 @@ export function UserProvider({ children }) {
       enableNotifications,
       isPremium: user?.isPremium ?? false,
       activatePremium,
+      paywallSeen,
+      markPaywallSeen,
       xpToast,
       clearXpToast,
       celebrationQueue,

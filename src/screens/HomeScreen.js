@@ -529,7 +529,7 @@ function WaterTracker({ userId, goalLiters = 2.0, onGoalReached }) {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, setCelebrationsPaused, isPremium } = useUser();
+  const { user, challenges, completeChallenge: ctxCompleteChallenge, doCheckin, updateCurrentWeight, addXP, addGems, avatarPhoto, setForegroundChecksPaused, setCelebrationsPaused } = useUser();
   const checkinSound = useAudioPlayer(require('../../assets/sounds/checkin-success.wav'));
   const [celebVisible, setCelebVisible] = useState(false);
   // Segura a fila de comemorações (conquista/level up) enquanto o popup de
@@ -730,18 +730,6 @@ export default function HomeScreen({ navigation }) {
   const handleCheckin = useCallback(async () => {
     if (checkinDone || verifyModalVisible) return;
 
-    if (!isPremium) {
-      Alert.alert(
-        'Recurso Premium 🔒',
-        'Seja Premium e faça check-in ilimitado na academia, desafios diários e muito mais!',
-        [
-          { text: 'Agora não', style: 'cancel' },
-          { text: 'Assinar Premium', onPress: () => navigation.navigate('Paywall') },
-        ]
-      );
-      return;
-    }
-
     // Evita que a checagem de foreground (disparada quando a câmera nativa
     // fecha e o app volta ao primeiro plano) rode em paralelo com o check-in
     // e dispute a mesma atualização de usuário no Supabase. Só é liberada de
@@ -829,7 +817,7 @@ export default function HomeScreen({ navigation }) {
     } finally {
       if (!handedOff) setForegroundChecksPaused?.(false);
     }
-  }, [checkinDone, verifyModalVisible, isPremium, navigation, doCheckin, checkinScale, setForegroundChecksPaused, checkinSound]);
+  }, [checkinDone, verifyModalVisible, doCheckin, checkinScale, setForegroundChecksPaused, checkinSound]);
 
   return (
     <View style={s.container}>

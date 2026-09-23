@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import TouchableOpacity from '../components/TouchableOpacity';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -6,6 +6,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { BarbellIcon, HouseIcon, MedalIcon, PersonIcon, TrophyIcon } from 'phosphor-react-native';
 import { COLORS } from '../theme';
 import { useUser } from '../context/UserContext';
+import { navigationRef } from './navigationRef';
 
 import HomeScreen         from '../screens/HomeScreen';
 import WorkoutsScreen     from '../screens/WorkoutsScreen';
@@ -97,7 +98,18 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
-  const { onboardingDone, loading, loggedOut, isPremium } = useUser();
+  const { onboardingDone, loading, loggedOut, isPremium, paywallSeen, markPaywallSeen } = useUser();
+
+  // Mostra o paywall uma única vez, logo depois do onboarding — quem não
+  // assina continua usando o app normalmente depois disso, sem a tela
+  // voltar sozinha toda vez que o app é aberto.
+  useEffect(() => {
+    if (!onboardingDone || isPremium || paywallSeen || loading) return;
+    if (navigationRef.isReady()) {
+      navigationRef.navigate('Paywall');
+      markPaywallSeen();
+    }
+  }, [onboardingDone, isPremium, paywallSeen, loading, markPaywallSeen]);
 
   if (loading) {
     return (
@@ -119,8 +131,8 @@ export default function AppNavigator() {
           </>
         ) : onboardingDone ? (
           <>
-            {!isPremium && <RootStack.Screen name="Paywall" component={PaywallScreen} options={{ animationEnabled: false, gestureEnabled: false }} />}
             <RootStack.Screen name="Main"       component={MainTabs}          options={{ animationEnabled: false }} />
+            {!isPremium && <RootStack.Screen name="Paywall" component={PaywallScreen} options={{ animationEnabled: false, gestureEnabled: false }} />}
             <RootStack.Screen name="Friends"        component={FriendsScreen}        options={{ animationEnabled: true, gestureEnabled: true }} />
             <RootStack.Screen name="CreateClan"    component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
             <RootStack.Screen name="JoinClan"      component={CreateClanScreen}     options={{ animationEnabled: true, gestureEnabled: true }} />
